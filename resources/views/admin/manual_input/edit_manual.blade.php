@@ -171,13 +171,14 @@
                     return;
                 }
 
-                setTimeout(function () {
-                    const checkbox = document.getElementById(`siswa-checkbox-${siswa.CUSTID}`);
-                    if (checkbox) {
-                        checkbox.checked = true;
-                        checkbox.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
-                }, 100);
+                // Pilih lewat DataTables Select agar rows({selected:true}) terbaca
+                // (centang checkbox manual tidak cukup — itu penyebab "Silahkan pilih 1 siswa")
+                const rowIdx = tableSiswa.rows().indexes().toArray().find((idx) => {
+                    return String(tableSiswa.row(idx).data()?.CUSTID) === String(siswa.CUSTID);
+                });
+                if (rowIdx !== undefined) {
+                    tableSiswa.row(rowIdx).select();
+                }
             }).fail(function (xhr) {
                 if (xhr.status === 422) {
                     errorAlert('Gagal mendapat data siswa');
@@ -194,46 +195,6 @@
                 }
             });
         }
-
-        document.getElementById('table-siswa').addEventListener('click', function (e) {
-            if (!e.target.classList.contains('checkbox-siswa')) {
-                const row = e.target.closest('tr');
-                if (row) {
-                    const checkbox = row.querySelector('.checkbox-siswa');
-                    if (checkbox) {
-                        checkbox.checked = !checkbox.checked;
-                        tableTagihan.clear().draw();
-                        tableTagihanDibayar.clear().draw();
-                        checkbox.dispatchEvent(new Event('change', {bubbles: true}));
-                    }
-                }
-            }
-        });
-
-        // Existing checkbox change listener
-        document.getElementById('table-siswa').addEventListener('change', function (e) {
-            if (e.target.classList.contains('checkbox-siswa')) {
-                const checkbox = e.target;
-                const isChecked = checkbox.checked;
-                if (isChecked) {
-                    const value = checkbox.value;
-                    getTagihan(value);
-                }
-            }
-        });
-
-        // document.getElementById('table-tagihan').addEventListener('click', function (e) {
-        //     if (!e.target.classList.contains('checkbox')) {
-        //         const row = e.target.closest('tr');
-        //         if (row) {
-        //             const checkbox = row.querySelector('.checkbox');
-        //             if (checkbox) {
-        //                 checkbox.checked = !checkbox.checked;
-        //                 checkbox.dispatchEvent(new Event('change', {bubbles: true}));
-        //             }
-        //         }
-        //     }
-        // });
 
         document.getElementById('btn-reset').addEventListener('click', function (e) {
             tableTagihan.clear().draw();
@@ -560,6 +521,20 @@
                 order: [[1, 'desc']],
                 select: 'single',
                 scrollX: true,
+            });
+
+            tableSiswa.on('select', function (e, dt, type, indexes) {
+                if (type !== 'row') return;
+                const data = tableSiswa.row(indexes[0]).data();
+                if (data?.CUSTID) {
+                    getTagihan(data.CUSTID);
+                }
+            });
+
+            tableSiswa.on('deselect', function () {
+                if (tableSiswa.rows({selected: true}).any()) return;
+                tableTagihan.clear().draw();
+                tableTagihanDibayar.clear().draw();
             });
 
             tableTagihan = $('#table-tagihan').DataTable({
