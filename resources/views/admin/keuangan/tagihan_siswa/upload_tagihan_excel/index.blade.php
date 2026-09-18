@@ -150,11 +150,11 @@
                         </div>
                         <div class="upload-tagihan-bta">
                             <i class="ri-calendar-line"></i>
-                            <span>Kode BTA</span>
+                            <span>Kode Periode</span>
                             <span class="badge bg-primary" id="periode_preview">-</span>
                         </div>
                     </div>
-                    <div class="col-md-6 col-xl-5">
+                    <div class="col-md-6 col-xl-5 d-none">
                         <label class="form-label" for="exp_date">Expired Date (ExpDate)</label>
                         <input type="date" class="form-control" id="exp_date" name="exp_date"
                                min="{{ date('Y-m-d') }}">
