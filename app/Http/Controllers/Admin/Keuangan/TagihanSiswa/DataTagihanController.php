@@ -984,8 +984,7 @@ class DataTagihanController extends Controller
                 $waUrl = WhatsappTagihan::waMeUrl($noWa, $waMessage);
 
                 $canHapus = $this->canHapusTagihan($item);
-                $isInstallable = (int) ($get('isINSTALLABLE') ?? 0) === 1
-                    || mst_tagihan::canInstallment((string) ($get('BILLNM') ?? ''));
+                $isInstallable = (int) ($get('isINSTALLABLE') ?? 0) === 1;
 
                 return [
                     'AA' => $get('AA'),

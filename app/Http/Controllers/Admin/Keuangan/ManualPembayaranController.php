@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Admin\Keuangan;
 
 use App\Http\Controllers\Admin\Keuangan\Saldo\SaldoVirtualAccountController;
 use App\Http\Controllers\Controller;
-use App\Models\mst_tagihan;
 use App\Models\scctbill;
 use App\Models\scctcust;
 use App\Models\sccttran;
@@ -179,7 +178,7 @@ class ManualPembayaranController extends Controller
                     }
                     $item->PAYMENTLEFT = $this->resolvePaymentLeft($item);
                     $item->sisa_bayar = $item->PAYMENTLEFT;
-                    $item->can_cicil = ((int) ($item->isINSTALLABLE ?? 0) === 1 || mst_tagihan::canInstallment($item->BILLNM)) ? 1 : 0;
+                    $item->can_cicil = ((int) ($item->isINSTALLABLE ?? 0) === 1) ? 1 : 0;
                     $item->CICILAN = $item->can_cicil ? 'Ya' : 'Tidak';
                     $item->FIDBANK = MetodeBayarHelper::resolveDisplayFidBank(
                         $item->FIDBANK !== null ? (string) $item->FIDBANK : null,
@@ -435,7 +434,7 @@ class ManualPembayaranController extends Controller
                             Nominal Pembayaran: {$nominalPembayaran}
                     "], 422);
                 }
-                if ($nominal < $paymentLeft && !mst_tagihan::canInstallment($item->BILLNM)) {
+                if ($nominal < $paymentLeft && (int) ($item->isINSTALLABLE ?? 0) !== 1) {
                     $this->rollbackManualPaymentTransactions();
                     return response()->json([
                         'message' => "Tagihan {$item->BILLNM} tidak dapat dicicil. Pembayaran harus lunas (Rp. " . number_format($paymentLeft, 0, ',', '.') . ').',

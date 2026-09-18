@@ -75,6 +75,7 @@ class UploadTagihanExcelController extends Controller
             ['data' => 'kelas', 'name' => 'Kelas', 'searchable' => true, 'orderable' => true],
             ['data' => 'kelompok', 'name' => 'Kelompok', 'searchable' => true, 'orderable' => true],
             ['data' => 'nominal', 'name' => 'Nominal', 'searchable' => true, 'orderable' => true, 'columnType' => 'currency'],
+            ['data' => 'cicil', 'name' => 'Cicil', 'searchable' => true, 'orderable' => true, 'className' => 'text-center'],
             ['data' => 'exp_date', 'name' => 'ExpDate', 'searchable' => false, 'orderable' => false],
         ];
     }
@@ -144,6 +145,7 @@ class UploadTagihanExcelController extends Controller
                 'kelas' => $siswa->DESC02 ?? null,
                 'kelompok' => $siswa->DESC03 ?? null,
                 'nominal' => $item['nominal'] ?? null,
+                'cicil' => $this->formatCicilLabel($item['cicil'] ?? null),
                 'status' => $item['status'] ?? 0,
                 'keterangan' => $item['keterangan'],
                 'exp_date' => $previewExpDate,
@@ -179,7 +181,7 @@ class UploadTagihanExcelController extends Controller
         $file = $request->file('fileImport');
 
         try {
-            $requiredColumns = ['nis', 'nama', 'unit', 'kelas', 'kelompok', 'angkatan', 'nominal'];
+            $requiredColumns = ['nis', 'nama', 'unit', 'kelas', 'kelompok', 'angkatan', 'nominal', 'cicil'];
             $sheet = ExcelImportSheet::pickBest(
                 $file->getRealPath(),
                 $requiredColumns,
@@ -259,7 +261,6 @@ class UploadTagihanExcelController extends Controller
         }
 
         $nmTagihan = trim((string) $tagihan->tagihan);
-        $isNyicil = (int) ($tagihan->isINSTALLMENT ?? 0);
 
         try {
             $skippedInactive = [];
@@ -283,11 +284,18 @@ class UploadTagihanExcelController extends Controller
                     continue;
                 }
 
+                $isNyicil = $this->resolveCicilFlag($item['cicil'] ?? null);
+                if ($isNyicil === null) {
+                    $failed[] = trim(($item['nis'] ?? '-') . ' - CICIL harus 1 atau 0 (ikuti Excel, bukan master tagihan)');
+                    continue;
+                }
+
                 $nominal = (int) $item['nominal'];
                 $nocust = (string) ($siswa->NOCUST ?? $siswa->nocust ?? $item['nis']);
                 $beforeAa = (int) (scctbill::where('CUSTID', $siswa->CUSTID)->max('AA') ?? 0);
 
                 // ExpDate diisi otomatis oleh procedure InputTagihan
+                // p_isNYICIL mengikuti kolom CICIL di Excel (bukan master tagihan)
                 InputTagihanProcedure::call(
                     $nocust,
                     $nominal,
@@ -307,18 +315,29 @@ class UploadTagihanExcelController extends Controller
                     continue;
                 }
 
+                // Paksa flag cicil mengikuti Excel, meskipun procedure/master beda
+                $dirty = false;
+                if ((int) ($newBill->isINSTALLABLE ?? 0) !== $isNyicil) {
+                    $newBill->isINSTALLABLE = $isNyicil;
+                    $dirty = true;
+                }
+
                 // Pastikan tampil di Data Tagihan (procedure tidak set FSTSBolehBayar)
                 if ((int) ($newBill->FSTSBolehBayar ?? 0) !== 1 || $newBill->BILLPAID === null) {
                     $newBill->FSTSBolehBayar = 1;
                     if ($newBill->BILLPAID === null) {
                         $newBill->BILLPAID = 0;
                     }
-                    $newBill->save();
+                    $dirty = true;
                 }
 
                 // Opsional: override ExpDate dari form jika diisi
                 if ($request->filled('exp_date')) {
                     $newBill->ExpDate = date('Y-m-d 23:59:59', strtotime((string) $request->exp_date));
+                    $dirty = true;
+                }
+
+                if ($dirty) {
                     $newBill->save();
                 }
 
@@ -372,5 +391,55 @@ class UploadTagihanExcelController extends Controller
         }
 
         return InputTagihanProcedure::resolveAutoExpDate()->format('d-m-Y');
+    }
+
+    /**
+     * CICIL dari Excel saja (1/0). Tidak mengambil dari master tagihan.
+     */
+    private function resolveCicilFlag(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_bool($value)) {
+            return $value ? 1 : 0;
+        }
+
+        if (is_int($value) || is_float($value)) {
+            $intVal = (int) $value;
+            return in_array($intVal, [0, 1], true) ? $intVal : null;
+        }
+
+        $normalized = strtolower(trim((string) $value));
+        if (in_array($normalized, ['1', 'ya', 'yes', 'true', 'y'], true)) {
+            return 1;
+        }
+        if (in_array($normalized, ['0', 'tidak', 'no', 'false', 'n'], true)) {
+            return 0;
+        }
+
+        return null;
+    }
+
+    private function formatCicilLabel(mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            return '-';
+        }
+
+        if (is_bool($value)) {
+            return $value ? '1 (Ya)' : '0 (Tidak)';
+        }
+
+        $normalized = strtolower(trim((string) $value));
+        if (in_array($normalized, ['1', 'ya', 'yes', 'true', 'y'], true) || (is_numeric($value) && (int) $value === 1)) {
+            return '1 (Ya)';
+        }
+        if (in_array($normalized, ['0', 'tidak', 'no', 'false', 'n'], true) || (is_numeric($value) && (int) $value === 0)) {
+            return '0 (Tidak)';
+        }
+
+        return (string) $value;
     }
 }

@@ -59,6 +59,16 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
                 $status_ket = $this->appendKet($status_ket, 'Nominal tidak boleh kosong');
             }
 
+            $cicilRaw = $rowData['cicil'] ?? $rowData['is_cicil'] ?? $rowData['iscicil'] ?? null;
+            $cicil = $this->normalizeCicil($cicilRaw);
+            if ($cicil === null) {
+                $rowData['status'] = 0;
+                $status_ket = $this->appendKet($status_ket, 'Kolom CICIL harus diisi 1 (bisa cicil) atau 0 (tidak bisa cicil)');
+                $rowData['cicil'] = $cicilRaw;
+            } else {
+                $rowData['cicil'] = $cicil;
+            }
+
             $rowData['keterangan'] = $status_ket;
             $processedData[] = $rowData;
         }
@@ -78,5 +88,34 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
         }
 
         return $current . ', ' . $message;
+    }
+
+    /**
+     * CICIL: 1 = bisa dicicil, 0 = tidak bisa dicicil.
+     */
+    private function normalizeCicil(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_bool($value)) {
+            return $value ? 1 : 0;
+        }
+
+        if (is_int($value) || is_float($value)) {
+            $intVal = (int) $value;
+            return in_array($intVal, [0, 1], true) ? $intVal : null;
+        }
+
+        $normalized = strtolower(trim((string) $value));
+        if (in_array($normalized, ['1', 'ya', 'yes', 'true', 'y'], true)) {
+            return 1;
+        }
+        if (in_array($normalized, ['0', 'tidak', 'no', 'false', 'n'], true)) {
+            return 0;
+        }
+
+        return null;
     }
 }
