@@ -1327,12 +1327,8 @@ async function dataTableCreate(options) {
                 }
 
                 const descriptions = {
-<<<<<<< HEAD
                     '401': 'Sesi anda telah habis, silahkan login kembali!',
                     '403': 'Anda tidak memiliki izin untuk mengakses data ini.',
-=======
-                    '401': 'Permintaan gagal diproses. Silakan coba lagi.',
->>>>>>> e6c559c039a2946823e6b8cc468bc29492ed842b
                     '404': 'Data tidak ditemukan!',
                     '419': 'Sesi/CSRF sudah habis. Silahkan muat ulang halaman lalu coba lagi!',
                     '500': serverMessage || 'Internal Server Error',

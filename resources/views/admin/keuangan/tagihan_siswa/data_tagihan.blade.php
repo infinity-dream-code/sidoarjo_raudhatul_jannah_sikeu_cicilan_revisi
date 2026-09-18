@@ -665,11 +665,7 @@
     <script src="{{asset('main/libs/select2/select2.js')}}"></script>
     <script src="{{asset('main/libs/datatables-bs5/datatables-bootstrap5.js')}}"></script>
     <script src="{{asset('js/va-format.js')}}?v=20260619"></script>
-<<<<<<< HEAD
-    <script src="{{asset('js/datatableCustom/Datatable-0-4.js')}}?v=20260913-ajax-error"></script>
-=======
-    <script src="{{asset('js/datatableCustom/Datatable-0-4.js')}}?v=20260916-pdf-va"></script>
->>>>>>> e6c559c039a2946823e6b8cc468bc29492ed842b
+    <script src="{{asset('js/datatableCustom/Datatable-0-4.js')}}?v=20260918-merge-fix"></script>
     <script>
         window.DATA_TAGIHAN_BOOT = {
             columnUrl: @json($columnsUrl ?? null),
