@@ -52,6 +52,15 @@ class Handler extends ExceptionHandler
         }
 
         if (PersistentLogin::isTransient($e) && $request->isMethod('GET') && !$request->expectsJson()) {
+            if ($request->ajax()
+                || $request->wantsJson()
+                || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Gangguan sementara. Silakan coba lagi.',
+                ], 503);
+            }
+
             return response()->view('errors.500', [], 500);
         }
 

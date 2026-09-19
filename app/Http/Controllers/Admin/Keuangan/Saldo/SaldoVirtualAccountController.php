@@ -94,6 +94,20 @@ class SaldoVirtualAccountController extends Controller
         );
     }
 
+    /**
+     * Lepas file-lock session agar request AJAX paralel tidak bentrok
+     * (penyebab error "gangguan sementara" yang intermittent).
+     */
+    private function releaseSessionLock(): void
+    {
+        try {
+            if (request()->hasSession()) {
+                request()->session()->save();
+            }
+        } catch (\Throwable) {
+        }
+    }
+
     /** Tampilkan semua transaksi sccttran kecuali manual cash (1140000). */
     private function excludeManualCashScope($query, string $fidBankColumn = 'FIDBANK')
     {
@@ -221,19 +235,27 @@ class SaldoVirtualAccountController extends Controller
     public function index()
     {
         $this->applyPageTitles();
+        $this->releaseSessionLock();
         $schoolCodes = $this->resolveScopedSchoolCodes();
+        $cacheSuffix = md5(json_encode([$this->sekolah, $schoolCodes]));
 
-        $data['thn_aka'] = mst_thn_aka::getMstThnAkaAttributes();
-        $data['sekolah'] = mst_sekolah::select(['CODE01', 'DESC01'])
-            ->when(!empty($schoolCodes), function ($query) use ($schoolCodes) {
-                $query->whereIn('CODE01', $schoolCodes);
-            })
-            ->orderBy('DESC01')
-            ->get();
-        $data['kelas'] = mst_kelas::dropdownQuery($this->sekolah)
-            ->orderByRaw("CASE WHEN jenjang REGEXP '^[0-9]+$' THEN 0 ELSE 1 END, jenjang")
-            ->orderByRaw("CASE WHEN kelas REGEXP '^[0-9]+$' THEN 0 ELSE 1 END, kelas")
-            ->get();
+        $data['thn_aka'] = Cache::remember('saldo_va_thn_aka', 600, function () {
+            return mst_thn_aka::getMstThnAkaAttributes();
+        });
+        $data['sekolah'] = Cache::remember('saldo_va_sekolah_' . $cacheSuffix, 600, function () use ($schoolCodes) {
+            return mst_sekolah::select(['CODE01', 'DESC01'])
+                ->when(!empty($schoolCodes), function ($query) use ($schoolCodes) {
+                    $query->whereIn('CODE01', $schoolCodes);
+                })
+                ->orderBy('DESC01')
+                ->get();
+        });
+        $data['kelas'] = Cache::remember('saldo_va_kelas_' . $cacheSuffix, 600, function () {
+            return mst_kelas::dropdownQuery($this->sekolah)
+                ->orderByRaw("CASE WHEN jenjang REGEXP '^[0-9]+$' THEN 0 ELSE 1 END, jenjang")
+                ->orderByRaw("CASE WHEN kelas REGEXP '^[0-9]+$' THEN 0 ELSE 1 END, kelas")
+                ->get();
+        });
         $data['title'] = $this->title;
         $data['mainTitle'] = $this->mainTitle;
         $data['dataTitle'] = $this->dataTitle;
@@ -385,6 +407,8 @@ class SaldoVirtualAccountController extends Controller
 
     public function getColumn(Request $request)
     {
+        $this->releaseSessionLock();
+
         return [
             ['data' => null, 'name' => 'no', 'columnType' => 'row', 'exportable' => true],
             ['data' => 'NOCUST', 'name' => 'NIS', 'searchable' => true, 'orderable' => true, 'exportable' => true],
@@ -413,6 +437,25 @@ class SaldoVirtualAccountController extends Controller
     }
 
     public function getData(Request $request)
+    {
+        $this->releaseSessionLock();
+
+        try {
+            return $this->buildSaldoDataResponse($request);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'draw' => (int) $request->get('draw'),
+                'recordsTotal' => 0,
+                'recordsFiltered' => 0,
+                'data' => [],
+                'error' => 'Gagal memuat data saldo. Silakan coba lagi.',
+            ], 500);
+        }
+    }
+
+    private function buildSaldoDataResponse(Request $request)
     {
         $filters = [];
         $filterQuery = null;
@@ -650,6 +693,8 @@ class SaldoVirtualAccountController extends Controller
 
     public function getColumnTran()
     {
+        $this->releaseSessionLock();
+
         return [
             ['data' => null, 'columnType' => 'row', 'name' => 'No', 'exportable' => true],
             ['data' => 'NOVA', 'name' => 'No VA', 'orderable' => false, 'exportable' => true],
@@ -664,6 +709,8 @@ class SaldoVirtualAccountController extends Controller
 
     public function getDataTran(Request $request)
     {
+        $this->releaseSessionLock();
+
         $custid = $request->input('CUSTID');
         $filters = [];
 
@@ -839,6 +886,8 @@ class SaldoVirtualAccountController extends Controller
 
     public function getSaldo(Request $request)
     {
+        $this->releaseSessionLock();
+
         return response()->json([
             'saldo' => $this->resolveCustSaldo($request->input('siswa')),
         ]);
@@ -847,6 +896,7 @@ class SaldoVirtualAccountController extends Controller
     public function transaksiIndex()
     {
         $this->applyPageTitles();
+        $this->releaseSessionLock();
         $data['title'] = $this->title;
         $data['mainTitle'] = $this->dataTitle;
         $data['pageTitle'] = 'Data Transaksi';
@@ -861,6 +911,8 @@ class SaldoVirtualAccountController extends Controller
 
     public function getColumnDataTransaksi()
     {
+        $this->releaseSessionLock();
+
         return [
             ['data' => null, 'name' => 'no', 'columnType' => 'row', 'exportable' => true],
             ['data' => 'NOCUST', 'name' => 'NIS', 'searchable' => true, 'orderable' => true, 'exportable' => true],
@@ -879,6 +931,8 @@ class SaldoVirtualAccountController extends Controller
 
     public function getDataDataTransaksi(Request $request)
     {
+        $this->releaseSessionLock();
+
         $filters = [];
 
         $draw = (int) $request->get('draw');

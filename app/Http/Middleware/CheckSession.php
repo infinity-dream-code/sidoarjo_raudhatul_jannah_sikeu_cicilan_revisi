@@ -16,14 +16,29 @@ class CheckSession
     public function handle($request, Closure $next)
     {
         if (!\Illuminate\Support\Facades\Auth::check()) {
-            \App\Support\PersistentLogin::restore();
+            try {
+                \App\Support\PersistentLogin::restore();
+            } catch (\Throwable) {
+            }
         }
 
         if (\Illuminate\Support\Facades\Auth::check() || session()->has('user')) {
             return $next($request);
         }
 
+        // Cookie ada tapi session belum siap: coba restore sekali lagi (hindari 500 palsu)
         if (\App\Support\PersistentLogin::hasCookie()) {
+            usleep(100000);
+            try {
+                \App\Support\PersistentLogin::restore();
+            } catch (\Throwable) {
+            }
+
+            if (\Illuminate\Support\Facades\Auth::check() || session()->has('user')) {
+                return $next($request);
+            }
+
+            // Masih gagal → halaman soft-retry (bukan putus login)
             return response()->view('errors.500', [], 500);
         }
 

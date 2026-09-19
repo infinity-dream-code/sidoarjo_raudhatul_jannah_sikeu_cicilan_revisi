@@ -22,8 +22,9 @@ class RetryTransientGet
                 throw $e;
             }
 
+            // Satu retry saja; jeda sedikit lebih longgar agar lock session/DB sempat lepas
             $request->attributes->set('_transient_retried', true);
-            usleep(80000);
+            usleep(150000);
 
             return $next($request);
         }
