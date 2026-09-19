@@ -963,7 +963,10 @@ class DataTagihanController extends Controller
                 $paidDtDisplay = $this->resolvePaidDateDisplay($paidDtRaw, $billPaid, $aa, $lastPaymentDates);
                 $expDateDisplay = $this->formatExpDateDisplay($get('ExpDate'));
                 $isExpired = $this->isExpired($get('ExpDate'));
-                $noVa = ($nocust && $nocust !== '-') ? scctcust::showVA($nocust) : null;
+                $isInstallable = (int) ($get('isINSTALLABLE') ?? 0) === 1;
+                $noVa = ($nocust && $nocust !== '-')
+                    ? scctcust::showVA($nocust, $isInstallable ? 1 : 0)
+                    : null;
                 $kelasLabel = trim((string) ($get('DESC02') ?? '') . ' ' . (string) ($get('DESC03') ?? ''));
                 $noWa = $get('NO_WA');
                 $waMessage = WhatsappTagihan::applyTemplate($waTemplate, [
@@ -984,7 +987,6 @@ class DataTagihanController extends Controller
                 $waUrl = WhatsappTagihan::waMeUrl($noWa, $waMessage);
 
                 $canHapus = $this->canHapusTagihan($item);
-                $isInstallable = (int) ($get('isINSTALLABLE') ?? 0) === 1;
 
                 return [
                     'AA' => $get('AA'),

@@ -492,6 +492,7 @@ class RekapTagihanController extends Controller
             'scctbill.FIDBANK',
             'scctbill.FUrutan',
             'scctbill.FUrutan as Urutan',
+            'scctbill.isINSTALLABLE',
             'scctcust.CODE02',
             'scctcust.DESC01',
             'scctcust.DESC02',
@@ -551,7 +552,9 @@ class RekapTagihanController extends Controller
         $records->map(function ($item, $index) {
             $item->item_id = Crypt::encrypt($item['AA']);
             $item->CUSTID = Crypt::encrypt($item['CUSTID']);
-            $item->NOVA = ($item->NOCUST && $item->NOCUST != '-') ? scctcust::showVA($item->NOCUST) : null;
+            $item->NOVA = ($item->NOCUST && $item->NOCUST != '-')
+                ? scctcust::showVA($item->NOCUST, ((int) ($item->isINSTALLABLE ?? 0) === 1) ? 1 : 0)
+                : null;
             // Pastikan kolom urutan selalu tersedia untuk DataTable dan PDF.
             $urut = blank($item->FUrutan) ? ($index + 1) : $item->FUrutan;
             $item->FUrutan = (string) $urut;

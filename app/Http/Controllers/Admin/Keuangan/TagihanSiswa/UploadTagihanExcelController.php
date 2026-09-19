@@ -315,10 +315,17 @@ class UploadTagihanExcelController extends Controller
                     continue;
                 }
 
-                // Paksa flag cicil mengikuti Excel, meskipun procedure/master beda
+                // Paksa flag cicil + VA mengikuti Excel (bukan master tagihan)
                 $dirty = false;
                 if ((int) ($newBill->isINSTALLABLE ?? 0) !== $isNyicil) {
                     $newBill->isINSTALLABLE = $isNyicil;
+                    $dirty = true;
+                }
+
+                // WAJIB: kolom VA di scctbill untuk BuilderPaymentBill_MultiVAPerTagihan
+                $novaFull = scctcust::showVA($nocust, $isNyicil);
+                if ($novaFull !== '' && (string) ($newBill->VA ?? '') !== $novaFull) {
+                    $newBill->VA = $novaFull;
                     $dirty = true;
                 }
 

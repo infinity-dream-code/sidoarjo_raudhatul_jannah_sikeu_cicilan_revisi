@@ -28,7 +28,7 @@ class ManualPaymentBuilder
         $userId = $this->resolveCyberKeyUserId();
 
         if ($fidBank === self::SALDO_FIDBANK) {
-            $this->callBuilderPaymentBill($aa, $nominal);
+            $this->callBuilderPaymentBillMultiVa($aa, $nominal);
             return;
         }
 
@@ -84,24 +84,34 @@ class ManualPaymentBuilder
         ]);
     }
 
-    /** BuilderPaymentBill(aa, nominal) — 2 param sesuai definition DB */
-    private function callBuilderPaymentBill(string $aa, int $nominal): void
+    /**
+     * BuilderPaymentBill_MultiVAPerTagihan(p_AA, p_PAID)
+     * Membayar dari saldo VA sesuai scctbill.VA / isINSTALLABLE
+     * (Close 797789 atau Open/cicil 797790).
+     */
+    private function callBuilderPaymentBillMultiVa(string $aa, int $nominal): void
     {
         Log::info('manual-payment.builder.call', [
-            'function' => 'BuilderPaymentBill',
+            'function' => 'BuilderPaymentBill_MultiVAPerTagihan',
             'aa' => $aa,
             'nominal' => $nominal,
         ]);
 
-        $result = $this->invokeStoredFunction('BuilderPaymentBill', [
+        $result = $this->invokeStoredFunction('BuilderPaymentBill_MultiVAPerTagihan', [
             $aa,
             $nominal,
         ]);
 
-        $this->assertBuilderResult('BuilderPaymentBill', $result, [
+        $this->assertBuilderResult('BuilderPaymentBill_MultiVAPerTagihan', $result, [
             'aa' => $aa,
             'nominal' => $nominal,
         ]);
+    }
+
+    /** @deprecated Diganti BuilderPaymentBill_MultiVAPerTagihan */
+    private function callBuilderPaymentBill(string $aa, int $nominal): void
+    {
+        $this->callBuilderPaymentBillMultiVa($aa, $nominal);
     }
 
     /** MySQL FUNCTION (fx) — pakai SELECT, bukan CALL (procedure). */

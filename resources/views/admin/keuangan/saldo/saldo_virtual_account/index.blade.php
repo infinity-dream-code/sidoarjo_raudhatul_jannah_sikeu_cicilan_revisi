@@ -110,6 +110,19 @@
                                        placeholder="Masukkan NIS/NAMA Siswa" data-placeholder="Pilih siswa">
                             </div>
                         </div>
+                        <div class="row mb-4">
+                            <label class="col-sm-2 col-form-label" for="filter[va_type]">
+                                Jenis VA
+                            </label>
+                            <div class="col-sm-10">
+                                <select class="form-select" id="filter[va_type]" name="filter[va_type]"
+                                        data-control="select2" data-placeholder="Pilih Jenis VA">
+                                    <option value="all">Semua (Close + Open)</option>
+                                    <option value="close">VA Close (797789)</option>
+                                    <option value="open">VA Open / Cicil (797790)</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
                     <div class="row">
                         <div class="d-flex justify-content-center justify-content-md-end gap-4">
@@ -186,6 +199,7 @@
             pdfColumnWidths: {
                 no: 28,
                 NOCUST: 55,
+                JENIS_VA: 70,
                 NOVA: 95,
                 NMCUST: '*',
                 CODE02: 48,

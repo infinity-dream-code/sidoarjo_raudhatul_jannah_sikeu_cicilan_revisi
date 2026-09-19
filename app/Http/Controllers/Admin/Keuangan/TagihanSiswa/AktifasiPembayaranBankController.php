@@ -42,7 +42,8 @@ class AktifasiPembayaranBankController extends Controller
         }
 
         $nis = method_exists($siswa, "rawNis") ? $siswa->rawNis() : trim((string) ($siswa->nocust ?? $siswa->NOCUST ?? ""));
-        $nova = ($nis !== "" && $nis !== "-") ? scctcust::showVA($nis) : "";
+        $novaClose = ($nis !== "" && $nis !== "-") ? scctcust::showVA($nis, 0) : "";
+        $novaOpen = ($nis !== "" && $nis !== "-") ? scctcust::showVA($nis, 1) : "";
 
         $bills = scctbill::query()
             ->where("CUSTID", $siswa->CUSTID)
@@ -57,7 +58,7 @@ class AktifasiPembayaranBankController extends Controller
             ->orderBy("AA")
             ->get();
 
-        $rows = $bills->map(function ($bill) {
+        $rows = $bills->map(function ($bill) use ($nis) {
             $total = (int) ($bill->BILLAM ?? 0);
             $paid = (int) ($bill->BILLPAID ?? 0);
             $sisa = $bill->PAYMENTLEFT;
@@ -86,6 +87,8 @@ class AktifasiPembayaranBankController extends Controller
                 "sudah_dibayar" => max(0, $total - $sisa),
                 "sisa_tagihan" => $sisa,
                 "isINSTALLABLE" => $installable ? 1 : 0,
+                "nova" => ($nis !== "" && $nis !== "-") ? scctcust::showVA($nis, $installable ? 1 : 0) : "",
+                "va_type" => $installable ? "open" : "close",
                 "exp_date" => $expDisplay,
                 "tahun_akademik" => $bill->BTA,
                 "periode" => $bill->BILLAC,
@@ -114,7 +117,9 @@ class AktifasiPembayaranBankController extends Controller
                 "unit" => $siswa->CODE02,
                 "angkatan" => $siswa->DESC04,
                 "no_wa" => $siswa->NO_WA,
-                "nova" => $nova,
+                "nova" => $novaClose,
+                "nova_close" => $novaClose,
+                "nova_open" => $novaOpen,
             ],
             "tagihan" => $rows,
             "aktifasi" => $aktifasi,
@@ -173,6 +178,7 @@ class AktifasiPembayaranBankController extends Controller
 
         $pairs = [];
         $expDates = [];
+        $installableFlags = [];
         foreach ($requested as $item) {
             $bill = $bills->get($item["AA"]);
             $total = (int) ($bill->BILLAM ?? 0);
@@ -190,6 +196,7 @@ class AktifasiPembayaranBankController extends Controller
 
             $amount = (int) $item["amount"];
             $installable = (int) ($bill->isINSTALLABLE ?? 0) === 1;
+            $installableFlags[] = $installable ? 1 : 0;
             if ($amount <= 0 || $amount > $sisa) {
                 return response()->json([
                     "message" => "Nominal bayar untuk {$bill->BILLNM} tidak valid (max Rp " . number_format($sisa, 0, ",", ".") . ").",
@@ -218,6 +225,16 @@ class AktifasiPembayaranBankController extends Controller
             }
         }
 
+        $uniqueFlags = array_values(array_unique($installableFlags));
+        if (count($uniqueFlags) > 1) {
+            return response()->json([
+                "message" => "Tidak bisa digabung: pilih tagihan dengan jenis VA yang sama. VA Close (tidak cicil) dan VA Open (cicil) harus diaktifkan terpisah.",
+            ], 422);
+        }
+
+        $isNyicil = (int) ($uniqueFlags[0] ?? 0);
+        $novaFull = scctcust::showVA($nis, $isNyicil);
+
         $total = array_sum(array_column($pairs, "amount"));
         $arrayTagihan = implode(",", array_column($pairs, "AA"));
         $billam = implode(",", array_column($pairs, "amount"));
@@ -233,7 +250,7 @@ class AktifasiPembayaranBankController extends Controller
                 "CUSTID" => $siswa->CUSTID,
                 "NOCUST" => $nis,
                 "NMCUST" => $nama,
-                "NOVA" => $nis,
+                "NOVA" => $novaFull,
                 "ArrayTagihan" => $arrayTagihan,
                 "BILLAM" => $billam,
                 "BILLTOT" => $total,
@@ -261,8 +278,11 @@ class AktifasiPembayaranBankController extends Controller
         }
 
         return response()->json([
-            "message" => "Pembayaran bank berhasil diaktifkan.",
+            "message" => $isNyicil === 1
+                ? "Pembayaran bank berhasil diaktifkan (VA Open / cicil)."
+                : "Pembayaran bank berhasil diaktifkan (VA Close).",
             "data" => $this->formatAktifasiPayload($va, $siswa, $pairs),
+            "va_type" => $isNyicil === 1 ? "open" : "close",
         ]);
     }
 

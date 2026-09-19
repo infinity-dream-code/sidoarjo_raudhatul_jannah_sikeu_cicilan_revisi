@@ -148,6 +148,7 @@ class ExportTagihanController extends Controller
             'scctbill.BTA',
             'scctbill.FIDBANK',
             'scctbill.FUrutan',
+            'scctbill.isINSTALLABLE',
             'scctcust.CODE02',
             'scctcust.DESC02',
             'scctcust.NUM2ND',
@@ -197,7 +198,9 @@ class ExportTagihanController extends Controller
             ->map(function ($item, $index) {
                 $item->item_id = $item['AA'];
                 $item->CUSTID = $item['CUSTID'];
-                $item->NOVA = ($item->NOCUST && $item->NOCUST != '-') ? scctcust::showVA($item->NOCUST) : null;
+                $item->NOVA = ($item->NOCUST && $item->NOCUST != '-')
+                    ? scctcust::showVA($item->NOCUST, ((int) ($item->isINSTALLABLE ?? 0) === 1) ? 1 : 0)
+                    : null;
                 if (!$item->NOCUST || $item->NOCUST == '-') $item->NOCUST = null;
                 if (!$item->NUM2ND || $item->NUM2ND == '-') $item->NUM2ND = null;
                 $item->print = true;

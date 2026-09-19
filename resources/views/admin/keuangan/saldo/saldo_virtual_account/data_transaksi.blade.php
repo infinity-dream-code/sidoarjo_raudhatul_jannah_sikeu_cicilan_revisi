@@ -49,6 +49,18 @@
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3 row">
+                                <label for="filter_va_type" class="col-sm-4 col-form-label form-label">Jenis VA</label>
+                                <div class="col-sm-8">
+                                    <select class="form-select" id="filter_va_type" name="filter[va_type]">
+                                        <option value="all">Semua (Close + Open)</option>
+                                        <option value="close">VA Close (797789)</option>
+                                        <option value="open">VA Open / Cicil (797790)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3 row">
                                 <label for="filter_dari_tanggal" class="col-sm-4 col-form-label form-label">Dari Tanggal</label>
                                 <div class="col-sm-8">
                                     <input type="text" class="form-control" id="filter_dari_tanggal"

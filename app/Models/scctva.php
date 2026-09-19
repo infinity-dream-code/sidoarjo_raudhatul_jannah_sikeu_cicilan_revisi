@@ -69,12 +69,48 @@ class scctva extends Model
 
     public function displayNova(): string
     {
+        $stored = preg_replace('/\D/', '', (string) ($this->NOVA ?? ''));
+        // Sudah tersimpan full VA (16 digit) — pakai langsung
+        if (strlen($stored) >= 12) {
+            return $stored;
+        }
+
         $nis = trim((string) ($this->NOCUST ?? $this->NOVA ?? ''));
         if ($nis === '' || $nis === '-') {
             return '';
         }
 
-        return scctcust::showVA($nis);
+        return scctcust::showVA($nis, $this->resolveInstallableFlag());
+    }
+
+    /**
+     * Tentukan Open/Close dari tagihan yang terhubung di ArrayTagihan.
+     * 1 = VA Open (cicil), 0 = VA Close.
+     */
+    public function resolveInstallableFlag(): int
+    {
+        $aas = array_values(array_filter(array_map(
+            static fn ($aa) => (int) trim((string) $aa),
+            explode(',', (string) ($this->ArrayTagihan ?? ''))
+        )));
+
+        if ($aas === []) {
+            return 0;
+        }
+
+        $flags = scctbill::query()
+            ->whereIn('AA', $aas)
+            ->pluck('isINSTALLABLE')
+            ->map(static fn ($v) => ((int) $v === 1) ? 1 : 0)
+            ->unique()
+            ->values();
+
+        if ($flags->count() === 1) {
+            return (int) $flags->first();
+        }
+
+        // Campuran / tidak ketemu — default Close
+        return 0;
     }
 
     /**

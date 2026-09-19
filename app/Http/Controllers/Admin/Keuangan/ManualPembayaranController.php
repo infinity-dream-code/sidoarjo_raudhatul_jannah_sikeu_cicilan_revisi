@@ -169,16 +169,17 @@ class ManualPembayaranController extends Controller
                     $item->nmcust = $item->NMCUST;
                     $item->kelas_label = trim(($item->DESC02 ?? '') . ' ' . ($item->DESC03 ?? ''));
                     $nis = $item->NOCUST;
+                    $installableFlag = ((int) ($item->isINSTALLABLE ?? 0) === 1) ? 1 : 0;
                     if ($nis && $nis !== '-') {
-                        $item->NOVA = scctcust::showVA($nis);
+                        $item->NOVA = scctcust::showVA($nis, $installableFlag);
                     } elseif ($item->NUM2ND && $item->NUM2ND !== '-') {
-                        $item->NOVA = scctcust::showVA($item->NUM2ND);
+                        $item->NOVA = scctcust::showVA($item->NUM2ND, $installableFlag);
                     } else {
                         $item->NOVA = '-';
                     }
                     $item->PAYMENTLEFT = $this->resolvePaymentLeft($item);
                     $item->sisa_bayar = $item->PAYMENTLEFT;
-                    $item->can_cicil = ((int) ($item->isINSTALLABLE ?? 0) === 1) ? 1 : 0;
+                    $item->can_cicil = $installableFlag;
                     $item->CICILAN = $item->can_cicil ? 'Ya' : 'Tidak';
                     $item->FIDBANK = MetodeBayarHelper::resolveDisplayFidBank(
                         $item->FIDBANK !== null ? (string) $item->FIDBANK : null,

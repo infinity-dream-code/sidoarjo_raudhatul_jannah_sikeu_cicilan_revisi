@@ -49,7 +49,13 @@
                 <div class="col-md-2"><div class="small text-muted">NIS</div><div id="info-nis" class="fw-semibold">-</div></div>
                 <div class="col-md-2"><div class="small text-muted">Kelas</div><div id="info-kelas" class="fw-semibold">-</div></div>
                 <div class="col-md-2"><div class="small text-muted">No WA</div><div id="info-wa" class="fw-semibold">-</div></div>
-                <div class="col-md-3"><div class="small text-muted">NOVA</div><div id="info-nova" class="fw-semibold">-</div></div>
+                <div class="col-md-3">
+                    <div class="small text-muted">VA Close / VA Open</div>
+                    <div class="fw-semibold small">
+                        <div>Close: <span id="info-nova-close">-</span></div>
+                        <div>Open: <span id="info-nova-open">-</span></div>
+                    </div>
+                </div>
             </div>
 
             <div id="aktifasi-banner" class="alert alert-primary d-none mt-3 mb-0 d-flex flex-wrap justify-content-between align-items-center gap-2">
@@ -84,18 +90,19 @@
                         <th class="text-end">Sudah Dibayar</th>
                         <th class="text-end">Sisa</th>
                         <th class="text-center">Cicil?</th>
+                        <th>VA</th>
                         <th>Exp Date</th>
                         <th style="min-width:140px">Bayar</th>
                     </tr>
                     </thead>
                     <tbody id="tagihan-body">
                     <tr>
-                        <td colspan="8" class="text-center text-muted">Pilih siswa lalu klik Muat Tagihan.</td>
+                        <td colspan="9" class="text-center text-muted">Pilih siswa lalu klik Muat Tagihan.</td>
                     </tr>
                     </tbody>
                     <tfoot>
                     <tr>
-                        <th colspan="7" class="text-end">Total dipilih</th>
+                        <th colspan="8" class="text-end">Total dipilih</th>
                         <th class="text-end" id="total-bayar">Rp 0</th>
                     </tr>
                     </tfoot>
@@ -224,7 +231,8 @@
             $('#info-nis').text(siswa.nocust || '-');
             $('#info-kelas').text(siswa.kelas || '-');
             $('#info-wa').text(siswa.no_wa || '-');
-            $('#info-nova').text(siswa.nova || '-');
+            $('#info-nova-close').text(siswa.nova_close || siswa.nova || '-');
+            $('#info-nova-open').text(siswa.nova_open || '-');
             $('#siswa-info').removeClass('d-none');
         }
 
@@ -262,7 +270,7 @@
             const body = $('#tagihan-body');
             body.empty();
             if (!rows.length) {
-                body.html('<tr><td colspan="8" class="text-center text-muted">Tidak ada tagihan aktif.</td></tr>');
+                body.html('<tr><td colspan="9" class="text-center text-muted">Tidak ada tagihan aktif.</td></tr>');
                 $('#btn-generate').prop('disabled', true);
                 updateTotal();
                 return;
@@ -272,6 +280,8 @@
                 const installable = Number(row.isINSTALLABLE) === 1;
                 const sisa = Number(row.sisa_tagihan || 0);
                 const disabledPay = sisa <= 0;
+                const vaLabel = installable ? 'Open' : 'Close';
+                const vaBadge = installable ? 'bg-label-success' : 'bg-label-secondary';
                 const tr = $(`
                     <tr data-aa="${row.AA}" data-sisa="${sisa}" data-installable="${installable ? 1 : 0}">
                         <td class="text-center">
@@ -282,6 +292,10 @@
                         <td class="text-end">${formatRp(row.sudah_dibayar)}</td>
                         <td class="text-end">${formatRp(sisa)}</td>
                         <td class="text-center">${installable ? '<span class="badge bg-label-success">Ya</span>' : '<span class="badge bg-label-secondary">Tidak</span>'}</td>
+                        <td>
+                            <span class="badge ${vaBadge}">${vaLabel}</span>
+                            <div class="small text-muted">${row.nova || '-'}</div>
+                        </td>
                         <td>${row.exp_date || '-'}</td>
                         <td>
                             <input type="number" class="form-control form-control-sm bayar-input" min="1" max="${sisa}"

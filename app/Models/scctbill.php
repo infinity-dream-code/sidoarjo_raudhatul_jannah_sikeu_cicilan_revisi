@@ -41,6 +41,7 @@ class scctbill extends Model
         "BAYAR",
         "INSTALLMENT",
         "isINSTALLABLE",
+        "VA",
         "ExpDate",
     ];
 
