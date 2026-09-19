@@ -33,6 +33,67 @@ class SaldoVirtualAccountController extends Controller
     /** Pembayaran manual cash — tidak masuk saldo/jurnal VA. */
     private const FIDBANK_MANUAL_CASH = '1140000';
 
+    /** open | close — ditentukan dari route prefix. */
+    private function resolveVaMode(): string
+    {
+        $route = (string) (request()->route()?->getName() ?? '');
+        $path = (string) request()->path();
+
+        if (str_contains($route, 'saldo-va-open') || str_contains($path, 'saldo-va-open')) {
+            return 'open';
+        }
+
+        return 'close';
+    }
+
+    private function isVaOpen(): bool
+    {
+        return $this->resolveVaMode() === 'open';
+    }
+
+    private function vaInstallableFlag(): int
+    {
+        return $this->isVaOpen() ? 1 : 0;
+    }
+
+    private function currentVaPrefix(): string
+    {
+        $raw = preg_replace(
+            '/\D/',
+            '',
+            $this->isVaOpen() ? scctcust::vaPrefixOpen() : scctcust::vaPrefixClose()
+        );
+
+        return $raw !== '' ? $raw : ($this->isVaOpen() ? '797790' : '797789');
+    }
+
+    private function routePrefixName(): string
+    {
+        return $this->isVaOpen() ? 'saldo-va-open' : 'saldo-va-close';
+    }
+
+    private function saldoRoute(string $name, array $params = []): string
+    {
+        return route('admin.keuangan.saldo.' . $this->routePrefixName() . '.' . $name, $params);
+    }
+
+    private function applyPageTitles(): void
+    {
+        $label = $this->isVaOpen() ? 'Saldo VA Open' : 'Saldo VA Close';
+        $this->dataTitle = $label;
+        $this->showTitle = 'Detail ' . $label;
+    }
+
+    private function applyReffBankPrefixFilter($query, string $column = 'REFFBANK')
+    {
+        $prefix = $this->currentVaPrefix();
+
+        return $query->whereRaw(
+            "TRIM(COALESCE(CAST({$column} AS CHAR), '')) LIKE ?",
+            [$prefix . '%']
+        );
+    }
+
     /** Tampilkan semua transaksi sccttran kecuali manual cash (1140000). */
     private function excludeManualCashScope($query, string $fidBankColumn = 'FIDBANK')
     {
@@ -153,17 +214,13 @@ class SaldoVirtualAccountController extends Controller
 
         $this->title = 'Keuangan';
         $this->mainTitle = 'Saldo';
-        $this->dataTitle = 'Saldo Virtual Account';
-        $this->showTitle = 'Detail Saldo  Virtual Account';
-
-
-        $this->datasUrl = route('admin.keuangan.saldo.saldo-virtual-account.get-data');
-        $this->detailDatasUrl = '';
-        $this->columnsUrl = route('admin.keuangan.saldo.saldo-virtual-account.get-column');
+        $this->dataTitle = 'Saldo VA';
+        $this->showTitle = 'Detail Saldo VA';
     }
 
     public function index()
     {
+        $this->applyPageTitles();
         $schoolCodes = $this->resolveScopedSchoolCodes();
 
         $data['thn_aka'] = mst_thn_aka::getMstThnAkaAttributes();
@@ -180,50 +237,51 @@ class SaldoVirtualAccountController extends Controller
         $data['title'] = $this->title;
         $data['mainTitle'] = $this->mainTitle;
         $data['dataTitle'] = $this->dataTitle;
-        //        $data['showTitle'] = $this->showTitle;
-        $data['columnsUrl'] = route('admin.keuangan.saldo.saldo-virtual-account.get-column');
-        $data['datasUrl'] = route('admin.keuangan.saldo.saldo-virtual-account.get-data');
-        $data['dataTransaksiUrl'] = route('admin.keuangan.saldo.saldo-virtual-account.data-transaksi.index');
+        $data['vaMode'] = $this->resolveVaMode();
+        $data['vaPrefix'] = $this->currentVaPrefix();
+        $data['columnsUrl'] = $this->saldoRoute('get-column');
+        $data['datasUrl'] = $this->saldoRoute('get-data');
+        $data['dataTransaksiUrl'] = $this->saldoRoute('data-transaksi.index');
+        $data['indexUrl'] = $this->saldoRoute('index');
 
         return view('admin.keuangan.saldo.saldo_virtual_account.index', $data);
     }
 
     public function show($id)
     {
+        $this->applyPageTitles();
         try {
+            $flag = $this->vaInstallableFlag();
             $data['title'] = $this->title;
             $data['mainTitle'] = $this->mainTitle;
             $data['dataTitle'] = $this->dataTitle;
             $data['showTitle'] = $this->showTitle;
-            $data['indexUrl'] = route('admin.keuangan.saldo.saldo-virtual-account.index');
-            $data['columnsUrl'] = route('admin.keuangan.saldo.saldo-virtual-account.transaksi.get-column');
-            $data['datasUrl'] = route('admin.keuangan.saldo.saldo-virtual-account.transaksi.get-data', ['CUSTID' => $id]);
-            $data['exportTransaksiUrl'] = route('admin.keuangan.saldo.saldo-virtual-account.export', ['id' => $id]);
+            $data['indexUrl'] = $this->saldoRoute('index');
+            $data['columnsUrl'] = $this->saldoRoute('transaksi.get-column');
+            $data['datasUrl'] = $this->saldoRoute('transaksi.get-data', ['CUSTID' => $id]);
+            $data['exportTransaksiUrl'] = $this->saldoRoute('export', ['id' => $id]);
+            $data['vaMode'] = $this->resolveVaMode();
 
             $data['siswa'] = scctcust::find($id);
 
             if ($data['siswa']) {
-                if ($data['siswa']->NOCUST && $data['siswa']->NOCUST != '-') {
-                    $NOVA = scctcust::showVA($data['siswa']->NOCUST);
-                } else {
-                    $NOVA = scctcust::showVA($data['siswa']->NUM2ND);
-                }
-                $data['siswa']->NOVA = $NOVA;
+                $nis = ($data['siswa']->NOCUST && $data['siswa']->NOCUST != '-')
+                    ? $data['siswa']->NOCUST
+                    : $data['siswa']->NUM2ND;
+                $data['siswa']->NOVA = scctcust::showVA($nis, $flag);
 
-                $data['totalKredit'] = (int) $this->excludeManualCashScope(sccttran::query())
-                    ->where('CUSTID', $id)
-                    ->sum('KREDIT');
-                $data['totalDebet'] = (int) $this->excludeManualCashScope(sccttran::query())
-                    ->where('CUSTID', $id)
-                    ->sum('DEBET');
-//                $data['siswa']-> = $NOVA;
+                $trxBase = $this->applyReffBankPrefixFilter(
+                    $this->excludeManualCashScope(sccttran::query())->where('CUSTID', $id)
+                );
+                $data['totalKredit'] = (int) (clone $trxBase)->sum('KREDIT');
+                $data['totalDebet'] = (int) (clone $trxBase)->sum('DEBET');
             } else {
                 throw new Exception('Siswa tidak ditemukan');
             }
 
             return view('admin.keuangan.saldo.saldo_virtual_account.show', $data);
         } catch (\Exception $e) {
-            return redirect()->route('admin.keuangan.saldo.saldo-virtual-account.index')->with('error', 'Siswa tidak ditemukan!');
+            return redirect()->to($this->saldoRoute('index'))->with('error', 'Siswa tidak ditemukan!');
         }
     }
 
@@ -330,7 +388,6 @@ class SaldoVirtualAccountController extends Controller
         return [
             ['data' => null, 'name' => 'no', 'columnType' => 'row', 'exportable' => true],
             ['data' => 'NOCUST', 'name' => 'NIS', 'searchable' => true, 'orderable' => true, 'exportable' => true],
-            ['data' => 'JENIS_VA', 'name' => 'Jenis VA', 'searchable' => false, 'orderable' => false, 'exportable' => true],
             ['data' => 'NOVA', 'name' => 'NO VA', 'searchable' => false, 'orderable' => false, 'exportable' => true],
             ['data' => 'NMCUST', 'name' => 'NAMA', 'searchable' => true, 'orderable' => true, 'exportable' => true],
             ['data' => 'CODE02', 'name' => 'Unit', 'searchable' => true, 'orderable' => true, 'exportable' => true],
@@ -345,7 +402,7 @@ class SaldoVirtualAccountController extends Controller
                 'columnType' => 'button',
                 'className' => 'text-center',
                 'button' => 'link',
-                'buttonLink' => route('admin.keuangan.saldo.saldo-virtual-account.show', ':id'),
+                'buttonLink' => route('admin.keuangan.saldo.' . $this->routePrefixName() . '.show', ':id'),
                 'buttonText' => 'Detail Transaksi',
                 'noCaption' => true,
                 'buttonClass' => 'btn btn-sm btn-primary btn-icon btn-print-tagihan',
@@ -404,7 +461,6 @@ class SaldoVirtualAccountController extends Controller
         }
 
         $siswaFilter = '';
-        $vaTypeFilter = 'all';
         $needsSaldoFilter = false;
         $filter = $request->input('filter');
         if ($filter) {
@@ -418,8 +474,6 @@ class SaldoVirtualAccountController extends Controller
                         $filters[] = ['scctcust.CODE01', '=', trim((string) $val)];
                     } else if ($key === 'angkatan') {
                         $filters[] = ['scctcust.DESC04', '=', $val];
-                    } else if ($key === 'va_type') {
-                        $vaTypeFilter = strtolower(trim((string) $val));
                     } else if ($key == 'saldo_positif') {
                         if ((string) $val === '1') {
                             $needsSaldoFilter = true;
@@ -458,19 +512,14 @@ class SaldoVirtualAccountController extends Controller
             'scctcust.DESC04',
         ]));
 
-        $prefixClose = preg_replace('/\D/', '', scctcust::vaPrefixClose()) ?: '797789';
-        $prefixOpen = preg_replace('/\D/', '', scctcust::vaPrefixOpen()) ?: '797790';
-
+        $vaFlag = $this->vaInstallableFlag();
         $orderBySaldo = $columnName === 'saldo_total';
-        // Sort/filter by saldo butuh join penuh; load biasa cukup agregasi per halaman
         $needsFullSaldoJoin = $orderBySaldo || $needsSaldoFilter;
 
         $saldoSelect = [
             'CUSTID',
-            DB::raw("COALESCE(SUM(CASE WHEN TRIM(COALESCE(CAST(REFFBANK AS CHAR), '')) LIKE '{$prefixClose}%' THEN KREDIT ELSE 0 END), 0) AS kredit_close"),
-            DB::raw("COALESCE(SUM(CASE WHEN TRIM(COALESCE(CAST(REFFBANK AS CHAR), '')) LIKE '{$prefixClose}%' THEN DEBET ELSE 0 END), 0) AS debet_close"),
-            DB::raw("COALESCE(SUM(CASE WHEN TRIM(COALESCE(CAST(REFFBANK AS CHAR), '')) LIKE '{$prefixOpen}%' THEN KREDIT ELSE 0 END), 0) AS kredit_open"),
-            DB::raw("COALESCE(SUM(CASE WHEN TRIM(COALESCE(CAST(REFFBANK AS CHAR), '')) LIKE '{$prefixOpen}%' THEN DEBET ELSE 0 END), 0) AS debet_open"),
+            DB::raw("COALESCE(SUM(KREDIT), 0) AS kredit"),
+            DB::raw("COALESCE(SUM(DEBET), 0) AS debet"),
         ];
 
         $applyCustFilters = function ($query) use ($filterQuery, $siswaFilter, $searchValue) {
@@ -498,7 +547,9 @@ class SaldoVirtualAccountController extends Controller
         });
 
         if ($needsFullSaldoJoin) {
-            $saldoAgg = $this->excludeManualCashScope(sccttran::query())
+            $saldoAgg = $this->applyReffBankPrefixFilter(
+                $this->excludeManualCashScope(sccttran::query())
+            )
                 ->select($saldoSelect)
                 ->groupBy('CUSTID');
 
@@ -509,33 +560,27 @@ class SaldoVirtualAccountController extends Controller
             $applyCustFilters($query);
 
             if ($needsSaldoFilter) {
-                $query->whereRaw(
-                    '((COALESCE(trx.kredit_close, 0) - COALESCE(trx.debet_close, 0)) + (COALESCE(trx.kredit_open, 0) - COALESCE(trx.debet_open, 0))) > 0'
-                );
+                $query->whereRaw('(COALESCE(trx.kredit, 0) - COALESCE(trx.debet, 0)) > 0');
             }
 
             $totalRecordswithFilter = (clone $query)->count('scctcust.CUSTID');
 
             $orderSql = $orderBySaldo
-                ? DB::raw('(COALESCE(trx.kredit_close, 0) - COALESCE(trx.debet_close, 0) + COALESCE(trx.kredit_open, 0) - COALESCE(trx.debet_open, 0))')
+                ? DB::raw('(COALESCE(trx.kredit, 0) - COALESCE(trx.debet, 0))')
                 : $columnName;
 
             $pageStudents = $query
                 ->select($select)
                 ->addSelect([
-                    DB::raw('COALESCE(trx.kredit_close, 0) AS kredit_close'),
-                    DB::raw('COALESCE(trx.debet_close, 0) AS debet_close'),
-                    DB::raw('(COALESCE(trx.kredit_close, 0) - COALESCE(trx.debet_close, 0)) AS saldo_close'),
-                    DB::raw('COALESCE(trx.kredit_open, 0) AS kredit_open'),
-                    DB::raw('COALESCE(trx.debet_open, 0) AS debet_open'),
-                    DB::raw('(COALESCE(trx.kredit_open, 0) - COALESCE(trx.debet_open, 0)) AS saldo_open'),
+                    DB::raw('COALESCE(trx.kredit, 0) AS kredit'),
+                    DB::raw('COALESCE(trx.debet, 0) AS debet'),
+                    DB::raw('(COALESCE(trx.kredit, 0) - COALESCE(trx.debet, 0)) AS saldo'),
                 ])
                 ->orderBy($orderSql, $columnSortOrder)
                 ->skip((int) $start)
                 ->take(max(1, (int) $rowperpage))
                 ->get();
         } else {
-            // Path ringan: ambil siswa dulu, baru hitung saldo hanya untuk CUSTID di halaman ini
             $countQuery = scctcust::query();
             $applyCustFilters($countQuery);
             $totalRecordswithFilter = $countQuery->count('scctcust.CUSTID');
@@ -550,8 +595,9 @@ class SaldoVirtualAccountController extends Controller
             $custIds = $pageStudents->pluck('CUSTID')->filter()->values()->all();
             $saldoByCust = collect();
             if (!empty($custIds)) {
-                $saldoByCust = $this->excludeManualCashScope(sccttran::query())
-                    ->whereIn('CUSTID', $custIds)
+                $saldoByCust = $this->applyReffBankPrefixFilter(
+                    $this->excludeManualCashScope(sccttran::query())->whereIn('CUSTID', $custIds)
+                )
                     ->select($saldoSelect)
                     ->groupBy('CUSTID')
                     ->get()
@@ -560,27 +606,13 @@ class SaldoVirtualAccountController extends Controller
 
             foreach ($pageStudents as $item) {
                 $s = $saldoByCust->get($item->CUSTID);
-                $kreditClose = (int) ($s->kredit_close ?? 0);
-                $debetClose = (int) ($s->debet_close ?? 0);
-                $kreditOpen = (int) ($s->kredit_open ?? 0);
-                $debetOpen = (int) ($s->debet_open ?? 0);
-                $item->setAttribute('kredit_close', $kreditClose);
-                $item->setAttribute('debet_close', $debetClose);
-                $item->setAttribute('saldo_close', $kreditClose - $debetClose);
-                $item->setAttribute('kredit_open', $kreditOpen);
-                $item->setAttribute('debet_open', $debetOpen);
-                $item->setAttribute('saldo_open', $kreditOpen - $debetOpen);
+                $kredit = (int) ($s->kredit ?? 0);
+                $debet = (int) ($s->debet ?? 0);
+                $item->setAttribute('kredit', $kredit);
+                $item->setAttribute('debet', $debet);
+                $item->setAttribute('saldo', $kredit - $debet);
             }
         }
-
-        $vaModes = match ($vaTypeFilter) {
-            'open', '1', 'cicil' => [[1, 'Open (Cicil)', 'saldo_open', 'kredit_open', 'debet_open']],
-            'close', '0' => [[0, 'Close', 'saldo_close', 'kredit_close', 'debet_close']],
-            default => [
-                [0, 'Close', 'saldo_close', 'kredit_close', 'debet_close'],
-                [1, 'Open (Cicil)', 'saldo_open', 'kredit_open', 'debet_open'],
-            ],
-        };
 
         $records = [];
         foreach ($pageStudents as $item) {
@@ -590,32 +622,28 @@ class SaldoVirtualAccountController extends Controller
                 : ($attrs['NUM2ND'] ?? '');
             $custId = $attrs['CUSTID'] ?? $item->CUSTID ?? null;
 
-            foreach ($vaModes as [$flag, $label, $saldoKey, $kreditKey, $debetKey]) {
-                $records[] = [
-                    'item_id' => $custId,
-                    'print' => true,
-                    'NOCUST' => $attrs['NOCUST'] ?? null,
-                    'NUM2ND' => $attrs['NUM2ND'] ?? null,
-                    'NMCUST' => $attrs['NMCUST'] ?? null,
-                    'CODE02' => $attrs['CODE02'] ?? null,
-                    'DESC02' => $attrs['DESC02'] ?? null,
-                    'DESC03' => $attrs['DESC03'] ?? null,
-                    'DESC04' => $attrs['DESC04'] ?? null,
-                    'JENIS_VA' => $label,
-                    'va_type' => $flag === 1 ? 'open' : 'close',
-                    'NOVA' => scctcust::showVA($nis, $flag),
-                    'saldo' => (int) ($attrs[$saldoKey] ?? 0),
-                    'kredit' => (int) ($attrs[$kreditKey] ?? 0),
-                    'debet' => (int) ($attrs[$debetKey] ?? 0),
-                ];
-            }
+            $records[] = [
+                'item_id' => $custId,
+                'print' => true,
+                'NOCUST' => $attrs['NOCUST'] ?? null,
+                'NUM2ND' => $attrs['NUM2ND'] ?? null,
+                'NMCUST' => $attrs['NMCUST'] ?? null,
+                'CODE02' => $attrs['CODE02'] ?? null,
+                'DESC02' => $attrs['DESC02'] ?? null,
+                'DESC03' => $attrs['DESC03'] ?? null,
+                'DESC04' => $attrs['DESC04'] ?? null,
+                'va_type' => $this->resolveVaMode(),
+                'NOVA' => scctcust::showVA($nis, $vaFlag),
+                'saldo' => (int) ($attrs['saldo'] ?? 0),
+                'kredit' => (int) ($attrs['kredit'] ?? 0),
+                'debet' => (int) ($attrs['debet'] ?? 0),
+            ];
         }
 
-        $multiplier = count($vaModes);
         return response()->json([
             'draw' => intval($draw),
-            'recordsTotal' => $totalRecords * $multiplier,
-            'recordsFiltered' => $totalRecordswithFilter * $multiplier,
+            'recordsTotal' => $totalRecords,
+            'recordsFiltered' => $totalRecordswithFilter,
             'data' => $records,
         ]);
     }
@@ -624,7 +652,6 @@ class SaldoVirtualAccountController extends Controller
     {
         return [
             ['data' => null, 'columnType' => 'row', 'name' => 'No', 'exportable' => true],
-            ['data' => 'JENIS_VA', 'name' => 'Jenis VA', 'orderable' => false, 'exportable' => true],
             ['data' => 'NOVA', 'name' => 'No VA', 'orderable' => false, 'exportable' => true],
             ['data' => 'METODE', 'name' => 'Metode', 'orderable' => true, 'exportable' => true],
             ['data' => 'TRXDATE', 'name' => 'Tanggal Transaksi', 'orderable' => true, 'columnType' => 'timestamp', 'exportable' => true],
@@ -710,9 +737,12 @@ class SaldoVirtualAccountController extends Controller
             'sccttran.TRANSNO',
         ]);
 
-        $query = $this->excludeManualCashScope(
-            sccttran::query()->leftJoin('scctcust', 'scctcust.CUSTID', '=', 'sccttran.CUSTID'),
-            'sccttran.FIDBANK'
+        $query = $this->applyReffBankPrefixFilter(
+            $this->excludeManualCashScope(
+                sccttran::query()->leftJoin('scctcust', 'scctcust.CUSTID', '=', 'sccttran.CUSTID'),
+                'sccttran.FIDBANK'
+            ),
+            'sccttran.REFFBANK'
         );
 
         if (!empty($filters)) {
@@ -728,28 +758,28 @@ class SaldoVirtualAccountController extends Controller
             });
         }
 
-        $totalRecords = $this->excludeManualCashScope(sccttran::query())
-            ->when($custid, fn ($q) => $q->where('CUSTID', $custid))
-            ->count();
+        $totalRecords = $this->applyReffBankPrefixFilter(
+            $this->excludeManualCashScope(sccttran::query())
+                ->when($custid, fn ($q) => $q->where('CUSTID', $custid))
+        )->count();
 
         $totalRecordswithFilter = (clone $query)->count();
 
+        $vaFlag = $this->vaInstallableFlag();
         $records = (clone $query)
             ->orderBy($columnName, $columnSortOrder)
             ->select($select)
             ->skip($start)
             ->take($rowperpage)
             ->get()
-            ->map(function ($item) {
+            ->map(function ($item) use ($vaFlag) {
                 unset($item->id);
-                $flag = scctcust::resolveInstallableFromReffBank($item->REFFBANK ?? null);
-                $item->JENIS_VA = $flag === null ? '-' : scctcust::vaTypeLabel($flag);
                 $reff = preg_replace('/\D/', '', (string) ($item->REFFBANK ?? ''));
                 if (strlen($reff) >= 12) {
                     $item->NOVA = $reff;
                 } else {
                     $nis = ($item->NOCUST && $item->NOCUST != '-') ? $item->NOCUST : ($item->NUM2ND ?? '');
-                    $item->NOVA = $flag === null ? scctcust::showVA($nis) : scctcust::showVA($nis, $flag);
+                    $item->NOVA = scctcust::showVA($nis, $vaFlag);
                 }
 
                 return $item;
@@ -760,20 +790,21 @@ class SaldoVirtualAccountController extends Controller
         $totalDebet = 0;
 
         if ($custid) {
+            $modeKey = $this->resolveVaMode();
             $totalKredit = Cache::remember(
-                "total_kredit_va_custid_" . $custid,
+                "total_kredit_va_{$modeKey}_custid_" . $custid,
                 600,
-                fn () => (int) $this->excludeManualCashScope(sccttran::query())
-                    ->where('CUSTID', $custid)
-                    ->sum('KREDIT')
+                fn () => (int) $this->applyReffBankPrefixFilter(
+                    $this->excludeManualCashScope(sccttran::query())->where('CUSTID', $custid)
+                )->sum('KREDIT')
             );
 
             $totalDebet = Cache::remember(
-                "total_debet_va_custid_" . $custid,
+                "total_debet_va_{$modeKey}_custid_" . $custid,
                 600,
-                fn () => (int) $this->excludeManualCashScope(sccttran::query())
-                    ->where('CUSTID', $custid)
-                    ->sum('DEBET')
+                fn () => (int) $this->applyReffBankPrefixFilter(
+                    $this->excludeManualCashScope(sccttran::query())->where('CUSTID', $custid)
+                )->sum('DEBET')
             );
         }
 
@@ -786,8 +817,8 @@ class SaldoVirtualAccountController extends Controller
 
         if ($custid) {
             $response['totals'] = [
-                'kredit' => ['location' => 4, 'value' => $totalKredit, 'columnType' => 'currency'],
-                'debet' => ['location' => 3, 'value' => $totalDebet, 'columnType' => 'currency'],
+                'debet' => ['location' => 4, 'value' => $totalDebet, 'columnType' => 'currency'],
+                'kredit' => ['location' => 5, 'value' => $totalKredit, 'columnType' => 'currency'],
             ];
         }
 
@@ -815,12 +846,15 @@ class SaldoVirtualAccountController extends Controller
 
     public function transaksiIndex()
     {
+        $this->applyPageTitles();
         $data['title'] = $this->title;
         $data['mainTitle'] = $this->dataTitle;
         $data['pageTitle'] = 'Data Transaksi';
-        $data['columnsUrl'] = route('admin.keuangan.saldo.saldo-virtual-account.data-transaksi.get-column');
-        $data['datasUrl'] = route('admin.keuangan.saldo.saldo-virtual-account.data-transaksi.get-data');
+        $data['indexUrl'] = $this->saldoRoute('index');
+        $data['columnsUrl'] = $this->saldoRoute('data-transaksi.get-column');
+        $data['datasUrl'] = $this->saldoRoute('data-transaksi.get-data');
         $data['prefillSiswa'] = trim((string) request()->query('siswa', request()->query('nis', '')));
+        $data['vaMode'] = $this->resolveVaMode();
 
         return view('admin.keuangan.saldo.saldo_virtual_account.data_transaksi', $data);
     }
@@ -830,7 +864,6 @@ class SaldoVirtualAccountController extends Controller
         return [
             ['data' => null, 'name' => 'no', 'columnType' => 'row', 'exportable' => true],
             ['data' => 'NOCUST', 'name' => 'NIS', 'searchable' => true, 'orderable' => true, 'exportable' => true],
-            ['data' => 'JENIS_VA', 'name' => 'Jenis VA', 'searchable' => false, 'orderable' => false, 'exportable' => true],
             ['data' => 'NOVA', 'name' => 'No VA', 'searchable' => true, 'exportable' => true],
             ['data' => 'NMCUST', 'name' => 'Nama', 'searchable' => true, 'orderable' => true, 'exportable' => true],
             ['data' => 'TRXDATE', 'name' => 'Tanggal Bayar', 'orderable' => true, 'columnType' => 'timestamp', 'exportable' => true],
@@ -876,7 +909,6 @@ class SaldoVirtualAccountController extends Controller
         }
 
         $siswaFilter = '';
-        $vaTypeFilter = 'all';
         $filter = $request->input('filter', []);
         foreach ($filter as $key => $val) {
             if ($val === null || $val === '' || strtolower((string) $val) === 'all') {
@@ -885,11 +917,6 @@ class SaldoVirtualAccountController extends Controller
 
             if (in_array($key, ['siswa', 'nis'], true)) {
                 $siswaFilter = trim((string) $val);
-                continue;
-            }
-
-            if ($key === 'va_type') {
-                $vaTypeFilter = strtolower(trim((string) $val));
                 continue;
             }
 
@@ -910,16 +937,13 @@ class SaldoVirtualAccountController extends Controller
             $filters[] = ['scctcust.CODE01', 'in', $schoolCodes];
         }
 
-        $query = $this->excludeManualCashScope(
-            sccttran::query()->leftJoin('scctcust', 'scctcust.CUSTID', '=', 'sccttran.CUSTID'),
-            'sccttran.FIDBANK'
+        $query = $this->applyReffBankPrefixFilter(
+            $this->excludeManualCashScope(
+                sccttran::query()->leftJoin('scctcust', 'scctcust.CUSTID', '=', 'sccttran.CUSTID'),
+                'sccttran.FIDBANK'
+            ),
+            'sccttran.REFFBANK'
         );
-
-        if (in_array($vaTypeFilter, ['open', '1', 'cicil'], true)) {
-            $query->whereRaw("TRIM(COALESCE(CAST(sccttran.REFFBANK AS CHAR), '')) LIKE ?", [scctcust::vaPrefixOpen() . '%']);
-        } elseif (in_array($vaTypeFilter, ['close', '0'], true)) {
-            $query->whereRaw("TRIM(COALESCE(CAST(sccttran.REFFBANK AS CHAR), '')) LIKE ?", [scctcust::vaPrefixClose() . '%']);
-        }
 
         foreach ($filters as $filterRow) {
             if (count($filterRow) === 3 && ($filterRow[1] ?? null) === 'in' && is_array($filterRow[2] ?? null)) {
@@ -943,9 +967,12 @@ class SaldoVirtualAccountController extends Controller
             });
         }
 
-        $totalRecords = $this->excludeManualCashScope(sccttran::query())->count();
+        $totalRecords = $this->applyReffBankPrefixFilter(
+            $this->excludeManualCashScope(sccttran::query())
+        )->count();
         $totalRecordswithFilter = (clone $query)->count();
 
+        $vaFlag = $this->vaInstallableFlag();
         $records = (clone $query)
             ->orderBy($columnName, $columnSortOrder)
             ->select([
@@ -965,16 +992,14 @@ class SaldoVirtualAccountController extends Controller
             ->skip($start)
             ->take($rowperpage > 0 ? $rowperpage : 25)
             ->get()
-            ->map(function ($item) {
-                $flag = scctcust::resolveInstallableFromReffBank($item->REFFBANK ?? null);
-                $item->JENIS_VA = $flag === null ? '-' : scctcust::vaTypeLabel($flag);
+            ->map(function ($item) use ($vaFlag) {
                 $reff = preg_replace('/\D/', '', (string) ($item->REFFBANK ?? ''));
                 if (strlen($reff) >= 12) {
                     $item->NOVA = $reff;
                 } elseif ($item->NOCUST && $item->NOCUST != '-') {
-                    $item->NOVA = $flag === null ? scctcust::showVA($item->NOCUST) : scctcust::showVA($item->NOCUST, $flag);
+                    $item->NOVA = scctcust::showVA($item->NOCUST, $vaFlag);
                 } else {
-                    $item->NOVA = $flag === null ? scctcust::showVA($item->NUM2ND) : scctcust::showVA($item->NUM2ND, $flag);
+                    $item->NOVA = scctcust::showVA($item->NUM2ND ?? '', $vaFlag);
                 }
 
                 if (!empty($item->TRXDATE)) {

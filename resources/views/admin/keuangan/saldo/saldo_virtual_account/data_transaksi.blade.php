@@ -17,7 +17,7 @@
         @endisset
         @isset($mainTitle)
             <li class="breadcrumb-item">
-                <a href="{{ route('admin.keuangan.saldo.saldo-virtual-account.index') }}" class="text-hover-primary">{{ $mainTitle }}</a>
+                <a href="{{ $indexUrl ?? route('admin.keuangan.saldo.saldo-va-close.index') }}" class="text-hover-primary">{{ $mainTitle }}</a>
             </li>
         @endisset
         <li class="breadcrumb-item active">Data Transaksi</li>
@@ -27,7 +27,7 @@
         <div class="card-header header-elements">
             <h5 class="mb-0 me-2">Data Transaksi</h5>
             <div class="card-header-elements ms-auto">
-                <a href="{{ route('admin.keuangan.saldo.saldo-virtual-account.index') }}" class="btn btn-outline-primary btn-sm">
+                <a href="{{ $indexUrl ?? route('admin.keuangan.saldo.saldo-va-close.index') }}" class="btn btn-outline-primary btn-sm">
                     <span class="ri-arrow-left-s-line me-1"></span>
                     Kembali
                 </a>
@@ -44,18 +44,6 @@
                                     <input type="text" class="form-control" id="filter_siswa"
                                            name="filter[siswa]" placeholder="Masukkan NIS / Nama / No VA"
                                            value="{{ $prefillSiswa ?? '' }}" autocomplete="off">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3 row">
-                                <label for="filter_va_type" class="col-sm-4 col-form-label form-label">Jenis VA</label>
-                                <div class="col-sm-8">
-                                    <select class="form-select" id="filter_va_type" name="filter[va_type]">
-                                        <option value="all">Semua (Close + Open)</option>
-                                        <option value="close">VA Close (797789)</option>
-                                        <option value="open">VA Open / Cicil (797790)</option>
-                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -121,8 +109,8 @@
             pageLength: 25,
             lengthMenu: [25, 100],
             buttons: ['excel', 'pdf', 'print'],
-            excelFilename: 'saldo VA transaksi - export excel',
-            pdfFilename: 'saldo VA transaksi export pdf',
+            excelFilename: '{{ ($mainTitle ?? "saldo VA") }} transaksi - export excel',
+            pdfFilename: '{{ ($mainTitle ?? "saldo VA") }} transaksi export pdf',
             pdfOrientation: 'landscape',
             pdfPageSize: 'A3',
             pdfMargins: [12, 12, 12, 12],

@@ -132,9 +132,14 @@
                         <div data-i18n="Saldo">Saldo</div>
                     </a>
                     <ul class="menu-sub">
-                        <li class="menu-item {{ Request::is(['admin/keuangan/saldo/saldo-virtual-account*']) ? 'active' : '' }}">
-                            <a href="{{ route('admin.keuangan.saldo.saldo-virtual-account.index') }}" class="menu-link">
-                                <div data-i18n="Saldo Virtual Account">Saldo Virtual Account</div>
+                        <li class="menu-item {{ Request::is(['admin/keuangan/saldo/saldo-va-open*']) ? 'active' : '' }}">
+                            <a href="{{ route('admin.keuangan.saldo.saldo-va-open.index') }}" class="menu-link">
+                                <div data-i18n="Saldo VA Open">Saldo VA Open</div>
+                            </a>
+                        </li>
+                        <li class="menu-item {{ Request::is(['admin/keuangan/saldo/saldo-va-close*']) ? 'active' : '' }}">
+                            <a href="{{ route('admin.keuangan.saldo.saldo-va-close.index') }}" class="menu-link">
+                                <div data-i18n="Saldo VA Close">Saldo VA Close</div>
                             </a>
                         </li>
                     </ul>

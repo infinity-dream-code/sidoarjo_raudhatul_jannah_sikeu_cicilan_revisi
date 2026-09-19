@@ -43,10 +43,10 @@
         <div class="col">
             <div class="col-auto ms-auto d-print-none">
                 <div class="d-flex justify-content-end gap-2">
-                    <a href="{{route('admin.keuangan.saldo.saldo-virtual-account.index')}}"
+                    <a href="{{ $indexUrl ?? route('admin.keuangan.saldo.saldo-va-close.index') }}"
                        class="btn btn-outline-primary">
                         <span class="ri-arrow-left-s-line me-2"></span>
-                        Kembali ke Saldo VA
+                        Kembali ke {{ $dataTitle ?? 'Saldo VA' }}
                     </a>
                 </div>
             </div>

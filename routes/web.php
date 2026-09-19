@@ -237,25 +237,42 @@ Route::prefix("admin")
                 });
 
             Route::prefix("saldo")->name("saldo.")->group(function () {
+                $saldoVaRoutes = function () {
+                    Route::get("get-data", "getData")->name("get-data");
+                    Route::get("get-column", "getColumn")->name("get-column");
+                    Route::get("get-saldo", "getSaldo")->name("get-saldo");
+                    Route::get("export-transaksi", "exportTransaksi")->name("export-transaksi");
+                    Route::get("{id}/export", "exportDetail")->name("export");
+                    Route::prefix("data-transaksi")->name("data-transaksi.")->group(function () {
+                        Route::get("", "transaksiIndex")->name("index");
+                        Route::get("get-data", "getDataDataTransaksi")->name("get-data");
+                        Route::get("get-column", "getColumnDataTransaksi")->name("get-column");
+                    });
+                    Route::post("tarik", "tarik")->name("tarik");
+                    Route::prefix("transaksi")->name("transaksi.")->group(function () {
+                        Route::get("get-data", "getDataTran")->name("get-data");
+                        Route::get("get-column", "getColumnTran")->name("get-column");
+                    });
+                };
+
+                Route::controller(\App\Http\Controllers\Admin\Keuangan\Saldo\SaldoVirtualAccountController::class)
+                    ->prefix("saldo-va-open")->name("saldo-va-open.")->group($saldoVaRoutes);
+                Route::resource("saldo-va-open", \App\Http\Controllers\Admin\Keuangan\Saldo\SaldoVirtualAccountController::class)
+                    ->names("saldo-va-open");
+
+                Route::controller(\App\Http\Controllers\Admin\Keuangan\Saldo\SaldoVirtualAccountController::class)
+                    ->prefix("saldo-va-close")->name("saldo-va-close.")->group($saldoVaRoutes);
+                Route::resource("saldo-va-close", \App\Http\Controllers\Admin\Keuangan\Saldo\SaldoVirtualAccountController::class)
+                    ->names("saldo-va-close");
+
+                // Legacy alias (manual pembayaran get-saldo + redirect halaman lama)
                 Route::controller(\App\Http\Controllers\Admin\Keuangan\Saldo\SaldoVirtualAccountController::class)
                     ->prefix("saldo-virtual-account")->name("saldo-virtual-account.")->group(function () {
-                        Route::get("get-data", "getData")->name("get-data");
-                        Route::get("get-column", "getColumn")->name("get-column");
                         Route::get("get-saldo", "getSaldo")->name("get-saldo");
-                        Route::get("export-transaksi", "exportTransaksi")->name("export-transaksi");
-                        Route::get("{id}/export", "exportDetail")->name("export");
-                        Route::prefix("data-transaksi")->name("data-transaksi.")->group(function () {
-                            Route::get("", "transaksiIndex")->name("index");
-                            Route::get("get-data", "getDataDataTransaksi")->name("get-data");
-                            Route::get("get-column", "getColumnDataTransaksi")->name("get-column");
-                        });
-                        Route::post("tarik", "tarik")->name("tarik");
-                        Route::prefix("transaksi")->name("transaksi.")->group(function () {
-                            Route::get("get-data", "getDataTran")->name("get-data");
-                            Route::get("get-column", "getColumnTran")->name("get-column");
-                        });
+                        Route::get("", fn () => redirect()->route('admin.keuangan.saldo.saldo-va-close.index'));
+                        Route::get("{any?}", fn () => redirect()->route('admin.keuangan.saldo.saldo-va-close.index'))
+                            ->where('any', '.*');
                     });
-                Route::resource("saldo-virtual-account", \App\Http\Controllers\Admin\Keuangan\Saldo\SaldoVirtualAccountController::class)->names("saldo-virtual-account");
             });
 
             Route::prefix("hapus-tagihan")->name("hapus-tagihan.")->group(function () {

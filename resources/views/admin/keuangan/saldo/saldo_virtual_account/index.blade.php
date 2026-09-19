@@ -110,19 +110,6 @@
                                        placeholder="Masukkan NIS/NAMA Siswa" data-placeholder="Pilih siswa">
                             </div>
                         </div>
-                        <div class="row mb-4">
-                            <label class="col-sm-2 col-form-label" for="filter[va_type]">
-                                Jenis VA
-                            </label>
-                            <div class="col-sm-10">
-                                <select class="form-select" id="filter[va_type]" name="filter[va_type]"
-                                        data-control="select2" data-placeholder="Pilih Jenis VA">
-                                    <option value="all">Semua (Close + Open)</option>
-                                    <option value="close">VA Close (797789)</option>
-                                    <option value="open">VA Open / Cicil (797790)</option>
-                                </select>
-                            </div>
-                        </div>
                     </div>
                     <div class="row">
                         <div class="d-flex justify-content-center justify-content-md-end gap-4">
@@ -144,7 +131,7 @@
             </form>
         </div>
         <div id="saldo-va-action-toolbar" class="d-none">
-            <a href="{{ $dataTransaksiUrl ?? route('admin.keuangan.saldo.saldo-virtual-account.data-transaksi.index') }}"
+            <a href="{{ $dataTransaksiUrl ?? ($indexUrl ?? '#') }}"
                class="btn btn-primary btn-sm me-2"
                id="btn-data-transaksi">
                 <span class="ri-list-check-2 me-1"></span>
@@ -188,8 +175,8 @@
             pageLength: 10,
             lengthMenu: [10, 25, 50, 75, 100],
             buttons: ['copy', 'excel', 'pdf', 'print'],
-            excelFilename: 'saldo VA - export excel',
-            pdfFilename: 'saldo VA - export pdf',
+            excelFilename: '{{ ($dataTitle ?? "saldo VA") }} - export excel',
+            pdfFilename: '{{ ($dataTitle ?? "saldo VA") }} - export pdf',
             pdfOrientation: 'landscape',
             pdfPageSize: 'A3',
             pdfMargins: [8, 10, 8, 10],
@@ -199,7 +186,6 @@
             pdfColumnWidths: {
                 no: 28,
                 NOCUST: 55,
-                JENIS_VA: 70,
                 NOVA: 95,
                 NMCUST: '*',
                 CODE02: 48,
