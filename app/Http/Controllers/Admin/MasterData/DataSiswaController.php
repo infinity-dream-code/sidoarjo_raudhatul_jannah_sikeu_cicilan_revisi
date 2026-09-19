@@ -80,7 +80,8 @@ class DataSiswaController extends Controller
         return [
             ["data" => null, "name" => "no", "className" => "text-center", "columnType" => "row", "exportable" => true],
             ["data" => "nocust", "name" => "NIS", "searchable" => true, "orderable" => true, "exportable" => true],
-            ["data" => "va_spp", "name" => "VA SPP", "searchable" => false, "orderable" => false, "exportable" => true],
+            ["data" => "va_close", "name" => "VA Close", "searchable" => false, "orderable" => false, "exportable" => true],
+            ["data" => "va_open", "name" => "VA Open", "searchable" => false, "orderable" => false, "exportable" => true],
             ["data" => "NUM2ND", "name" => "No Pendaftaran", "searchable" => true, "orderable" => true, "exportable" => true],
             ["data" => "nmcust", "name" => "NAMA", "searchable" => true, "orderable" => true, "exportable" => true],
             ["data" => "CODE02", "name" => "Unit", "searchable" => true, "orderable" => true, "exportable" => true],
@@ -287,8 +288,14 @@ class DataSiswaController extends Controller
                 $link = $hasNis ? ($activeLinks->get($normalized)) : null;
                 $row["item_id"] = $item->CUSTID;
                 $row["nis"] = $item->nocust;
-                $row["va_spp"] = ($nis !== '' && $nis !== '-')
-                    ? scctcust::showVASpp($nis)
+                $nisForVa = ($nis !== '' && $nis !== '-')
+                    ? $nis
+                    : trim((string) ($item->NUM2ND ?? ''));
+                $row["va_close"] = ($nisForVa !== '' && $nisForVa !== '-')
+                    ? scctcust::showVA($nisForVa, 0)
+                    : '';
+                $row["va_open"] = ($nisForVa !== '' && $nisForVa !== '-')
+                    ? scctcust::showVA($nisForVa, 1)
                     : '';
                 $row["no_pendaftaran"] = $item->NUM2ND;
                 $row["nama"] = $item->nmcust;
