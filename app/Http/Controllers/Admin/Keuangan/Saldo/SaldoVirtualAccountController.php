@@ -331,7 +331,7 @@ class SaldoVirtualAccountController extends Controller
             ['data' => null, 'name' => 'no', 'columnType' => 'row', 'exportable' => true],
             ['data' => 'NOCUST', 'name' => 'NIS', 'searchable' => true, 'orderable' => true, 'exportable' => true],
             ['data' => 'JENIS_VA', 'name' => 'Jenis VA', 'searchable' => false, 'orderable' => false, 'exportable' => true],
-            ['data' => 'NOVA', 'name' => 'NO VA', 'exportable' => true],
+            ['data' => 'NOVA', 'name' => 'NO VA', 'searchable' => false, 'orderable' => false, 'exportable' => true],
             ['data' => 'NMCUST', 'name' => 'NAMA', 'searchable' => true, 'orderable' => true, 'exportable' => true],
             ['data' => 'CODE02', 'name' => 'Unit', 'searchable' => true, 'orderable' => true, 'exportable' => true],
             ['data' => 'DESC02', 'name' => 'Kelas', 'searchable' => true, 'orderable' => true, 'exportable' => true],
@@ -387,41 +387,43 @@ class SaldoVirtualAccountController extends Controller
             $columnSortOrder = $defaultOrder;
         }
 
-        if ($columnName === 'saldo') {
-            $columnName = 'saldo';
-        } elseif (!str_contains($columnName, '.')) {
-            $columnName = 'scctcust.' . $columnName;
+        $orderableMap = [
+            'NOCUST' => 'scctcust.NOCUST',
+            'NMCUST' => 'scctcust.NMCUST',
+            'CODE02' => 'scctcust.CODE02',
+            'DESC02' => 'scctcust.DESC02',
+            'DESC03' => 'scctcust.DESC03',
+            'NUM2ND' => 'scctcust.NUM2ND',
+            'DESC04' => 'scctcust.DESC04',
+            'saldo' => 'saldo_total',
+        ];
+        if (isset($orderableMap[$columnName])) {
+            $columnName = $orderableMap[$columnName];
+        } elseif (!str_contains((string) $columnName, '.')) {
+            $columnName = $defaultColumn;
         }
 
         $siswaFilter = '';
         $vaTypeFilter = 'all';
+        $needsSaldoFilter = false;
         $filter = $request->input('filter');
         if ($filter) {
             foreach ($filter as $key => $val) {
                 if (strtolower((string) $val) != 'all' && $val !== null && $val !== '') {
-                    $colName = match ($key) {
-                        'kelas' => 'scctcust.DESC02',
-                        'sekolah' => 'scctcust.CODE01',
-                        'siswa' => 'scctcust.NOCUST',
-                        'angkatan' => 'scctcust.DESC04',
-                        'saldo_positif' => '_saldo_positif',
-                        'va_type' => '_va_type',
-                        default => null
-                    };
                     if ($key == 'siswa') {
                         $siswaFilter = trim((string) $val);
                     } else if ($key == 'kelas') {
                         $filters[] = ['scctcust.CODE03', '=', $val];
                     } else if ($key === 'sekolah') {
                         $filters[] = ['scctcust.CODE01', '=', trim((string) $val)];
+                    } else if ($key === 'angkatan') {
+                        $filters[] = ['scctcust.DESC04', '=', $val];
                     } else if ($key === 'va_type') {
                         $vaTypeFilter = strtolower(trim((string) $val));
                     } else if ($key == 'saldo_positif') {
                         if ((string) $val === '1') {
-                            $filters[] = ['whereRaw', '(COALESCE(trx_close.kredit, 0) - COALESCE(trx_close.debet, 0) + COALESCE(trx_open.kredit, 0) - COALESCE(trx_open.debet, 0)) > 0', []];
+                            $needsSaldoFilter = true;
                         }
-                    } else {
-                        ($colName) && $filters[] = [$colName, '=', $val];
                     }
                 }
             }
@@ -456,50 +458,37 @@ class SaldoVirtualAccountController extends Controller
             'scctcust.DESC04',
         ]));
 
-        $prefixClose = scctcust::vaPrefixClose();
-        $prefixOpen = scctcust::vaPrefixOpen();
+        $prefixClose = preg_replace('/\D/', '', scctcust::vaPrefixClose()) ?: '797789';
+        $prefixOpen = preg_replace('/\D/', '', scctcust::vaPrefixOpen()) ?: '797790';
 
-        $saldoAggClose = $this->excludeManualCashScope(sccttran::query())
-            ->whereRaw("TRIM(COALESCE(CAST(REFFBANK AS CHAR), '')) LIKE ?", [$prefixClose . '%'])
-            ->select([
-                'CUSTID',
-                DB::raw('COALESCE(SUM(KREDIT), 0) AS kredit'),
-                DB::raw('COALESCE(SUM(DEBET), 0) AS debet'),
-            ])
-            ->groupBy('CUSTID');
+        $orderBySaldo = $columnName === 'saldo_total';
+        // Sort/filter by saldo butuh join penuh; load biasa cukup agregasi per halaman
+        $needsFullSaldoJoin = $orderBySaldo || $needsSaldoFilter;
 
-        $saldoAggOpen = $this->excludeManualCashScope(sccttran::query())
-            ->whereRaw("TRIM(COALESCE(CAST(REFFBANK AS CHAR), '')) LIKE ?", [$prefixOpen . '%'])
-            ->select([
-                'CUSTID',
-                DB::raw('COALESCE(SUM(KREDIT), 0) AS kredit'),
-                DB::raw('COALESCE(SUM(DEBET), 0) AS debet'),
-            ])
-            ->groupBy('CUSTID');
+        $saldoSelect = [
+            'CUSTID',
+            DB::raw("COALESCE(SUM(CASE WHEN TRIM(COALESCE(CAST(REFFBANK AS CHAR), '')) LIKE '{$prefixClose}%' THEN KREDIT ELSE 0 END), 0) AS kredit_close"),
+            DB::raw("COALESCE(SUM(CASE WHEN TRIM(COALESCE(CAST(REFFBANK AS CHAR), '')) LIKE '{$prefixClose}%' THEN DEBET ELSE 0 END), 0) AS debet_close"),
+            DB::raw("COALESCE(SUM(CASE WHEN TRIM(COALESCE(CAST(REFFBANK AS CHAR), '')) LIKE '{$prefixOpen}%' THEN KREDIT ELSE 0 END), 0) AS kredit_open"),
+            DB::raw("COALESCE(SUM(CASE WHEN TRIM(COALESCE(CAST(REFFBANK AS CHAR), '')) LIKE '{$prefixOpen}%' THEN DEBET ELSE 0 END), 0) AS debet_open"),
+        ];
 
-        $query = scctcust::query()
-            ->leftJoinSub($saldoAggClose, 'trx_close', function ($join) {
-                $join->on('trx_close.CUSTID', '=', 'scctcust.CUSTID');
-            })
-            ->leftJoinSub($saldoAggOpen, 'trx_open', function ($join) {
-                $join->on('trx_open.CUSTID', '=', 'scctcust.CUSTID');
-            });
-
-        if ($filterQuery) {
-            $query->where(function ($q) use ($filterQuery) {
-                $filterQuery($q);
-            });
-        }
-
-        if ($siswaFilter !== '') {
-            $this->applySiswaLookup($query, $siswaFilter);
-        }
-
-        if (!blank($searchValue)) {
-            $query->where(function ($q) use ($searchValue) {
-                $this->applySiswaLookup($q, $searchValue, false);
-            });
-        }
+        $applyCustFilters = function ($query) use ($filterQuery, $siswaFilter, $searchValue) {
+            if ($filterQuery) {
+                $query->where(function ($q) use ($filterQuery) {
+                    $filterQuery($q);
+                });
+            }
+            if ($siswaFilter !== '') {
+                $this->applySiswaLookup($query, $siswaFilter);
+            }
+            if (!blank($searchValue)) {
+                $query->where(function ($q) use ($searchValue) {
+                    $this->applySiswaLookup($q, $searchValue, false);
+                });
+            }
+            return $query;
+        };
 
         $scopedCodesForCount = $this->resolveScopedSchoolCodes();
         $totalRecords = Cache::remember('scctcust_total_count_' . md5(json_encode($scopedCodesForCount)), 600, function () use ($scopedCodesForCount) {
@@ -508,62 +497,127 @@ class SaldoVirtualAccountController extends Controller
             })->count('CUSTID');
         });
 
-        $totalRecordswithFilter = (clone $query)->count('scctcust.CUSTID');
+        if ($needsFullSaldoJoin) {
+            $saldoAgg = $this->excludeManualCashScope(sccttran::query())
+                ->select($saldoSelect)
+                ->groupBy('CUSTID');
 
-        // Ambil siswa dulu; tiap siswa dipecah jadi baris Close dan/atau Open
-        $pageStudents = (clone $query)
-            ->select($select)
-            ->addSelect([
-                DB::raw('COALESCE(trx_close.kredit, 0) AS kredit_close'),
-                DB::raw('COALESCE(trx_close.debet, 0) AS debet_close'),
-                DB::raw('(COALESCE(trx_close.kredit, 0) - COALESCE(trx_close.debet, 0)) AS saldo_close'),
-                DB::raw('COALESCE(trx_open.kredit, 0) AS kredit_open'),
-                DB::raw('COALESCE(trx_open.debet, 0) AS debet_open'),
-                DB::raw('(COALESCE(trx_open.kredit, 0) - COALESCE(trx_open.debet, 0)) AS saldo_open'),
-            ])
-            ->orderBy($columnName === 'saldo'
-                ? DB::raw('(COALESCE(trx_close.kredit, 0) - COALESCE(trx_close.debet, 0) + COALESCE(trx_open.kredit, 0) - COALESCE(trx_open.debet, 0))')
-                : $columnName, $columnSortOrder)
-            ->skip($start)
-            ->take($rowperpage)
-            ->get();
+            $query = scctcust::query()
+                ->leftJoinSub($saldoAgg, 'trx', function ($join) {
+                    $join->on('trx.CUSTID', '=', 'scctcust.CUSTID');
+                });
+            $applyCustFilters($query);
+
+            if ($needsSaldoFilter) {
+                $query->whereRaw(
+                    '((COALESCE(trx.kredit_close, 0) - COALESCE(trx.debet_close, 0)) + (COALESCE(trx.kredit_open, 0) - COALESCE(trx.debet_open, 0))) > 0'
+                );
+            }
+
+            $totalRecordswithFilter = (clone $query)->count('scctcust.CUSTID');
+
+            $orderSql = $orderBySaldo
+                ? DB::raw('(COALESCE(trx.kredit_close, 0) - COALESCE(trx.debet_close, 0) + COALESCE(trx.kredit_open, 0) - COALESCE(trx.debet_open, 0))')
+                : $columnName;
+
+            $pageStudents = $query
+                ->select($select)
+                ->addSelect([
+                    DB::raw('COALESCE(trx.kredit_close, 0) AS kredit_close'),
+                    DB::raw('COALESCE(trx.debet_close, 0) AS debet_close'),
+                    DB::raw('(COALESCE(trx.kredit_close, 0) - COALESCE(trx.debet_close, 0)) AS saldo_close'),
+                    DB::raw('COALESCE(trx.kredit_open, 0) AS kredit_open'),
+                    DB::raw('COALESCE(trx.debet_open, 0) AS debet_open'),
+                    DB::raw('(COALESCE(trx.kredit_open, 0) - COALESCE(trx.debet_open, 0)) AS saldo_open'),
+                ])
+                ->orderBy($orderSql, $columnSortOrder)
+                ->skip((int) $start)
+                ->take(max(1, (int) $rowperpage))
+                ->get();
+        } else {
+            // Path ringan: ambil siswa dulu, baru hitung saldo hanya untuk CUSTID di halaman ini
+            $countQuery = scctcust::query();
+            $applyCustFilters($countQuery);
+            $totalRecordswithFilter = $countQuery->count('scctcust.CUSTID');
+
+            $pageStudents = $applyCustFilters(scctcust::query())
+                ->select($select)
+                ->orderBy($columnName, $columnSortOrder)
+                ->skip((int) $start)
+                ->take(max(1, (int) $rowperpage))
+                ->get();
+
+            $custIds = $pageStudents->pluck('CUSTID')->filter()->values()->all();
+            $saldoByCust = collect();
+            if (!empty($custIds)) {
+                $saldoByCust = $this->excludeManualCashScope(sccttran::query())
+                    ->whereIn('CUSTID', $custIds)
+                    ->select($saldoSelect)
+                    ->groupBy('CUSTID')
+                    ->get()
+                    ->keyBy('CUSTID');
+            }
+
+            foreach ($pageStudents as $item) {
+                $s = $saldoByCust->get($item->CUSTID);
+                $kreditClose = (int) ($s->kredit_close ?? 0);
+                $debetClose = (int) ($s->debet_close ?? 0);
+                $kreditOpen = (int) ($s->kredit_open ?? 0);
+                $debetOpen = (int) ($s->debet_open ?? 0);
+                $item->setAttribute('kredit_close', $kreditClose);
+                $item->setAttribute('debet_close', $debetClose);
+                $item->setAttribute('saldo_close', $kreditClose - $debetClose);
+                $item->setAttribute('kredit_open', $kreditOpen);
+                $item->setAttribute('debet_open', $debetOpen);
+                $item->setAttribute('saldo_open', $kreditOpen - $debetOpen);
+            }
+        }
 
         $vaModes = match ($vaTypeFilter) {
-            'open', '1', 'cicil' => [[1, 'Open (Cicil)', 'saldo_open']],
-            'close', '0' => [[0, 'Close', 'saldo_close']],
+            'open', '1', 'cicil' => [[1, 'Open (Cicil)', 'saldo_open', 'kredit_open', 'debet_open']],
+            'close', '0' => [[0, 'Close', 'saldo_close', 'kredit_close', 'debet_close']],
             default => [
-                [0, 'Close', 'saldo_close'],
-                [1, 'Open (Cicil)', 'saldo_open'],
+                [0, 'Close', 'saldo_close', 'kredit_close', 'debet_close'],
+                [1, 'Open (Cicil)', 'saldo_open', 'kredit_open', 'debet_open'],
             ],
         };
 
         $records = [];
         foreach ($pageStudents as $item) {
-            $nis = ($item->NOCUST && $item->NOCUST != '-') ? $item->NOCUST : $item->NUM2ND;
-            foreach ($vaModes as [$flag, $label, $saldoKey]) {
-                $row = $item->replicate();
-                $row->item_id = $item->CUSTID;
-                $row->print = true;
-                $row->JENIS_VA = $label;
-                $row->va_type = $flag === 1 ? 'open' : 'close';
-                $row->NOVA = scctcust::showVA($nis, $flag);
-                $row->saldo = (int) ($item->{$saldoKey} ?? 0);
-                $row->kredit = (int) ($flag === 1 ? $item->kredit_open : $item->kredit_close);
-                $row->debet = (int) ($flag === 1 ? $item->debet_open : $item->debet_close);
-                unset($row->CUSTID);
-                $records[] = $row->toArray();
+            $attrs = $item->getAttributes();
+            $nis = (!empty($attrs['NOCUST']) && $attrs['NOCUST'] !== '-')
+                ? $attrs['NOCUST']
+                : ($attrs['NUM2ND'] ?? '');
+            $custId = $attrs['CUSTID'] ?? $item->CUSTID ?? null;
+
+            foreach ($vaModes as [$flag, $label, $saldoKey, $kreditKey, $debetKey]) {
+                $records[] = [
+                    'item_id' => $custId,
+                    'print' => true,
+                    'NOCUST' => $attrs['NOCUST'] ?? null,
+                    'NUM2ND' => $attrs['NUM2ND'] ?? null,
+                    'NMCUST' => $attrs['NMCUST'] ?? null,
+                    'CODE02' => $attrs['CODE02'] ?? null,
+                    'DESC02' => $attrs['DESC02'] ?? null,
+                    'DESC03' => $attrs['DESC03'] ?? null,
+                    'DESC04' => $attrs['DESC04'] ?? null,
+                    'JENIS_VA' => $label,
+                    'va_type' => $flag === 1 ? 'open' : 'close',
+                    'NOVA' => scctcust::showVA($nis, $flag),
+                    'saldo' => (int) ($attrs[$saldoKey] ?? 0),
+                    'kredit' => (int) ($attrs[$kreditKey] ?? 0),
+                    'debet' => (int) ($attrs[$debetKey] ?? 0),
+                ];
             }
         }
 
-        // Count baris tampilan (siswa x jenis VA)
         $multiplier = count($vaModes);
-        $response = array(
-            "draw" => intval($draw),
-            "recordsTotal" => $totalRecords * $multiplier,
-            "recordsFiltered" => $totalRecordswithFilter * $multiplier,
-            "data" => $records,
-        );
-        return response()->json($response);
+        return response()->json([
+            'draw' => intval($draw),
+            'recordsTotal' => $totalRecords * $multiplier,
+            'recordsFiltered' => $totalRecordswithFilter * $multiplier,
+            'data' => $records,
+        ]);
     }
 
     public function getColumnTran()
