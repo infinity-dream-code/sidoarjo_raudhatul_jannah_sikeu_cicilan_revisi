@@ -218,8 +218,7 @@ class UploadTagihanPMBExcelController extends Controller
                 $urut = $tagihanSiswaTerbaru ? $tagihanSiswaTerbaru['FUrutan'] + 1 : 1;
 
                 $isNyicil = (int) ($tagihan->isINSTALLMENT ?? 0);
-                $nisForVa = method_exists($siswa, 'rawNis') ? $siswa->rawNis() : trim((string) ($siswa->NOCUST ?? $siswa->nocust ?? $item['nodaftar']));
-                $novaFull = scctcust::showVA($nisForVa !== '' ? $nisForVa : $item['nodaftar'], $isNyicil);
+                $vaCode = scctcust::vaBillCode($isNyicil);
 
                 scctbill::create([
                     'CUSTID' => $siswa->CUSTID,
@@ -236,7 +235,7 @@ class UploadTagihanPMBExcelController extends Controller
                     'BILLCD' => date('Y') . '/i' . date('m') . '-' . ($urut + 1),
                     'INSTALLMENT' => 0,
                     'isINSTALLABLE' => $isNyicil,
-                    'VA' => $novaFull,
+                    'VA' => $vaCode,
                 ]);
             }
 

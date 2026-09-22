@@ -322,10 +322,10 @@ class UploadTagihanExcelController extends Controller
                     $dirty = true;
                 }
 
-                // WAJIB: kolom VA di scctbill untuk BuilderPaymentBill_MultiVAPerTagihan
-                $novaFull = scctcust::showVA($nocust, $isNyicil);
-                if ($novaFull !== '' && (string) ($newBill->VA ?? '') !== $novaFull) {
-                    $newBill->VA = $novaFull;
+                // Kolom scctbill.VA pendek (89/90) — jangan isi nomor VA 16 digit
+                $vaCode = scctcust::vaBillCode($isNyicil);
+                if ((string) ($newBill->VA ?? '') !== $vaCode) {
+                    $newBill->VA = $vaCode;
                     $dirty = true;
                 }
 

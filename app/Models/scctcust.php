@@ -54,6 +54,21 @@ class scctcust extends Model
             : self::vaPrefixClose();
     }
 
+    /**
+     * Kode pendek untuk kolom scctbill.VA (VARCHAR pendek).
+     * Close → 89 (dari 797789), Open → 90 (dari 797790).
+     * Jangan simpan nomor VA penuh 16 digit di sini — akan terpotong.
+     */
+    public static function vaBillCode(mixed $isInstallable): string
+    {
+        $prefix = self::vaPrefixForInstallable($isInstallable);
+        if ($prefix === '') {
+            return ((int) $isInstallable === 1) ? '90' : '89';
+        }
+
+        return substr($prefix, -2);
+    }
+
     public static function vaTotalLength(): int
     {
         return 16;
