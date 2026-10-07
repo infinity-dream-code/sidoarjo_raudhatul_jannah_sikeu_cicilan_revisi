@@ -104,7 +104,7 @@
                         </li>
                         <li class="menu-item {{ Request::is(['admin/keuangan/tagihan-siswa/perpanjang-expired*']) ? 'active' : '' }}">
                             <a href="{{ route('admin.keuangan.tagihan-siswa.perpanjang-expired.index') }}" class="menu-link">
-                                <div data-i18n="Perpanjang Expired">Perpanjang Expired</div>
+                                <div data-i18n="Perpanjang Expired">Edit & Perpanjang Expired</div>
                             </a>
                         </li>
                         @if($fullMasterData)
