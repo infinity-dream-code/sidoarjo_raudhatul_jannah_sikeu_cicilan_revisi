@@ -70,5 +70,6 @@ class Kernel extends HttpKernel
         'check.session' => \App\Http\Middleware\CheckSession::class,
         'check.roles' => \App\Http\Middleware\CheckUserRoles::class,
         'check.permissions' => \App\Http\Middleware\CheckUserPermissions::class,
+        'master.full' => \App\Http\Middleware\EnsureFullMasterDataRole::class,
     ];
 }

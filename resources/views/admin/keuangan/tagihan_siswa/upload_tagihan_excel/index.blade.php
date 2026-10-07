@@ -151,6 +151,7 @@
                             <li class="list-group-item list-group-timeline-danger">Kolom <span class="fw-bold">KETERANGAN</span> = nama tagihan (tidak boleh kosong).</li>
                             <li class="list-group-item list-group-timeline-danger">Kolom <span class="fw-bold">CICIL</span>: isi <span class="fw-bold">1</span> = bisa dicicil, <span class="fw-bold">0</span> = tidak bisa dicicil.</li>
                             <li class="list-group-item list-group-timeline-danger">NIS sama boleh untuk beberapa baris tagihan (beda <span class="fw-bold">KETERANGAN / NOMINAL / CICIL</span>). Jika data siswa lain berbeda untuk NIS yang sama (mis. NAMA beda), pratinjau menampilkan pesan perbaiki data dan simpan ditolak.</li>
+                            <li class="list-group-item list-group-timeline-danger">Kolom <span class="fw-bold">ANGKATAN</span> yang belum ada di master tahun akademik akan dibuat otomatis saat simpan (contoh: 2029/2030).</li>
                             <li class="list-group-item list-group-timeline-danger">Satu upload mengisi data siswa (<span class="fw-bold">scctcust</span>) dan tagihan (<span class="fw-bold">scctbill</span>) sekaligus. Periode otomatis bulan berjalan.</li>
                             <li class="list-group-item list-group-timeline-danger">Hapus baris contoh (NIS <span class="fw-bold">99999999…</span>) sebelum import.</li>
                             <li class="list-group-item list-group-timeline-danger">Contoh file:

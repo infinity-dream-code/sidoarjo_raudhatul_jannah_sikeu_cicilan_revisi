@@ -2,7 +2,6 @@
 
 namespace App\Imports\Keuangan\TagihanSiswa;
 
-use App\Models\mst_thn_aka;
 use App\Support\ExcelImportSheet;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -89,13 +88,6 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
             }
         }
 
-        $thnAkaSet = array_flip(
-            mst_thn_aka::pluck('thn_aka')
-                ->map(fn ($v) => trim((string) $v))
-                ->filter(fn ($v) => $v !== '')
-                ->all()
-        );
-
         $processedData = [];
 
         foreach ($parsedRows as $rowData) {
@@ -139,10 +131,8 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
             if ($rowData['angkatan'] === '') {
                 $rowData['status'] = 0;
                 $status_ket = $this->appendKet($status_ket, 'ANGKATAN tidak boleh kosong');
-            } elseif (!isset($thnAkaSet[$rowData['angkatan']])) {
-                $rowData['status'] = 0;
-                $status_ket = $this->appendKet($status_ket, "ANGKATAN {$rowData['angkatan']} tidak ditemukan di master tahun akademik");
             }
+            // ANGKATAN baru (belum di master) akan dibuat otomatis saat simpan.
 
             if ($rowData['nama_tagihan'] === '') {
                 $rowData['status'] = 0;

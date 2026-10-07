@@ -227,6 +227,7 @@ class UploadTagihanExcelController extends Controller
 
         try {
             EnsureImportSchoolClass::resetMemo();
+            mst_thn_aka::resetEnsureMemo();
 
             $skippedInactive = [];
             $failed = [];
@@ -245,10 +246,10 @@ class UploadTagihanExcelController extends Controller
                     continue;
                 }
 
-                $thnAka = mst_thn_aka::where('thn_aka', $item['angkatan'] ?? null)->first();
+                $thnAka = mst_thn_aka::ensure((string) ($item['angkatan'] ?? ''));
                 if (!$thnAka) {
                     return response()->json([
-                        'message' => "ANGKATAN tidak valid untuk NIS {$nis}. Perbaiki data lalu upload ulang.",
+                        'message' => "ANGKATAN kosong/tidak valid untuk NIS {$nis}. Perbaiki data lalu upload ulang.",
                     ], 422);
                 }
 

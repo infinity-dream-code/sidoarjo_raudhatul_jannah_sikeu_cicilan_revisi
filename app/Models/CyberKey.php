@@ -26,6 +26,7 @@ class CyberKey extends Model implements AuthenticatableContract
         "kel",
         "urut",
         "password",
+        "role",
     ];
 
     protected $hidden = ["password"];
@@ -81,7 +82,16 @@ class CyberKey extends Model implements AuthenticatableContract
             return false;
         }
 
-        if (in_array($role, ["admin", "super-admin"], true)) {
+        // Kompatibilitas middleware check.roles:admin — user cyber_key yang login
+        // dianggap boleh akses panel; pembatasan menu pakai canAccessFullMasterData().
+        if (in_array($role, ["admin", "super-admin", "super_admin"], true)) {
+            return true;
+        }
+
+        $normalized = $this->normalizedMenuRole();
+        $wanted = strtolower(str_replace(["-", " "], "_", trim($role)));
+
+        if ($normalized !== "" && $normalized === $wanted) {
             return true;
         }
 
@@ -97,6 +107,33 @@ class CyberKey extends Model implements AuthenticatableContract
         }
 
         return false;
+    }
+
+    /**
+     * Role menu dari kolom cyber_key.role (helpdesk / super_admin / admin / kosong).
+     */
+    public function normalizedMenuRole(): string
+    {
+        $role = strtolower(trim((string) ($this->attributes["role"] ?? $this->role ?? "")));
+        $role = str_replace(["-", " "], "_", $role);
+
+        return $role;
+    }
+
+    /**
+     * helpdesk / super_admin: menu master data lengkap.
+     */
+    public function canAccessFullMasterData(): bool
+    {
+        return in_array($this->normalizedMenuRole(), ["helpdesk", "super_admin"], true);
+    }
+
+    /**
+     * admin sekolah atau role kosong: master data terbatas.
+     */
+    public function isSchoolLimitedMasterData(): bool
+    {
+        return !$this->canAccessFullMasterData();
     }
 
     public function getRememberToken(): ?string

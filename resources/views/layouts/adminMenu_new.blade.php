@@ -1,3 +1,8 @@
+@php
+    $fullMasterData = auth()->check()
+        && method_exists(auth()->user(), 'canAccessFullMasterData')
+        && auth()->user()->canAccessFullMasterData();
+@endphp
 <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
     <div class="app-brand demo">
         <a href="{{route('admin.index')}}" class="app-brand-link">
@@ -37,6 +42,7 @@
                 <div data-i18n="Master Data">Master Data</div>
             </a>
             <ul class="menu-sub">
+                @if($fullMasterData)
                 <li class="menu-item {{ Request::is(['admin/master-data/master-kelas*']) ? 'active' : '' }}">
                     <a href="{{ route('admin.master-data.master-kelas.index') }}" class="menu-link">
                         <div data-i18n="Master Kelas">Master Kelas</div>
@@ -57,6 +63,7 @@
                         <div data-i18n="Export Import Data">Export Import Data</div>
                     </a>
                 </li>
+                @endif
                 <li class="menu-item {{ Request::is(['admin/master-data/data-siswa*']) ? 'active' : '' }}">
                     <a href="{{ route('admin.master-data.data-siswa.index') }}" class="menu-link">
                         <div data-i18n="Data Siswa">Data Siswa</div>
