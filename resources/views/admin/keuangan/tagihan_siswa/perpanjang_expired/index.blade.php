@@ -56,7 +56,16 @@
         <div class="card-body">
             <form id="filter-form">
                 <div class="row g-3">
-                    <div class="col-md-3">
+                    <div class="col-md-2">
+                        <label class="form-label" for="filter_expired">Expired</label>
+                        <select class="form-select" id="filter_expired" name="filter[expired]" data-control="select2">
+                            <option value="ya" selected>Ya</option>
+                            <option value="tidak">Tidak</option>
+                            <option value="all">Semua</option>
+                        </select>
+                        <div class="form-text">Dicek ke <code>ExpDate</code> vs hari ini.</div>
+                    </div>
+                    <div class="col-md-2">
                         <label class="form-label" for="filter_periode">Periode</label>
                         <select class="form-select" id="filter_periode" name="filter[periode]" data-control="select2">
                             <option value="all">Semua</option>
@@ -65,7 +74,7 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label" for="filter_kelas">Kelas</label>
                         <select class="form-select" id="filter_kelas" name="filter[kelas]" data-control="select2">
                             <option value="all">Semua</option>
@@ -107,6 +116,7 @@
                         <th>Periode</th>
                         <th class="text-end">Sisa</th>
                         <th>Expired Date</th>
+                        <th>Status Expired</th>
                         <th>Terlambat</th>
                     </tr>
                     </thead>
@@ -227,6 +237,7 @@
                     url: dataUrl,
                     data: function (d) {
                         d.filter = {
+                            expired: $('#filter_expired').val(),
                             periode: $('#filter_periode').val(),
                             kelas: $('#filter_kelas').val(),
                             siswa: $('#filter_siswa').val(),
@@ -259,9 +270,17 @@
                     },
                     {
                         data: 'ExpDate',
-                        render: (d) => d
-                            ? `${d} <span class="badge bg-danger">EXPIRED</span>`
-                            : '-',
+                        defaultContent: '-',
+                    },
+                    {
+                        data: 'is_expired',
+                        className: 'text-center',
+                        render: function (d, t, row) {
+                            if (d) {
+                                return '<span class="badge bg-danger">Ya</span>';
+                            }
+                            return '<span class="badge bg-success">Tidak</span>';
+                        },
                     },
                     {
                         data: 'days_overdue',
@@ -278,7 +297,7 @@
                     lengthMenu: 'Tampil _MENU_',
                     info: 'Menampilkan _START_ sampai _END_ dari _TOTAL_ entri',
                     infoEmpty: 'Tidak ada data',
-                    zeroRecords: 'Tidak ada tagihan expired',
+                    zeroRecords: 'Tidak ada data tagihan',
                     paginate: { previous: 'Sebelumnya', next: 'Selanjutnya' },
                 },
                 drawCallback: function () {

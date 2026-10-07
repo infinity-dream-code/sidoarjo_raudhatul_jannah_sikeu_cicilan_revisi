@@ -53,7 +53,6 @@ class PerpanjangExpiredController extends Controller
                 ->whereNotNull('BILLAC')
                 ->where('BILLAC', '!=', '')
                 ->whereNotNull('ExpDate')
-                ->where('ExpDate', '<', now())
                 ->where('FSTSBolehBayar', 1)
                 ->distinct()
                 ->orderBy('BILLAC', 'desc')
@@ -74,8 +73,10 @@ class PerpanjangExpiredController extends Controller
         $length = (int) $request->get('length', 25);
         $search = trim((string) ($request->input('search.value') ?? ''));
         $filter = $request->input('filter', []);
+        $expiredFilter = $this->normalizeExpiredFilter($filter['expired'] ?? 'ya');
 
-        $query = $this->baseExpiredQuery();
+        $query = $this->baseBillQuery();
+        $this->applyExpiredFilter($query, $expiredFilter);
 
         if (!blank($search)) {
             $sanitize = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $search);
@@ -121,7 +122,9 @@ class PerpanjangExpiredController extends Controller
             }
         }
 
-        $recordsTotal = (clone $this->baseExpiredQuery())->count();
+        $totalQuery = $this->baseBillQuery();
+        $this->applyExpiredFilter($totalQuery, $expiredFilter);
+        $recordsTotal = (clone $totalQuery)->count();
         $recordsFiltered = (clone $query)->count();
 
         $rows = $query
@@ -131,9 +134,11 @@ class PerpanjangExpiredController extends Controller
             ->take($length === -1 ? $recordsFiltered : max(1, $length))
             ->get();
 
-        $data = $rows->map(function ($row) {
+        $today = Carbon::now()->startOfDay();
+        $data = $rows->map(function ($row) use ($today) {
             $exp = $row->ExpDate ? Carbon::parse($row->ExpDate) : null;
-            $daysOver = $exp ? $exp->startOfDay()->diffInDays(Carbon::now()->startOfDay(), false) : null;
+            $isExpired = $exp ? $exp->lt($today) : false;
+            $daysOver = $exp ? $exp->copy()->startOfDay()->diffInDays($today, false) : null;
 
             return [
                 'AA' => $row->AA,
@@ -151,6 +156,8 @@ class PerpanjangExpiredController extends Controller
                 'BILLPAID' => (int) ($row->BILLPAID ?? 0),
                 'ExpDate' => $exp ? $exp->format('d-m-Y') : null,
                 'ExpDate_raw' => $exp ? $exp->format('Y-m-d H:i:s') : null,
+                'is_expired' => $isExpired,
+                'expired_label' => $isExpired ? 'Ya' : 'Tidak',
                 'days_overdue' => $daysOver !== null && $daysOver > 0 ? (int) $daysOver : 0,
             ];
         })->values();
@@ -208,7 +215,7 @@ class PerpanjangExpiredController extends Controller
             ->whereIn('AA', $ids)
             ->where('FSTSBolehBayar', 1)
             ->whereNotNull('ExpDate')
-            ->where('ExpDate', '<', now());
+            ->where('ExpDate', '<', Carbon::now()->startOfDay());
 
         $this->applyBelumLunasScope($query);
 
@@ -283,7 +290,7 @@ class PerpanjangExpiredController extends Controller
         }
     }
 
-    private function baseExpiredQuery()
+    private function baseBillQuery()
     {
         $query = scctbill::query()
             ->join('scctcust', 'scctcust.CUSTID', '=', 'scctbill.CUSTID')
@@ -304,13 +311,43 @@ class PerpanjangExpiredController extends Controller
             ])
             ->where('scctbill.FSTSBolehBayar', 1)
             ->whereNotNull('scctbill.ExpDate')
-            ->where('scctbill.ExpDate', '<', now())
             ->whereRaw('CAST(COALESCE(scctcust.STCUST, 0) AS SIGNED) = 1');
 
         $this->applyBelumLunasScope($query);
         SchoolScope::apply($query, 'scctcust', $this->sekolah);
 
         return $query;
+    }
+
+    /**
+     * Expired = ExpDate < awal hari ini (contoh: ExpDate 20 Sep, hari ini 10 Okt → expired).
+     */
+    private function applyExpiredFilter($query, string $expiredFilter): void
+    {
+        $todayStart = Carbon::now()->startOfDay();
+
+        if ($expiredFilter === 'ya') {
+            $query->where('scctbill.ExpDate', '<', $todayStart);
+            return;
+        }
+
+        if ($expiredFilter === 'tidak') {
+            $query->where('scctbill.ExpDate', '>=', $todayStart);
+            return;
+        }
+
+        // all: tidak filter expired status
+    }
+
+    private function normalizeExpiredFilter(mixed $value): string
+    {
+        $normalized = strtolower(trim((string) ($value ?? 'ya')));
+
+        return match ($normalized) {
+            'tidak', '0', 'no', 'belum' => 'tidak',
+            'all', 'semua' => 'all',
+            default => 'ya',
+        };
     }
 
     private function applyBelumLunasScope($query, string $billTable = 'scctbill'): void
