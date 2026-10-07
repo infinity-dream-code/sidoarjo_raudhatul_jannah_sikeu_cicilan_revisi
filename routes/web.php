@@ -194,6 +194,7 @@ Route::prefix("admin")
 
                 Route::prefix("aktifasi-pembayaran-bank")
                     ->name("aktifasi-pembayaran-bank.")
+                    ->middleware("master.full")
                     ->controller(\App\Http\Controllers\Admin\Keuangan\TagihanSiswa\AktifasiPembayaranBankController::class)
                     ->group(function () {
                         Route::get("", "index")->name("index");

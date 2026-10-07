@@ -122,6 +122,8 @@ class PerpanjangExpiredController extends Controller
             }
         }
 
+        $this->applyFtglTagihanRange($query, $filter['tgl_dari'] ?? null, $filter['tgl_sampai'] ?? null);
+
         $totalQuery = $this->baseBillQuery();
         $this->applyExpiredFilter($totalQuery, $expiredFilter);
         $recordsTotal = (clone $totalQuery)->count();
@@ -348,6 +350,31 @@ class PerpanjangExpiredController extends Controller
             'all', 'semua' => 'all',
             default => 'ya',
         };
+    }
+
+    /**
+     * Filter rentang tanggal buat tagihan (scctbill.FTGLTagihan).
+     */
+    private function applyFtglTagihanRange($query, mixed $dari, mixed $sampai): void
+    {
+        $dari = trim((string) ($dari ?? ''));
+        $sampai = trim((string) ($sampai ?? ''));
+
+        if ($dari !== '') {
+            try {
+                $query->where('scctbill.FTGLTagihan', '>=', Carbon::parse($dari)->startOfDay());
+            } catch (\Throwable) {
+                // ignore invalid date
+            }
+        }
+
+        if ($sampai !== '') {
+            try {
+                $query->where('scctbill.FTGLTagihan', '<=', Carbon::parse($sampai)->endOfDay());
+            } catch (\Throwable) {
+                // ignore invalid date
+            }
+        }
     }
 
     private function applyBelumLunasScope($query, string $billTable = 'scctbill'): void

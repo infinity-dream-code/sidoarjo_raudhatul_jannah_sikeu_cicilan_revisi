@@ -66,6 +66,15 @@
                         <div class="form-text">Dicek ke <code>ExpDate</code> vs hari ini.</div>
                     </div>
                     <div class="col-md-2">
+                        <label class="form-label" for="filter_tgl_dari">Tgl Dari</label>
+                        <input type="date" class="form-control" id="filter_tgl_dari" name="filter[tgl_dari]">
+                        <div class="form-text">Berdasarkan <code>FTGLTagihan</code>.</div>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label" for="filter_tgl_sampai">Tgl Sampai</label>
+                        <input type="date" class="form-control" id="filter_tgl_sampai" name="filter[tgl_sampai]">
+                    </div>
+                    <div class="col-md-2">
                         <label class="form-label" for="filter_periode">Periode</label>
                         <select class="form-select" id="filter_periode" name="filter[periode]" data-control="select2">
                             <option value="all">Semua</option>
@@ -74,7 +83,7 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label" for="filter_kelas">Kelas</label>
                         <select class="form-select" id="filter_kelas" name="filter[kelas]" data-control="select2">
                             <option value="all">Semua</option>
@@ -85,12 +94,12 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label" for="filter_siswa">Siswa</label>
                         <input type="text" class="form-control" id="filter_siswa" name="filter[siswa]"
                                placeholder="NIS / Nama">
                     </div>
-                    <div class="col-md-2 d-flex align-items-end gap-2">
+                    <div class="col-md-2 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary w-100">
                             <i class="ri-search-line me-1"></i> Cari
                         </button>
@@ -238,6 +247,8 @@
                     data: function (d) {
                         d.filter = {
                             expired: $('#filter_expired').val(),
+                            tgl_dari: $('#filter_tgl_dari').val(),
+                            tgl_sampai: $('#filter_tgl_sampai').val(),
                             periode: $('#filter_periode').val(),
                             kelas: $('#filter_kelas').val(),
                             siswa: $('#filter_siswa').val(),

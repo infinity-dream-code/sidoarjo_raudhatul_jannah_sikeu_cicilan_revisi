@@ -107,11 +107,13 @@
                                 <div data-i18n="Perpanjang Expired">Perpanjang Expired</div>
                             </a>
                         </li>
+                        @if($fullMasterData)
                         <li class="menu-item {{ Request::is(['admin/keuangan/tagihan-siswa/aktifasi-pembayaran-bank*']) ? 'active' : '' }}">
                             <a href="{{ route('admin.keuangan.tagihan-siswa.aktifasi-pembayaran-bank.index') }}" class="menu-link">
                                 <div data-i18n="Aktifasi Pembayaran Bank">Aktifasi Pembayaran Bank</div>
                             </a>
                         </li>
+                        @endif
                     </ul>
                 </li>
                 <li class="menu-item {{ Request::is(['admin/keuangan/manual-pembayaran*']) ? 'active' : '' }}">
