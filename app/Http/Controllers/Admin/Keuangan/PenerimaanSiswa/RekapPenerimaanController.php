@@ -393,20 +393,9 @@ class RekapPenerimaanController extends Controller
                                 $filters[] = [$colName, $operator, (string) $periodeVal];
                             }
                         } else if ($key == 'kelas') {
-                            $kelasValues = is_array($val) ? $val : [$val];
-                            $kelasPairs = [];
-                            foreach ($kelasValues as $kelasValue) {
-                                $kelasPart = explode("~", (string) $kelasValue);
-                                if (count($kelasPart) == 3) {
-                                    $kelasPairs[] = [
-                                        'CODE01' => $kelasPart[0],
-                                        'DESC02' => $kelasPart[1],
-                                        'CODE03' => $kelasPart[2],
-                                    ];
-                                }
-                            }
-                            if (!empty($kelasPairs)) {
-                                $filters[] = ['_kelas_multi', '=', $kelasPairs];
+                            $kelasText = $this->normalizeFreeTextFilter($val);
+                            if ($kelasText !== '') {
+                                $filters[] = ['_kelas_like', '=', $kelasText];
                             }
                         } else if ($key == 'post') {
                             $array = array_filter($val, function ($value) {
@@ -418,17 +407,15 @@ class RekapPenerimaanController extends Controller
                         } elseif ($key == 'siswa') {
                             ($colName) && $filters[] = [$colName, '=', $val];
                         } elseif ($key == 'nama_tagihan') {
-                            if (is_array($val)) {
-                                $array = array_values(array_filter($val, fn($item) => !is_null($item) && $item !== '' && strtolower((string) $item) !== 'all'));
-                                if (!empty($array)) {
-                                    ($colName) && $filters[] = [$colName, 'in', $array];
-                                }
-                            } else {
-                                $val = '%' . trim((string) $val) . '%';
-                                ($colName) && $filters[] = [$colName, 'like', $val];
+                            $namaTagihan = $this->normalizeFreeTextFilter($val);
+                            if ($namaTagihan !== '' && $colName) {
+                                $filters[] = [$colName, 'like', '%' . $this->escapeLike($namaTagihan) . '%'];
                             }
                         } else if ($key === 'unit') {
-                            $filters[] = ['_sekolah', '=', $val];
+                            $unitText = $this->normalizeFreeTextFilter($val);
+                            if ($unitText !== '') {
+                                $filters[] = ['_unit_like', '=', $unitText];
+                            }
                         } elseif ($key === 'bank') {
                             if ((string) $val === '6') {
                                 $filters[] = ['_android_bill', '=', '1'];
@@ -450,18 +437,17 @@ class RekapPenerimaanController extends Controller
                 if (!empty($filters)) {
                     $filterQuery = function ($query) use ($filters) {
                         foreach ($filters as $filter) {
-                            if (($filter[0] ?? null) === '_sekolah') {
-                                $value = $filter[2] ?? null;
-                                if (!blank($value)) {
-                                    $query->where(function ($q) use ($value) {
-                                        $q->whereRaw('TRIM(CAST(scctcust.CODE02 AS CHAR)) = ?', [trim((string) $value)]);
-                                    });
-                                }
+                            if (($filter[0] ?? null) === '_sekolah' || ($filter[0] ?? null) === '_unit_like') {
+                                $this->applyUnitLikeFilter($query, $filter[2] ?? null);
+                                continue;
+                            }
+                            if (($filter[0] ?? null) === '_kelas_like') {
+                                $this->applyKelasLikeFilter($query, $filter[2] ?? null);
                                 continue;
                             }
                             if (($filter[0] ?? null) === '_kelas_multi') {
                                 $kelasPairs = $filter[2] ?? [];
-                                if (!empty($kelasPairs)) {
+                                if (!empty($kelasPairs) && is_array($kelasPairs)) {
                                     $query->where(function ($q) use ($kelasPairs) {
                                         foreach ($kelasPairs as $kelasPair) {
                                             $q->orWhere(function ($kelasQuery) use ($kelasPair) {
@@ -658,21 +644,10 @@ class RekapPenerimaanController extends Controller
                             $filters[] = [$colName, $operator, (string) $periodeVal];
                         }
                     } else if ($key == 'kelas') {
-                        $kelasValues = is_array($val) ? $val : [$val];
-                        $kelas = $kelasValues;
-                        $kelasPairs = [];
-                        foreach ($kelasValues as $kelasValue) {
-                            $kelasPart = explode("~", (string) $kelasValue);
-                            if (count($kelasPart) == 3) {
-                                $kelasPairs[] = [
-                                    'CODE01' => $kelasPart[0],
-                                    'DESC02' => $kelasPart[1],
-                                    'CODE03' => $kelasPart[2],
-                                ];
-                            }
-                        }
-                        if (!empty($kelasPairs)) {
-                            $filters[] = ['_kelas_multi', '=', $kelasPairs];
+                        $kelasText = $this->normalizeFreeTextFilter($val);
+                        if ($kelasText !== '') {
+                            $kelas = [$kelasText];
+                            $filters[] = ['_kelas_like', '=', $kelasText];
                         }
                     } else if ($key == 'post') {
                         $array = array_filter($val, function ($value) {
@@ -683,20 +658,15 @@ class RekapPenerimaanController extends Controller
                         }
                         $post = $array;
                     }else if($key === 'unit'){
-                        $unit = mst_sekolah::where('CODE01', $val)
-                            ->orWhere('CODE02', $val)
-                            ->orWhere('DESC01', $val)
-                            ->first();
-                        $filters[] = ['_sekolah', '=', $val];
+                        $unitText = $this->normalizeFreeTextFilter($val);
+                        if ($unitText !== '') {
+                            $unit = $unitText;
+                            $filters[] = ['_unit_like', '=', $unitText];
+                        }
                     } elseif ($key === 'nama_tagihan') {
-                        if (is_array($val)) {
-                            $array = array_values(array_filter($val, fn($item) => !is_null($item) && $item !== '' && strtolower((string) $item) !== 'all'));
-                            if (!empty($array)) {
-                                ($colName) && $filters[] = [$colName, 'in', $array];
-                            }
-                        } else {
-                            $val = '%' . trim((string) $val) . '%';
-                            ($colName) && $filters[] = [$colName, 'like', $val];
+                        $namaTagihan = $this->normalizeFreeTextFilter($val);
+                        if ($namaTagihan !== '' && $colName) {
+                            $filters[] = [$colName, 'like', '%' . $this->escapeLike($namaTagihan) . '%'];
                         }
                     } else if ($key == 'siswa') {
                         ($colName) && $filters[] = [$colName, '=', $val];
@@ -722,6 +692,7 @@ class RekapPenerimaanController extends Controller
 
         foreach ($filters as $item) {
             if (($item[0] ?? null) === '_sekolah'
+                || ($item[0] ?? null) === '_unit_like'
                 || ($item[0] ?? null) === '_android_bill'
                 || ($item[0] ?? null) === '_exclude_mobile_bill'
                 || str_contains((string) ($item[0] ?? ''), 'scctbill')
@@ -736,13 +707,8 @@ class RekapPenerimaanController extends Controller
             $records = $this->paymentBaseQuery()
                 ->where(function ($query) use ($filter_scctbill) {
                     foreach ($filter_scctbill as $filter) {
-                        if (($filter[0] ?? null) === '_sekolah') {
-                            $value = $filter[2] ?? null;
-                            if (!blank($value)) {
-                                $query->where(function ($q) use ($value) {
-                                    $q->whereRaw('TRIM(CAST(scctcust.CODE02 AS CHAR)) = ?', [trim((string) $value)]);
-                                });
-                            }
+                        if (($filter[0] ?? null) === '_sekolah' || ($filter[0] ?? null) === '_unit_like') {
+                            $this->applyUnitLikeFilter($query, $filter[2] ?? null);
                             continue;
                         }
                         if (($filter[0] ?? null) === '_android_bill') {
@@ -769,9 +735,13 @@ class RekapPenerimaanController extends Controller
                 })
                 ->where(function ($query) use ($filter_main) {
                     foreach ($filter_main as $filter) {
+                        if (($filter[0] ?? null) === '_kelas_like') {
+                            $this->applyKelasLikeFilter($query, $filter[2] ?? null);
+                            continue;
+                        }
                         if (($filter[0] ?? null) === '_kelas_multi') {
                             $kelasPairs = $filter[2] ?? [];
-                            if (!empty($kelasPairs)) {
+                            if (!empty($kelasPairs) && is_array($kelasPairs)) {
                                 $query->where(function ($q) use ($kelasPairs) {
                                     foreach ($kelasPairs as $kelasPair) {
                                         $q->orWhere(function ($kelasQuery) use ($kelasPair) {
@@ -853,5 +823,60 @@ class RekapPenerimaanController extends Controller
         } catch (\Throwable $e) {
             return response()->json(['message' => 'Tidak dapat mencetak rekap penerimaan!<br> *Silahkan hubungi administrator', 'error' => $e], 422);
         }
+    }
+
+    private function normalizeFreeTextFilter(mixed $val): string
+    {
+        if (is_array($val)) {
+            $val = collect($val)
+                ->filter(fn ($item) => !is_null($item) && $item !== '' && strtolower((string) $item) !== 'all')
+                ->first();
+        }
+
+        $text = trim((string) ($val ?? ''));
+        if ($text === '' || strtolower($text) === 'all') {
+            return '';
+        }
+
+        return $text;
+    }
+
+    private function escapeLike(string $value): string
+    {
+        return str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $value);
+    }
+
+    private function applyUnitLikeFilter($query, mixed $value): void
+    {
+        $text = $this->normalizeFreeTextFilter($value);
+        if ($text === '') {
+            return;
+        }
+
+        $like = '%' . $this->escapeLike($text) . '%';
+        $query->where(function ($q) use ($like) {
+            $q->whereRaw('TRIM(CAST(scctcust.CODE02 AS CHAR)) LIKE ?', [$like])
+                ->orWhereRaw('TRIM(CAST(scctcust.CODE01 AS CHAR)) LIKE ?', [$like])
+                ->orWhereRaw('TRIM(CAST(scctcust.DESC01 AS CHAR)) LIKE ?', [$like]);
+        });
+    }
+
+    private function applyKelasLikeFilter($query, mixed $value): void
+    {
+        $text = $this->normalizeFreeTextFilter($value);
+        if ($text === '') {
+            return;
+        }
+
+        $like = '%' . $this->escapeLike($text) . '%';
+        $query->where(function ($q) use ($like) {
+            $q->whereRaw('TRIM(CAST(scctcust.CODE02 AS CHAR)) LIKE ?', [$like])
+                ->orWhereRaw('TRIM(CAST(scctcust.DESC02 AS CHAR)) LIKE ?', [$like])
+                ->orWhereRaw('TRIM(CAST(scctcust.DESC03 AS CHAR)) LIKE ?', [$like])
+                ->orWhereRaw(
+                    "CONCAT(TRIM(CAST(scctcust.DESC02 AS CHAR)), ' ', TRIM(CAST(scctcust.DESC03 AS CHAR))) LIKE ?",
+                    [$like]
+                );
+        });
     }
 }

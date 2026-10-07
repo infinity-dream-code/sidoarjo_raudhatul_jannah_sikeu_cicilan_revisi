@@ -1333,12 +1333,12 @@ class DataTagihanController extends Controller
                     if (is_array($val)) {
                         $billNames = array_values(array_filter($val, fn($item) => !is_null($item) && $item !== '' && strtolower((string) $item) !== 'all'));
                         if (!empty($billNames)) {
-                            $filters[] = ['scctbill.BILLNM', 'in', $billNames];
+                            $filters[] = ['scctbill.BILLNM', 'like_any', $billNames];
                         }
                     } else {
                         $name = trim((string) $val);
-                        if ($name !== '') {
-                            $filters[] = ['scctbill.BILLNM', '=', $name];
+                        if ($name !== '' && strtolower($name) !== 'all') {
+                            $filters[] = ['scctbill.BILLNM', 'like_any', [$name]];
                         }
                     }
                     break;
@@ -1354,15 +1354,31 @@ class DataTagihanController extends Controller
                     }
                     break;
                 case 'scctcust.DESC02':
-                    $delimiter = str_contains((string) $val, '~~') ? '~~' : '~~';
-                    $parts = explode($delimiter, (string) $val);
-                    if (count($parts) == 3) {
-                        if (!$this->sekolah) {
-                            $filters[] = ['scctcust.CODE02', '=', $parts[0]];
-                        }
-                        $filters[] = ['scctcust.DESC02', '=', $parts[1]];
-                        $filters[] = ['scctcust.DESC03', '=', $parts[2]];
+                    $rawVal = trim((string) $val);
+                    if ($rawVal === '' || strtolower($rawVal) === 'all') {
+                        break;
                     }
+                    if (str_contains($rawVal, '~~')) {
+                        $parts = explode('~~', $rawVal);
+                        if (count($parts) == 3) {
+                            if (!$this->sekolah) {
+                                $filters[] = ['scctcust.CODE02', '=', $parts[0]];
+                            }
+                            $filters[] = ['scctcust.DESC02', '=', $parts[1]];
+                            $filters[] = ['scctcust.DESC03', '=', $parts[2]];
+                        }
+                        break;
+                    }
+                    $sanitized = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $rawVal);
+                    $like = '%' . $sanitized . '%';
+                    $filters[] = [
+                        'whereRaw',
+                        "(TRIM(CAST(scctcust.CODE02 AS CHAR)) LIKE ?
+                         OR TRIM(CAST(scctcust.DESC02 AS CHAR)) LIKE ?
+                         OR TRIM(CAST(scctcust.DESC03 AS CHAR)) LIKE ?
+                         OR CONCAT(TRIM(CAST(scctcust.DESC02 AS CHAR)), ' ', TRIM(CAST(scctcust.DESC03 AS CHAR))) LIKE ?)",
+                        [$like, $like, $like, $like],
+                    ];
                     break;
                 case 'scctcust.CODE02':
                 case 'scctcust.CODE01':

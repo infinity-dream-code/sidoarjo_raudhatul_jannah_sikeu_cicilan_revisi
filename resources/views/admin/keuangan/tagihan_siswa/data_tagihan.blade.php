@@ -241,34 +241,12 @@
                                 </select>
                             </div>
                             <div class="mb-5">
-                                <div class="d-flex align-items-center justify-content-between gap-2 mb-1">
-                                    <label class="form-label mb-0" for="post">
-                                        Nama Tagihan
-                                    </label>
-                                    <div class="btn-group btn-group-sm">
-                                        <button type="button" class="btn btn-outline-primary" id="post-select-all">
-                                            Pilih semua
-                                        </button>
-                                        <button type="button" class="btn btn-outline-secondary" id="post-clear">
-                                            Kosongkan
-                                        </button>
-                                    </div>
-                                </div>
-                                <select class="form-select" id="post"
-                                        name="filter[post][]"
-                                        multiple
-                                        data-control="select2"
-                                        data-placeholder="Pilih Nama Tagihan">
-                                    @isset($post)
-                                        @foreach($post as $item)
-                                            <option
-                                                value="{{$item->tagihan}}">{{$item->tagihan}}</option>
-                                        @endforeach
-                                    @else
-                                        <option>data kosong</option>
-                                    @endisset
-                                </select>
-                                <small class="text-muted">Pilih semua, lalu hapus centang nama tagihan yang tidak ingin ditampilkan.</small>
+                                <label class="form-label" for="post">
+                                    Nama Tagihan
+                                </label>
+                                <input type="text" class="form-control" id="post"
+                                       name="filter[post]"
+                                       placeholder="Ketik nama tagihan (sebagian kata boleh)">
                             </div>
                         </div>
                         <div class="col">
@@ -295,19 +273,8 @@
                                 <label class="form-label" for="filter[kelas]">
                                     Kelas
                                 </label>
-                                <select class="form-select" id="filter[kelas]" name="filter[kelas]"
-                                        data-control="select2" data-placeholder="Pilih Kelas">
-                                    <option value="all">Semua</option>
-                                    @isset($kelas)
-                                        @foreach($kelas as $item)
-                                            <option
-                                                value="{{$item->unit}}~~{{$item->jenjang}}~~{{$item->kelas}}">{{$item->unit}}
-                                                - {{$item->jenjang}} {{$item->kelas}}</option>
-                                        @endforeach
-                                    @else
-                                        <option>data kosong</option>
-                                    @endisset
-                                </select>
+                                <input type="text" class="form-control" id="filter[kelas]" name="filter[kelas]"
+                                       placeholder="Ketik unit/kelas/kelompok (sebagian kata boleh)">
                             </div>
                             <div class="col mb-5">
                                 <label class="form-label" for="filter[siswa]">
@@ -1609,26 +1576,13 @@
             if (select2.length) {
                 select2.each(function () {
                     let $this = $(this);
-                    const isPostFilter = this.id === 'post';
                     $this.wrap('<div class="position-relative"></div>').select2({
                         placeholder: $this.data('placeholder') || 'Select value',
                         dropdownParent: $this.parent(),
-                        closeOnSelect: !isPostFilter,
-                        allowClear: isPostFilter
+                        allowClear: true
                     });
                 });
             }
-
-            $('#post-select-all').on('click', function () {
-                const $post = $('#post');
-                const values = $post.find('option').map(function () {
-                    return this.value;
-                }).get();
-                $post.val(values).trigger('change');
-            });
-            $('#post-clear').on('click', function () {
-                $('#post').val(null).trigger('change');
-            });
 
             bindUnlimitedDateRange('#tanggal-pembuatan');
 

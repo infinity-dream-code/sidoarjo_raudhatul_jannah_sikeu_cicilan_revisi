@@ -131,20 +131,9 @@
                                 <label class="form-label" for="filter[nama_tagihan]">
                                     Nama Tagihan
                                 </label>
-                                <select class="form-select" id="filter[nama_tagihan]"
-                                        name="filter[nama_tagihan][]"
-                                        data-control="select2"
-                                        data-placeholder="Pilih Nama Tagihan"
-                                        multiple="multiple">
-                                    <option value="all">Semua</option>
-                                    @isset($nama_tagihan)
-                                        @foreach($nama_tagihan as $item)
-                                            <option value="{{$item->tagihan}}">{{$item->tagihan}}</option>
-                                        @endforeach
-                                    @else
-                                        <option>data kosong</option>
-                                    @endisset
-                                </select>
+                                <input type="text" class="form-control" id="filter[nama_tagihan]"
+                                       name="filter[nama_tagihan]"
+                                       placeholder="Ketik nama tagihan (sebagian kata boleh)">
                             </div>
                             <div class="mb-5">
                                 <label class="form-label" for="filter_periode_mulai">
@@ -185,41 +174,17 @@
                             </div>
                             <div class="col mb-5">
                                 <label class="form-label" for="filter[unit]">
-                                    Sekolah
+                                    Sekolah / Unit
                                 </label>
-                                <select class="form-select" id="filter[unit]" name="filter[unit]"
-                                        data-control="select2" data-placeholder="Pilih unit">
-                                    <option value="all">Semua</option>
-                                    @isset($unit)
-                                        @foreach($unit as $item)
-                                            <option
-                                                value="{{$item->CODE01 ?? $item->DESC01}}"
-                                                data-group="{{$item->CODE01 ?? $item->DESC01}}">{{$item->DESC01}}</option>
-                                        @endforeach
-                                    @else
-                                        <option>data kosong</option>
-                                    @endisset
-                                </select>
+                                <input type="text" class="form-control" id="filter[unit]" name="filter[unit]"
+                                       placeholder="Ketik sekolah/unit (sebagian kata boleh)">
                             </div>
                             <div class="col mb-5">
                                 <label class="form-label" for="filter[kelas]">
                                     Kelas
                                 </label>
-                                <select class="form-select" id="filter[kelas]" name="filter[kelas][]"
-                                        data-control="select2" data-placeholder="Pilih Kelas" multiple="multiple">
-                                    <option value="all">Semua</option>
-                                    @isset($kelas)
-                                        @foreach($kelas as $item)
-                                            <option
-                                                value="{{$item->kelompok ?? $item->unit}}~{{$item->jenjang}}~{{$item->id ?? $item->kelas}}"
-                                                data-group="{{$item->kelompok ?? $item->unit}}">
-                                                {{$item->unit}} - {{$item->jenjang}} {{$item->kelas}}
-                                            </option>
-                                        @endforeach
-                                    @else
-                                        <option>data kosong</option>
-                                    @endisset
-                                </select>
+                                <input type="text" class="form-control" id="filter[kelas]" name="filter[kelas]"
+                                       placeholder="Ketik unit/kelas/kelompok (sebagian kata boleh)">
                             </div>
                             <div class="col mb-5">
                                 <label class="form-label" for="filter[siswa]">
@@ -449,72 +414,6 @@
                     minimumInputLength: 3,
                 });
             })();
-
-            $("[name='filter[unit]']").on('change', function () {
-                const $kelasSelect = $("[name='filter[kelas]']");
-                const selectedGroupRaw = $(this).find(':selected').data('group');
-                const selectedGroup = String(selectedGroupRaw ?? '').trim().toUpperCase();
-                const currentKelas = $kelasSelect.val() || [];
-
-                $kelasSelect.find('option').each(function () {
-                    if ($(this).val() === 'all') {
-                        $(this).prop('disabled', false);
-                        return;
-                    }
-                    const group = String($(this).data('group') ?? '').trim().toUpperCase();
-                    if (!selectedGroup || selectedGroup === 'all') {
-                        $(this).prop('disabled', false);
-                    } else {
-                        $(this).prop('disabled', group !== selectedGroup);
-                    }
-                });
-
-                const validKelas = currentKelas.filter((value) => {
-                    if (value === 'all') return false;
-                    const selectedOption = $kelasSelect.find(`option[value="${value.replace(/"/g, '\\"')}"]`);
-                    return selectedOption.length && !selectedOption.prop('disabled');
-                });
-                $kelasSelect.val(validKelas.length ? validKelas : ['all']).trigger('change.select2');
-            });
-
-            const $postInput = $('#post');
-            $postInput.on('select2:select', function (e) {
-                if (e.params.data.id === 'all') {
-                    // "Semua" berdiri sendiri agar mudah dihapus.
-                    $postInput.val(['all']).trigger('change.select2');
-                    return;
-                }
-
-                const selected = $postInput.val() || [];
-                if (selected.includes('all') && selected.length > 1) {
-                    $postInput.val(selected.filter(item => item !== 'all')).trigger('change.select2');
-                }
-            });
-
-            $postInput.on('select2:unselect', function (e) {
-                if (e.params.data.id === 'all') {
-                    $postInput.val(null).trigger('change.select2');
-                }
-            });
-
-            const $namaTagihanInput = $('#filter\\[nama_tagihan\\]');
-            $namaTagihanInput.on('select2:select', function (e) {
-                if (e.params.data.id === 'all') {
-                    $namaTagihanInput.val(['all']).trigger('change.select2');
-                    return;
-                }
-
-                const selected = $namaTagihanInput.val() || [];
-                if (selected.includes('all') && selected.length > 1) {
-                    $namaTagihanInput.val(selected.filter(item => item !== 'all')).trigger('change.select2');
-                }
-            });
-
-            $namaTagihanInput.on('select2:unselect', function (e) {
-                if (e.params.data.id === 'all') {
-                    $namaTagihanInput.val(null).trigger('change.select2');
-                }
-            });
 
             bindUnlimitedDateRange('#tanggal-transaksi');
             const periodeMulai = $('#filter_periode_mulai');
@@ -851,9 +750,12 @@
                 if (invalidValues.includes(statusBayarVal)) {
                     statusBayarVal = false;
                 }
-                const kelasValues = params.getAll('filter[kelas][]') || [];
-                const kelasLabelValues = kelasValues.filter(item => !invalidValues.includes(item));
-                let kelasVal = kelasLabelValues.length ? kelasLabelValues.join(', ') : 'Semua';
+                const kelasText = (params.get('filter[kelas]') || '').trim();
+                let kelasVal = (!invalidValues.includes(kelasText) && kelasText !== '') ? kelasText : 'Semua';
+                const unitText = (params.get('filter[unit]') || '').trim();
+                if (!invalidValues.includes(unitText) && unitText !== '') {
+                    kelasVal = unitText + (kelasVal !== 'Semua' ? ', ' + kelasVal : '');
+                }
 
                 let thnAkaVal = params.get('filter[tahun_akademik]') ?? null;
                 if (invalidValues.includes(thnAkaVal)) {
