@@ -16,8 +16,8 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Raudhatul Jannah'),
-    'nama_instansi' => env('APP_NAMA_INSTANSI', 'Sidoarjo_Raudhatul_Jannah'),
+    'name' => env('APP_NAME', 'Raudlatul Jannah'),
+    'nama_instansi' => env('APP_NAMA_INSTANSI', 'Sidoarjo_Raudlatul_Jannah'),
     'alamat' => env('APP_ALAMAT', 'Kota Sidoarjo, Prov. Jawa Timur'),
     'logo' => env('APP_LOGO', 'icon-jannah.jpeg'),
     'email' => env('APP_EMAIL', 'ypisabkho@gmail.com'),
@@ -70,7 +70,7 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
-    'url_web_tagihan' => env('APP_URL_WEB_TAGIHAN', 'https://tagihan-raudhatuljannah-sidoarjo.smartpayment.co.id'),
+    'url_web_tagihan' => env('APP_URL_WEB_TAGIHAN', 'https://tagihan-raudlatuljannah-sidoarjo.smartpayment.co.id'),
 
     'asset_url' => env('ASSET_URL'),
 

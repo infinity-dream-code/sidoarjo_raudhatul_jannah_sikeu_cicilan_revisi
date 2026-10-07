@@ -153,7 +153,7 @@
     $logoPath = public_path($logo ?? 'icon-jannah.jpeg');
     $hasLogo = is_file($logoPath);
     $alamat = config('app.alamat');
-    $schoolLabel = str_replace('_', ' ', (string) ($sekolah ?? $app_name ?? 'Raudhatul Jannah'));
+    $schoolLabel = str_replace('_', ' ', (string) ($sekolah ?? $app_name ?? 'Raudlatul Jannah'));
 @endphp
 
 <table class="letterhead">

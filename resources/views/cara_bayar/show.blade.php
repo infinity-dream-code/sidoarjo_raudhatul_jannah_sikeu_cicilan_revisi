@@ -264,7 +264,7 @@
                 <div class="logo" aria-hidden="true"></div>
             @endif
             <div>
-                <h1 class="school-name">{{ str_replace('_', ' ', $sekolah ?? $app_name ?? 'Raudhatul Jannah') }}</h1>
+                <h1 class="school-name">{{ str_replace('_', ' ', $sekolah ?? $app_name ?? 'Raudlatul Jannah') }}</h1>
                 @if($alamat)
                     <div class="school-meta">{{ $alamat }}</div>
                 @endif
