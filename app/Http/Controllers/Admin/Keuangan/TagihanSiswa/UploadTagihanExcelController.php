@@ -69,6 +69,7 @@ class UploadTagihanExcelController extends Controller
             ['data' => null, 'name' => 'no', 'className' => 'text-center', 'columnType' => 'row'],
             ['data' => 'nis', 'name' => 'NIS', 'searchable' => true, 'orderable' => true],
             ['data' => 'name', 'name' => 'NAMA', 'searchable' => true, 'orderable' => true],
+            ['data' => 'gender', 'name' => 'Gender', 'searchable' => true, 'orderable' => true],
             ['data' => 'status', 'name' => 'Status', 'searchable' => true, 'orderable' => true, 'columnType' => 'importstatus'],
             ['data' => 'keterangan', 'name' => 'Keterangan', 'searchable' => true, 'orderable' => true],
             ['data' => 'unit', 'name' => 'Unit', 'searchable' => true, 'orderable' => true],
@@ -94,6 +95,7 @@ class UploadTagihanExcelController extends Controller
             return [
                 'nis' => $item['nis'] ?? null,
                 'name' => $item['nama'] ?? null,
+                'gender' => $this->formatGenderLabel($item['gender'] ?? null),
                 'unit' => $item['unit'] ?? null,
                 'kelas' => $item['kelas'] ?? null,
                 'kelompok' => $item['kelompok'] ?? null,
@@ -383,7 +385,7 @@ class UploadTagihanExcelController extends Controller
                     $sekolah,
                     (string) ($item['angkatan'] ?? ''),
                     null,
-                    null,
+                    isset($item['gender']) ? (string) $item['gender'] : null,
                     null,
                 );
             } catch (\Throwable $procedureError) {
@@ -409,6 +411,10 @@ class UploadTagihanExcelController extends Controller
             'DESC04' => $thnAka->thn_aka,
             'LastUpdate' => Carbon::now(),
         ];
+
+        if (array_key_exists('gender', $item) && $item['gender'] !== null && $item['gender'] !== '') {
+            $payload['CODE04'] = (string) $item['gender'];
+        }
 
         $noWa = $this->normalizeNoWa($item['no_wa'] ?? null);
         if ($noWa !== null) {
@@ -510,6 +516,22 @@ class UploadTagihanExcelController extends Controller
         }
         if (in_array($normalized, ['0', 'tidak', 'no', 'false', 'n'], true) || (is_numeric($value) && (int) $value === 0)) {
             return '0 (Tidak)';
+        }
+
+        return (string) $value;
+    }
+
+    private function formatGenderLabel(mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            return '-';
+        }
+
+        if ((string) $value === '1' || (is_numeric($value) && (int) $value === 1)) {
+            return 'Laki-Laki';
+        }
+        if ((string) $value === '0' || (is_numeric($value) && (int) $value === 0)) {
+            return 'Perempuan';
         }
 
         return (string) $value;

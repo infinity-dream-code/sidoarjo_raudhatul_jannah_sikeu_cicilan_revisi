@@ -44,10 +44,15 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
             }
 
             $namaTagihan = trim((string) ($rowData['keterangan'] ?? $rowData['nama_tagihan'] ?? ''));
+            $genderRaw = $rowData['gender']
+                ?? $rowData['jenis_kelamin']
+                ?? $rowData['jk']
+                ?? null;
 
             $parsedRows[] = [
                 'nis' => $nis,
                 'nama' => trim((string) ($rowData['nama'] ?? '')),
+                'gender' => $genderRaw,
                 'unit' => trim((string) ($rowData['unit'] ?? '')),
                 'kelas' => is_numeric($rowData['kelas'] ?? null)
                     ? (string) (int) $rowData['kelas']
@@ -95,6 +100,15 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
             if ($rowData['nama'] === '') {
                 $rowData['status'] = 0;
                 $status_ket = $this->appendKet($status_ket, 'NAMA tidak boleh kosong');
+            }
+
+            $gender = $this->normalizeGender($rowData['gender'] ?? null);
+            if (($rowData['gender'] ?? null) !== null && trim((string) $rowData['gender']) !== '' && $gender === null) {
+                $rowData['status'] = 0;
+                $status_ket = $this->appendKet($status_ket, 'GENDER harus Laki-Laki/Perempuan (1/0 atau L/P)');
+                $rowData['gender'] = $rowData['gender'];
+            } else {
+                $rowData['gender'] = $gender;
             }
 
             if ($rowData['unit'] === '') {
@@ -177,6 +191,35 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
         }
 
         return $digits;
+    }
+
+    /**
+     * GENDER: 1 = Laki-Laki, 0 = Perempuan (sama seperti form Data Siswa).
+     */
+    private function normalizeGender(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_int($value) || is_float($value)) {
+            $intVal = (int) $value;
+
+            return in_array($intVal, [0, 1], true) ? (string) $intVal : null;
+        }
+
+        $normalized = strtolower(trim((string) $value));
+        $normalized = str_replace(['-', '_'], ' ', $normalized);
+        $normalized = preg_replace('/\s+/', ' ', $normalized) ?? $normalized;
+
+        if (in_array($normalized, ['1', 'l', 'laki', 'laki laki', 'laki-laki', 'pria', 'male', 'm'], true)) {
+            return '1';
+        }
+        if (in_array($normalized, ['0', 'p', 'perempuan', 'wanita', 'female', 'f'], true)) {
+            return '0';
+        }
+
+        return null;
     }
 
     /**
