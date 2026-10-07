@@ -4,14 +4,18 @@ namespace App\Http\Controllers\Admin\Keuangan\TagihanSiswa;
 
 use App\Http\Controllers\Controller;
 use App\Imports\Keuangan\TagihanSiswa\ImportTagihanExcel;
-use App\Models\mst_tagihan;
+use App\Models\mst_kelas;
+use App\Models\mst_sekolah;
+use App\Models\mst_thn_aka;
 use App\Models\scctbill;
 use App\Models\scctcust;
 use App\Models\ValidationMessage;
+use App\Support\EnsureImportSchoolClass;
 use App\Support\ExcelImportSheet;
+use App\Support\InputSiswaProcedure;
 use App\Support\InputTagihanProcedure;
-use App\Support\SchoolScope;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -50,12 +54,8 @@ class UploadTagihanExcelController extends Controller
         $data['dataTitle'] = $this->dataTitle;
         $data['columnsUrl'] = route('admin.keuangan.tagihan-siswa.upload-tagihan-excel.get-column');
         $data['datasUrl'] = route('admin.keuangan.tagihan-siswa.upload-tagihan-excel.get-data');
-
-        $currentYear = (int) date('Y');
-        $data['periode_tahun_list'] = range($currentYear - 2, $currentYear + 5);
-        $data['periode_tahun_default'] = $currentYear;
-        $data['periode_bulan_default'] = (int) date('m');
-        $data['tagihan'] = mst_tagihan::orderBy('urut', 'asc')->get();
+        $data['periode_otomatis'] = date('Ym');
+        $data['periode_label'] = date('Y') . ' / ' . date('m');
 
         Cache::forget('import_tagihan_excel');
         Cache::forget($this->resolvedCacheKey());
@@ -74,6 +74,9 @@ class UploadTagihanExcelController extends Controller
             ['data' => 'unit', 'name' => 'Unit', 'searchable' => true, 'orderable' => true],
             ['data' => 'kelas', 'name' => 'Kelas', 'searchable' => true, 'orderable' => true],
             ['data' => 'kelompok', 'name' => 'Kelompok', 'searchable' => true, 'orderable' => true],
+            ['data' => 'angkatan', 'name' => 'Angkatan', 'searchable' => true, 'orderable' => true],
+            ['data' => 'no_wa', 'name' => 'No WA', 'searchable' => true, 'orderable' => true],
+            ['data' => 'nama_tagihan', 'name' => 'Nama Tagihan', 'searchable' => true, 'orderable' => true],
             ['data' => 'nominal', 'name' => 'Nominal', 'searchable' => true, 'orderable' => true, 'columnType' => 'currency'],
             ['data' => 'cicil', 'name' => 'Cicil', 'searchable' => true, 'orderable' => true, 'className' => 'text-center'],
             ['data' => 'exp_date', 'name' => 'ExpDate', 'searchable' => false, 'orderable' => false],
@@ -83,84 +86,35 @@ class UploadTagihanExcelController extends Controller
     public function getData(Request $request)
     {
         $draw = $request->get('draw');
-        $start = $request->get('start');
-        $rowperpage = $request->get('length');
-
-        $columnName_arr = $request->get('columns');
-        $search_arr = $request->get('search');
-
-        $defaultColumn = 'scctcust.nocust';
-        $defaultOrder = 'asc';
-
-        $columnSortOrder = $defaultOrder;
-        $columnName = $defaultColumn;
-
-        if ($request->has('order')) {
-            $order = $request->get('order');
-            $columnIndex = (int) ($order[0]['column'] ?? 0);
-            $columnSortOrder = $order[0]['dir'] ?? $defaultOrder;
-            $requestedColumn = $columnName_arr[$columnIndex]['data'] ?? null;
-
-            if ($requestedColumn && $requestedColumn !== 'no') {
-                $columnName = 'scctcust.' . $requestedColumn;
-            }
-        }
-
-        $searchValue = $search_arr['value'] ?? '';
-
-        $filters = [];
-        $filterQuery = null;
-
         $cachedData = Cache::get($this->resolvedCacheKey(), []);
-
-        $nisList = collect($cachedData)->pluck('nis')->toArray();
         $nisCount = count($cachedData);
-
-
-        $whereAny = [
-            'scctcust.NMCUST',
-            'scctcust.NOCUST',
-        ];
-
-        $select = array_unique(array_merge($whereAny, [
-            'scctcust.NUM2ND',
-            'scctcust.CODE02',
-            'scctcust.DESC02',
-            'scctcust.DESC03',
-            'scctcust.DESC04',
-        ]));
-
         $previewExpDate = $this->resolvePreviewExpDate($request);
 
-        $records = collect($cachedData)->map(function ($item) use ($select, $previewExpDate) {
-            $nis = $item['nis'];
-            $siswa = scctcust::select($select)->where('scctcust.NOCUST', $nis);
-            SchoolScope::apply($siswa, 'scctcust', $this->sekolah);
-            $siswa = $siswa->first();
+        $records = collect($cachedData)->map(function ($item) use ($previewExpDate) {
             return [
-                'nis' => $nis,
-                'name' => $siswa->NMCUST ?? null,
-                'ortu' => $item['ayah'] ?? null,
-                'unit' => $siswa->CODE02 ?? null,
-                'kelas' => $siswa->DESC02 ?? null,
-                'kelompok' => $siswa->DESC03 ?? null,
+                'nis' => $item['nis'] ?? null,
+                'name' => $item['nama'] ?? null,
+                'unit' => $item['unit'] ?? null,
+                'kelas' => $item['kelas'] ?? null,
+                'kelompok' => $item['kelompok'] ?? null,
+                'angkatan' => $item['angkatan'] ?? null,
+                'no_wa' => $item['no_wa'] ?? null,
+                'nama_tagihan' => $item['nama_tagihan'] ?? null,
                 'nominal' => $item['nominal'] ?? null,
                 'cicil' => $this->formatCicilLabel($item['cicil'] ?? null),
                 'status' => $item['status'] ?? 0,
-                'keterangan' => $item['keterangan'],
+                'keterangan' => $item['keterangan'] ?? null,
                 'exp_date' => $previewExpDate,
             ];
         });
 
-        $response = array(
+        return response()->json([
             'draw' => intval($draw),
             'recordsTotal' => $nisCount,
             'recordsFiltered' => $nisCount,
             'data' => $records,
-        );
-        return response()->json($response);
+        ]);
     }
-
 
     public function store(Request $request)
     {
@@ -181,7 +135,10 @@ class UploadTagihanExcelController extends Controller
         $file = $request->file('fileImport');
 
         try {
-            $requiredColumns = ['nis', 'nama', 'unit', 'kelas', 'kelompok', 'angkatan', 'nominal', 'cicil'];
+            $requiredColumns = [
+                'nis', 'nama', 'unit', 'kelas', 'kelompok', 'angkatan',
+                'keterangan', 'nominal', 'cicil',
+            ];
             $sheet = ExcelImportSheet::pickBest(
                 $file->getRealPath(),
                 $requiredColumns,
@@ -199,7 +156,13 @@ class UploadTagihanExcelController extends Controller
 
             $data = Cache::get($cacheKey, []);
             if (empty($data)) {
-                throw new \Exception('File berhasil dibaca, tetapi tidak ada baris data yang dapat diproses. Pastikan file berisi NIS dan Nominal.');
+                throw new \Exception('File berhasil dibaca, tetapi tidak ada baris data yang dapat diproses. Pastikan file berisi NIS, KETERANGAN, dan Nominal.');
+            }
+
+            $invalidCount = collect($data)->where('status', 0)->count();
+            $message = 'Sukses, data tagihan telah diimport, silahkan periksa kembali';
+            if ($invalidCount > 0) {
+                $message .= ". Ada {$invalidCount} baris bermasalah — perbaiki data sebelum menyimpan.";
             }
 
             Log::info('Upload tagihan excel berhasil', [
@@ -208,9 +171,10 @@ class UploadTagihanExcelController extends Controller
                 'sheet_name' => $sheet['name'],
                 'sheet_index' => $sheet['index'],
                 'row_count' => count($data),
+                'invalid_count' => $invalidCount,
             ]);
 
-            return response()->json(['message' => 'Sukses, data tagihan telah diimport, silahkan periksa kembali', 'data' => $data], 200);
+            return response()->json(['message' => $message, 'data' => $data], 200);
         } catch (ValidationException $e) {
             $errorMessages = $e->errors();
             $errorMessage = $errorMessages['error'][0] ?? 'Terjadi kesalahan saat melakukan import data.';
@@ -242,9 +206,6 @@ class UploadTagihanExcelController extends Controller
     public function validateExcel(Request $request)
     {
         $request->validate([
-            'tagihan' => ['required'],
-            'periode_tahun' => ['required', 'integer', 'digits:4', 'min:2000', 'max:2099'],
-            'periode_bulan' => ['required', 'integer', 'min:1', 'max:12'],
             'exp_date' => ['nullable', 'date'],
         ], ValidationMessage::messages(), ValidationMessage::attributes());
 
@@ -253,57 +214,82 @@ class UploadTagihanExcelController extends Controller
             return response()->json(['message' => 'Silahkan import data tagihan terlebih dahulu'], 422);
         }
 
-        $bta = sprintf('%04d%02d', (int) $request->periode_tahun, (int) $request->periode_bulan);
-
-        $tagihan = mst_tagihan::where('urut', $request->tagihan)->first();
-        if (!$tagihan) {
-            return response()->json(['message' => 'Tagihan tidak ditemukan, silahkan muat ulang halaman!'], 422);
+        $invalidCount = collect($data)->where('status', '!=', 1)->count();
+        if ($invalidCount > 0) {
+            return response()->json([
+                'message' => "Ada {$invalidCount} baris bermasalah. Perbaiki data di kolom Keterangan terlebih dahulu, lalu upload ulang. Proses simpan ditolak.",
+            ], 422);
         }
 
-        $nmTagihan = trim((string) $tagihan->tagihan);
+        $bta = date('Ym');
 
         try {
+            EnsureImportSchoolClass::resetMemo();
+
             $skippedInactive = [];
             $failed = [];
             $insertedCount = 0;
+            $upsertedCust = 0;
 
             foreach ($data as $item) {
                 if (($item['status'] ?? null) != 1) {
                     continue;
                 }
 
-                $siswaQuery = scctcust::where('NOCUST', $item['nis']);
-                SchoolScope::apply($siswaQuery, 'scctcust', $this->sekolah);
-                $siswa = $siswaQuery->first();
-
-                if (!$siswa) {
-                    return response()->json(['message' => "siswa dengan nis: {$item['nis']} tidak ditemukan!"], 422);
+                $nis = trim((string) ($item['nis'] ?? ''));
+                $namaTagihan = trim((string) ($item['nama_tagihan'] ?? ''));
+                if ($nis === '' || $namaTagihan === '') {
+                    $failed[] = trim($nis . ' - data tidak lengkap');
+                    continue;
                 }
+
+                $thnAka = mst_thn_aka::where('thn_aka', $item['angkatan'] ?? null)->first();
+                if (!$thnAka) {
+                    return response()->json([
+                        'message' => "ANGKATAN tidak valid untuk NIS {$nis}. Perbaiki data lalu upload ulang.",
+                    ], 422);
+                }
+
+                [$sekolah, $kelas] = EnsureImportSchoolClass::resolve(
+                    $item['unit'] ?? null,
+                    $item['kelas'] ?? null,
+                    $item['kelompok'] ?? null,
+                );
+
+                if (!$kelas || !$sekolah) {
+                    return response()->json([
+                        'message' => "Unit/kelas tidak dapat dibuat untuk NIS {$nis}. Periksa kolom Unit, Kelas, dan Kelompok.",
+                    ], 422);
+                }
+
+                $siswa = $this->upsertCustomerFromImport($item, $sekolah, $kelas, $thnAka);
+                $upsertedCust++;
+
                 if ((int) ($siswa->STCUST ?? 0) === 0) {
-                    $skippedInactive[] = trim(($item['nis'] ?? '-') . ' - ' . ($siswa->NMCUST ?? 'Tanpa Nama'));
+                    $skippedInactive[] = trim($nis . ' - ' . ($siswa->NMCUST ?? 'Tanpa Nama'));
                     continue;
                 }
 
                 $isNyicil = $this->resolveCicilFlag($item['cicil'] ?? null);
                 if ($isNyicil === null) {
-                    $failed[] = trim(($item['nis'] ?? '-') . ' - CICIL harus 1 atau 0 (ikuti Excel, bukan master tagihan)');
+                    $failed[] = trim($nis . ' - CICIL harus 1 atau 0');
                     continue;
                 }
 
                 $nominal = (int) $item['nominal'];
-                $nocust = (string) ($siswa->NOCUST ?? $siswa->nocust ?? $item['nis']);
+                $nocust = (string) ($siswa->NOCUST ?? $siswa->nocust ?? $nis);
                 $beforeAa = (int) (scctbill::where('CUSTID', $siswa->CUSTID)->max('AA') ?? 0);
 
-                // ExpDate diisi otomatis oleh procedure InputTagihan
-                // p_isNYICIL mengikuti kolom CICIL di Excel (bukan master tagihan)
                 InputTagihanProcedure::call(
                     $nocust,
                     $nominal,
-                    $nmTagihan,
+                    $namaTagihan,
                     $bta,
                     $bta,
                     $isNyicil,
                 );
+
+                $siswa = scctcust::where('NOCUST', $nis)->first() ?? $siswa;
 
                 $newBill = scctbill::where('CUSTID', $siswa->CUSTID)
                     ->where('AA', '>', $beforeAa)
@@ -315,21 +301,18 @@ class UploadTagihanExcelController extends Controller
                     continue;
                 }
 
-                // Paksa flag cicil + VA mengikuti Excel (bukan master tagihan)
                 $dirty = false;
                 if ((int) ($newBill->isINSTALLABLE ?? 0) !== $isNyicil) {
                     $newBill->isINSTALLABLE = $isNyicil;
                     $dirty = true;
                 }
 
-                // Kolom scctbill.VA pendek (89/90) — jangan isi nomor VA 16 digit
                 $vaCode = scctcust::vaBillCode($isNyicil);
                 if ((string) ($newBill->VA ?? '') !== $vaCode) {
                     $newBill->VA = $vaCode;
                     $dirty = true;
                 }
 
-                // Pastikan tampil di Data Tagihan (procedure tidak set FSTSBolehBayar)
                 if ((int) ($newBill->FSTSBolehBayar ?? 0) !== 1 || $newBill->BILLPAID === null) {
                     $newBill->FSTSBolehBayar = 1;
                     if ($newBill->BILLPAID === null) {
@@ -338,7 +321,6 @@ class UploadTagihanExcelController extends Controller
                     $dirty = true;
                 }
 
-                // Opsional: override ExpDate dari form jika diisi
                 if ($request->filled('exp_date')) {
                     $newBill->ExpDate = date('Y-m-d 23:59:59', strtotime((string) $request->exp_date));
                     $dirty = true;
@@ -354,7 +336,7 @@ class UploadTagihanExcelController extends Controller
             Cache::forget($this->resolvedCacheKey());
             Cache::increment('data_tagihan_cache_version');
 
-            $message = "Data tagihan disimpan via InputTagihan. Berhasil dibuat untuk {$insertedCount} siswa.";
+            $message = "Data siswa & tagihan disimpan. Siswa di-upsert: {$upsertedCust}. Tagihan dibuat: {$insertedCount}. Periode: {$bta}.";
             if (!empty($skippedInactive)) {
                 $message .= '<hr>Tagihan tidak dibuat untuk siswa nonaktif (STCUST=0): ' . count($skippedInactive) . ' siswa.<br>' .
                     implode('<br>', $skippedInactive);
@@ -377,10 +359,92 @@ class UploadTagihanExcelController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Terjadi kesalahan saat menyimpan data (InputTagihan).<hr>' . $e->getMessage(),
+                'message' => 'Terjadi kesalahan saat menyimpan data (siswa/tagihan).<hr>' . $e->getMessage(),
                 'error' => $e->getMessage(),
             ], 422);
         }
+    }
+
+    private function upsertCustomerFromImport(
+        array $item,
+        mst_sekolah $sekolah,
+        mst_kelas $kelas,
+        mst_thn_aka $thnAka,
+    ): scctcust {
+        $nis = trim((string) ($item['nis'] ?? ''));
+        $existing = scctcust::query()->where('NOCUST', $nis)->first();
+
+        if (!$existing) {
+            try {
+                InputSiswaProcedure::call(
+                    $nis,
+                    (string) ($item['nama'] ?? ''),
+                    $kelas,
+                    $sekolah,
+                    (string) ($item['angkatan'] ?? ''),
+                    null,
+                    null,
+                    null,
+                );
+            } catch (\Throwable $procedureError) {
+                Log::warning('upload_tagihan_excel.input_siswa_procedure_skipped', [
+                    'nis' => $nis,
+                    'message' => $procedureError->getMessage(),
+                ]);
+            }
+
+            $existing = scctcust::query()->where('NOCUST', $nis)->first();
+        }
+
+        $payload = [
+            'NOCUST' => $nis,
+            'NMCUST' => $item['nama'] ?? ($existing->NMCUST ?? ''),
+            'STCUST' => $existing ? (int) ($existing->STCUST ?? 1) : 1,
+            'CODE01' => $sekolah->CODE01,
+            'DESC01' => $sekolah->DESC01,
+            'CODE02' => $kelas->unit,
+            'DESC02' => $kelas->jenjang,
+            'CODE03' => $kelas->id,
+            'DESC03' => $kelas->kelas,
+            'DESC04' => $thnAka->thn_aka,
+            'LastUpdate' => Carbon::now(),
+        ];
+
+        $noWa = $this->normalizeNoWa($item['no_wa'] ?? null);
+        if ($noWa !== null) {
+            $payload['NO_WA'] = $noWa;
+        }
+
+        if ($existing) {
+            $existing->update($payload);
+
+            return $existing->fresh() ?? $existing;
+        }
+
+        $payload['CUSTID'] = scctcust::nextCustId();
+        $payload['NUM2ND'] = $item['nodaftar'] ?? '-';
+        $payload['STCUST'] = 1;
+
+        return scctcust::create($payload);
+    }
+
+    private function normalizeNoWa(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_int($value) || is_float($value)) {
+            $digits = preg_replace('/\D+/', '', sprintf('%.0f', $value));
+        } else {
+            $digits = preg_replace('/\D+/', '', trim((string) $value));
+        }
+
+        if ($digits === '' || strlen($digits) > 50) {
+            return null;
+        }
+
+        return $digits;
     }
 
     /**
@@ -391,7 +455,7 @@ class UploadTagihanExcelController extends Controller
         $fromForm = $request->input('exp_date') ?? $request->input('filter.exp_date');
         if (filled($fromForm)) {
             try {
-                return \Illuminate\Support\Carbon::parse($fromForm)->format('d-m-Y');
+                return Carbon::parse($fromForm)->format('d-m-Y');
             } catch (\Throwable) {
                 // fallback otomatis
             }
@@ -401,7 +465,7 @@ class UploadTagihanExcelController extends Controller
     }
 
     /**
-     * CICIL dari Excel saja (1/0). Tidak mengambil dari master tagihan.
+     * CICIL dari Excel saja (1/0).
      */
     private function resolveCicilFlag(mixed $value): ?int
     {
@@ -415,6 +479,7 @@ class UploadTagihanExcelController extends Controller
 
         if (is_int($value) || is_float($value)) {
             $intVal = (int) $value;
+
             return in_array($intVal, [0, 1], true) ? $intVal : null;
         }
 

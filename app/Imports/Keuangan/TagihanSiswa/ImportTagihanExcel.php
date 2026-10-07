@@ -2,7 +2,7 @@
 
 namespace App\Imports\Keuangan\TagihanSiswa;
 
-use App\Models\scctcust;
+use App\Models\mst_thn_aka;
 use App\Support\ExcelImportSheet;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -27,7 +27,7 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
 
     public function collection(Collection $collection): void
     {
-        $processedData = [];
+        $parsedRows = [];
 
         foreach ($collection as $row) {
             if ($row->filter()->isEmpty()) {
@@ -43,28 +43,98 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
                 continue;
             }
 
-            $rowData['nis'] = $nis;
+            $namaTagihan = trim((string) ($rowData['keterangan'] ?? $rowData['nama_tagihan'] ?? ''));
+
+            $parsedRows[] = [
+                'nis' => $nis,
+                'nama' => trim((string) ($rowData['nama'] ?? '')),
+                'unit' => trim((string) ($rowData['unit'] ?? '')),
+                'kelas' => is_numeric($rowData['kelas'] ?? null)
+                    ? (string) (int) $rowData['kelas']
+                    : trim((string) ($rowData['kelas'] ?? '')),
+                'kelompok' => trim((string) ($rowData['kelompok'] ?? '')),
+                'angkatan' => trim((string) ($rowData['angkatan'] ?? '')),
+                'no_wa' => $this->normalizeNoWa(
+                    $rowData['no_wa'] ?? $rowData['nowa'] ?? $rowData['no wa'] ?? null
+                ),
+                'nama_tagihan' => $namaTagihan,
+                'nominal' => $rowData['nominal'] ?? null,
+                'cicil' => $rowData['cicil'] ?? $rowData['is_cicil'] ?? $rowData['iscicil'] ?? null,
+            ];
+        }
+
+        if ($parsedRows === []) {
+            Cache::forget($this->cacheKey);
+
+            return;
+        }
+
+        $nisCounts = [];
+        foreach ($parsedRows as $row) {
+            $nisCounts[$row['nis']] = ($nisCounts[$row['nis']] ?? 0) + 1;
+        }
+
+        $thnAkaSet = array_flip(
+            mst_thn_aka::pluck('thn_aka')
+                ->map(fn ($v) => trim((string) $v))
+                ->filter(fn ($v) => $v !== '')
+                ->all()
+        );
+
+        $processedData = [];
+
+        foreach ($parsedRows as $rowData) {
             $rowData['status'] = 1;
             $status_ket = null;
 
-            $checkData = scctcust::where('NOCUST', $nis)->first();
-            if (!$checkData) {
+            if (($nisCounts[$rowData['nis']] ?? 0) > 1) {
                 $rowData['status'] = 0;
-                $status_ket = "NIS {$nis} tidak ditemukan";
+                $status_ket = "NIS {$rowData['nis']} double, tolong perbaiki";
             }
 
-            $nominal = $rowData['nominal'] ?? null;
+            if ($rowData['nama'] === '') {
+                $rowData['status'] = 0;
+                $status_ket = $this->appendKet($status_ket, 'NAMA tidak boleh kosong');
+            }
+
+            if ($rowData['unit'] === '') {
+                $rowData['status'] = 0;
+                $status_ket = $this->appendKet($status_ket, 'UNIT tidak boleh kosong');
+            }
+
+            if ($rowData['kelas'] === '') {
+                $rowData['status'] = 0;
+                $status_ket = $this->appendKet($status_ket, 'KELAS tidak boleh kosong');
+            }
+
+            if ($rowData['kelompok'] === '') {
+                $rowData['status'] = 0;
+                $status_ket = $this->appendKet($status_ket, 'KELOMPOK tidak boleh kosong');
+            }
+
+            if ($rowData['angkatan'] === '') {
+                $rowData['status'] = 0;
+                $status_ket = $this->appendKet($status_ket, 'ANGKATAN tidak boleh kosong');
+            } elseif (!isset($thnAkaSet[$rowData['angkatan']])) {
+                $rowData['status'] = 0;
+                $status_ket = $this->appendKet($status_ket, "ANGKATAN {$rowData['angkatan']} tidak ditemukan di master tahun akademik");
+            }
+
+            if ($rowData['nama_tagihan'] === '') {
+                $rowData['status'] = 0;
+                $status_ket = $this->appendKet($status_ket, 'KETERANGAN (nama tagihan) tidak boleh kosong');
+            }
+
+            $nominal = $rowData['nominal'];
             if ($nominal === null || $nominal === '') {
                 $rowData['status'] = 0;
-                $status_ket = $this->appendKet($status_ket, 'Nominal tidak boleh kosong');
+                $status_ket = $this->appendKet($status_ket, 'NOMINAL tidak boleh kosong');
             }
 
-            $cicilRaw = $rowData['cicil'] ?? $rowData['is_cicil'] ?? $rowData['iscicil'] ?? null;
-            $cicil = $this->normalizeCicil($cicilRaw);
+            $cicil = $this->normalizeCicil($rowData['cicil']);
             if ($cicil === null) {
                 $rowData['status'] = 0;
                 $status_ket = $this->appendKet($status_ket, 'Kolom CICIL harus diisi 1 (bisa cicil) atau 0 (tidak bisa cicil)');
-                $rowData['cicil'] = $cicilRaw;
             } else {
                 $rowData['cicil'] = $cicil;
             }
@@ -90,6 +160,25 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
         return $current . ', ' . $message;
     }
 
+    private function normalizeNoWa(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_int($value) || is_float($value)) {
+            $digits = preg_replace('/\D+/', '', sprintf('%.0f', $value));
+        } else {
+            $digits = preg_replace('/\D+/', '', trim((string) $value));
+        }
+
+        if ($digits === '' || strlen($digits) > 50) {
+            return null;
+        }
+
+        return $digits;
+    }
+
     /**
      * CICIL: 1 = bisa dicicil, 0 = tidak bisa dicicil.
      */
@@ -105,6 +194,7 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
 
         if (is_int($value) || is_float($value)) {
             $intVal = (int) $value;
+
             return in_array($intVal, [0, 1], true) ? $intVal : null;
         }
 
