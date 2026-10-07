@@ -74,9 +74,19 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
             return;
         }
 
-        $nisCounts = [];
+        // NIS sama boleh untuk beberapa tagihan (beda KETERANGAN/NOMINAL/CICIL).
+        // Konflik hanya jika data siswa (selain 3 kolom itu) berbeda untuk NIS yang sama.
+        $nisIdentityMap = [];
         foreach ($parsedRows as $row) {
-            $nisCounts[$row['nis']] = ($nisCounts[$row['nis']] ?? 0) + 1;
+            $nis = $row['nis'];
+            $identity = $this->studentIdentityKey($row);
+            $nisIdentityMap[$nis][$identity] = true;
+        }
+        $nisConflict = [];
+        foreach ($nisIdentityMap as $nis => $identities) {
+            if (count($identities) > 1) {
+                $nisConflict[$nis] = true;
+            }
         }
 
         $thnAkaSet = array_flip(
@@ -92,9 +102,9 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
             $rowData['status'] = 1;
             $status_ket = null;
 
-            if (($nisCounts[$rowData['nis']] ?? 0) > 1) {
+            if (isset($nisConflict[$rowData['nis']])) {
                 $rowData['status'] = 0;
-                $status_ket = "NIS {$rowData['nis']} double, tolong perbaiki";
+                $status_ket = "NIS {$rowData['nis']} dipakai untuk data siswa berbeda, tolong perbaiki";
             }
 
             if ($rowData['nama'] === '') {
@@ -172,6 +182,24 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
         }
 
         return $current . ', ' . $message;
+    }
+
+    /**
+     * Identitas siswa (bukan tagihan). KETERANGAN/NOMINAL/CICIL sengaja diabaikan.
+     */
+    private function studentIdentityKey(array $row): string
+    {
+        $gender = $this->normalizeGender($row['gender'] ?? null) ?? '';
+
+        return implode('|', [
+            mb_strtolower(trim((string) ($row['nama'] ?? ''))),
+            $gender,
+            mb_strtolower(trim((string) ($row['unit'] ?? ''))),
+            mb_strtolower(trim((string) ($row['kelas'] ?? ''))),
+            mb_strtolower(trim((string) ($row['kelompok'] ?? ''))),
+            mb_strtolower(trim((string) ($row['angkatan'] ?? ''))),
+            trim((string) ($row['no_wa'] ?? '')),
+        ]);
     }
 
     private function normalizeNoWa(mixed $value): ?string
