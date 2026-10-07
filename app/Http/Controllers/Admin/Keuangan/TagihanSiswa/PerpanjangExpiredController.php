@@ -177,8 +177,8 @@ class PerpanjangExpiredController extends Controller
         $validator = Validator::make($request->all(), [
             'ids' => ['required', 'array', 'min:1'],
             'ids.*' => ['required'],
-            'mode' => ['required', 'in:auto,custom'],
-            'exp_date' => ['nullable', 'date', 'required_if:mode,custom'],
+            'mode' => ['required', 'in:auto,custom,edit'],
+            'exp_date' => ['nullable', 'date', 'required_if:mode,custom,edit'],
         ], [], [
             'ids' => 'Tagihan',
             'mode' => 'Mode perpanjang',
@@ -203,7 +203,10 @@ class PerpanjangExpiredController extends Controller
             return response()->json(['message' => 'Pilih minimal 1 tagihan.'], 422);
         }
 
-        if ($request->input('mode') === 'auto') {
+        $mode = (string) $request->input('mode');
+        $isMassEdit = $mode === 'edit';
+
+        if ($mode === 'auto') {
             $newExp = DataTagihanController::resolveAutoExtendExpDate();
         } else {
             try {
@@ -216,14 +219,21 @@ class PerpanjangExpiredController extends Controller
         $query = scctbill::query()
             ->whereIn('AA', $ids)
             ->where('FSTSBolehBayar', 1)
-            ->whereNotNull('ExpDate')
-            ->where('ExpDate', '<', Carbon::now()->startOfDay());
+            ->whereNotNull('ExpDate');
+
+        if (!$isMassEdit) {
+            $query->where('ExpDate', '<', Carbon::now()->startOfDay());
+        }
 
         $this->applyBelumLunasScope($query);
 
         $tagihans = $query->get();
         if ($tagihans->isEmpty()) {
-            return response()->json(['message' => 'Tagihan expired tidak ditemukan / sudah diperpanjang.'], 422);
+            $message = $isMassEdit
+                ? 'Tagihan terpilih tidak ditemukan atau sudah lunas.'
+                : 'Tagihan expired tidak ditemukan / sudah diperpanjang.';
+
+            return response()->json(['message' => $message], 422);
         }
 
         try {
@@ -239,8 +249,10 @@ class PerpanjangExpiredController extends Controller
             Cache::increment(Str::slug($this->cacheKey) . '_cache_version');
             DB::connection('DATA_MYSQL')->commit();
 
+            $actionLabel = $isMassEdit ? 'mengubah Exp Date' : 'memperpanjang';
+
             return response()->json([
-                'message' => "Berhasil memperpanjang {$updated} tagihan sampai {$newExp->translatedFormat('d F Y')}.",
+                'message' => "Berhasil {$actionLabel} {$updated} tagihan menjadi {$newExp->translatedFormat('d F Y')}.",
                 'exp_date' => $newExp->format('Y-m-d H:i:s'),
                 'updated' => $updated,
             ]);
@@ -248,7 +260,7 @@ class PerpanjangExpiredController extends Controller
             DB::connection('DATA_MYSQL')->rollBack();
 
             return response()->json([
-                'message' => 'Gagal memperpanjang expired date: ' . $e->getMessage(),
+                'message' => 'Gagal menyimpan Exp Date: ' . $e->getMessage(),
                 'error' => $e->getMessage(),
             ], 422);
         }

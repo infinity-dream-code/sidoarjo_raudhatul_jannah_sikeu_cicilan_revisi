@@ -41,8 +41,8 @@
     <div class="card mb-3">
         <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
             <div>
-                <h5 class="mb-1">Pilih Tagihan Expired</h5>
-                <div class="text-muted small">Centang tagihan yang ingin diperpanjang, atau perpanjang otomatis semua.</div>
+                <h5 class="mb-1">Perpanjang / Edit Exp Date Tagihan</h5>
+                <div class="text-muted small">Perpanjang hanya tagihan expired; edit massal bisa mengubah tanggal semua tagihan terpilih (termasuk yang belum expired, boleh lebih awal).</div>
             </div>
             <div class="d-flex flex-wrap gap-2">
                 <button type="button" class="btn btn-info" id="btn-auto-all">
@@ -140,7 +140,7 @@
             <div class="d-flex gap-2">
                 <button type="button" class="btn btn-outline-secondary" id="btn-clear-selection">Kosongkan Pilihan</button>
                 <button type="button" class="btn btn-info" id="btn-open-perpanjang" disabled>
-                    <i class="ri-calendar-schedule-line me-1"></i> Perpanjang Terpilih
+                    <i class="ri-calendar-schedule-line me-1"></i> Perpanjang / Edit Terpilih
                 </button>
             </div>
         </div>
@@ -151,7 +151,7 @@
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">Perpanjang Expired Date</h5>
+                        <h5 class="modal-title">Perpanjang / Edit Exp Date</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
@@ -173,11 +173,21 @@
                             </div>
                             <div class="form-check mt-2">
                                 <input class="form-check-input" type="radio" name="mode" id="mode-custom" value="custom">
-                                <label class="form-check-label" for="mode-custom">Set tanggal sendiri</label>
+                                <label class="form-check-label" for="mode-custom">
+                                    Perpanjang — set tanggal sendiri
+                                    <span class="d-block small text-muted">Hanya tagihan expired yang terpilih.</span>
+                                </label>
+                            </div>
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="radio" name="mode" id="mode-edit" value="edit">
+                                <label class="form-check-label" for="mode-edit">
+                                    Edit massal Exp Date
+                                    <span class="d-block small text-muted">Semua tagihan terpilih (expired atau belum), tanggal boleh lebih awal maupun lebih akhir.</span>
+                                </label>
                             </div>
                         </div>
                         <div class="mb-0" id="custom-exp-wrap" style="display:none;">
-                            <label class="form-label" for="custom_exp_date">Tanggal Expired Baru</label>
+                            <label class="form-label" for="custom_exp_date">Tanggal Exp Date Baru</label>
                             <input type="date" class="form-control" id="custom_exp_date" value="{{ $autoExpDate ?? '' }}">
                         </div>
                     </div>
@@ -366,7 +376,8 @@
             });
 
             $('input[name="mode"]').on('change', function () {
-                $('#custom-exp-wrap').toggle(this.value === 'custom');
+                const mode = $('input[name="mode"]:checked').val();
+                $('#custom-exp-wrap').toggle(mode === 'custom' || mode === 'edit');
             });
 
             $('#btn-open-perpanjang').on('click', function () {
@@ -439,16 +450,16 @@
                 }
                 const mode = $('input[name="mode"]:checked').val() || 'auto';
                 const payload = { ids, mode };
-                if (mode === 'custom') {
+                if (mode === 'custom' || mode === 'edit') {
                     const expDate = $('#custom_exp_date').val();
                     if (!expDate) {
-                        warningAlert('Isi tanggal expired baru.');
+                        warningAlert('Isi tanggal Exp Date baru.');
                         return;
                     }
                     payload.exp_date = expDate;
                 }
 
-                loadingAlert('Memperpanjang expired date...');
+                loadingAlert(mode === 'edit' ? 'Menyimpan edit Exp Date...' : 'Memperpanjang Exp Date...');
                 fetch(storeUrl, {
                     method: 'POST',
                     credentials: 'same-origin',
