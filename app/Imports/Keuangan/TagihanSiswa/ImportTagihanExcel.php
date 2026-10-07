@@ -105,7 +105,7 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
             $gender = $this->normalizeGender($rowData['gender'] ?? null);
             if (($rowData['gender'] ?? null) !== null && trim((string) $rowData['gender']) !== '' && $gender === null) {
                 $rowData['status'] = 0;
-                $status_ket = $this->appendKet($status_ket, 'GENDER harus Laki-Laki/Perempuan (1/0 atau L/P)');
+                $status_ket = $this->appendKet($status_ket, 'GENDER harus L atau P');
                 $rowData['gender'] = $rowData['gender'];
             } else {
                 $rowData['gender'] = $gender;
@@ -194,7 +194,7 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
     }
 
     /**
-     * GENDER: 1 = Laki-Laki, 0 = Perempuan (sama seperti form Data Siswa).
+     * GENDER: L = Laki-Laki, P = Perempuan.
      */
     private function normalizeGender(mixed $value): ?string
     {
@@ -202,21 +202,20 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
             return null;
         }
 
-        if (is_int($value) || is_float($value)) {
-            $intVal = (int) $value;
-
-            return in_array($intVal, [0, 1], true) ? (string) $intVal : null;
+        $normalized = strtoupper(trim((string) $value));
+        if ($normalized === 'L' || $normalized === 'P') {
+            return $normalized;
         }
 
-        $normalized = strtolower(trim((string) $value));
-        $normalized = str_replace(['-', '_'], ' ', $normalized);
-        $normalized = preg_replace('/\s+/', ' ', $normalized) ?? $normalized;
+        $lower = strtolower(trim((string) $value));
+        $lower = str_replace(['-', '_'], ' ', $lower);
+        $lower = preg_replace('/\s+/', ' ', $lower) ?? $lower;
 
-        if (in_array($normalized, ['1', 'l', 'laki', 'laki laki', 'laki-laki', 'pria', 'male', 'm'], true)) {
-            return '1';
+        if (in_array($lower, ['laki', 'laki laki', 'pria', 'male', 'm'], true)) {
+            return 'L';
         }
-        if (in_array($normalized, ['0', 'p', 'perempuan', 'wanita', 'female', 'f'], true)) {
-            return '0';
+        if (in_array($lower, ['perempuan', 'wanita', 'female', 'f'], true)) {
+            return 'P';
         }
 
         return null;

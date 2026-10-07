@@ -527,11 +527,12 @@ class UploadTagihanExcelController extends Controller
             return '-';
         }
 
-        if ((string) $value === '1' || (is_numeric($value) && (int) $value === 1)) {
-            return 'Laki-Laki';
+        $normalized = strtoupper(trim((string) $value));
+        if ($normalized === 'L') {
+            return 'L';
         }
-        if ((string) $value === '0' || (is_numeric($value) && (int) $value === 0)) {
-            return 'Perempuan';
+        if ($normalized === 'P') {
+            return 'P';
         }
 
         return (string) $value;

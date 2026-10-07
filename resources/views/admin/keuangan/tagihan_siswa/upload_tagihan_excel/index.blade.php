@@ -147,7 +147,7 @@
                             <li class="list-group-item list-group-timeline-danger">File harus berformat <span class="fw-bold">XLS/XLSX</span>.</li>
                             <li class="list-group-item list-group-timeline-danger">Ukuran file tidak boleh lebih dari <span class="fw-bold">1024KB/1MB</span>.</li>
                             <li class="list-group-item list-group-timeline-danger">Kolom: <span class="fw-bold">NIS, NAMA, GENDER, UNIT, KELAS, KELOMPOK, ANGKATAN, NO_WA, KETERANGAN, NOMINAL, CICIL</span>.</li>
-                            <li class="list-group-item list-group-timeline-danger">Kolom <span class="fw-bold">GENDER</span>: <span class="fw-bold">1</span> / L / Laki-Laki, atau <span class="fw-bold">0</span> / P / Perempuan (opsional).</li>
+                            <li class="list-group-item list-group-timeline-danger">Kolom <span class="fw-bold">GENDER</span>: isi <span class="fw-bold">L</span> (Laki-Laki) atau <span class="fw-bold">P</span> (Perempuan).</li>
                             <li class="list-group-item list-group-timeline-danger">Kolom <span class="fw-bold">KETERANGAN</span> = nama tagihan (tidak boleh kosong).</li>
                             <li class="list-group-item list-group-timeline-danger">Kolom <span class="fw-bold">CICIL</span>: isi <span class="fw-bold">1</span> = bisa dicicil, <span class="fw-bold">0</span> = tidak bisa dicicil.</li>
                             <li class="list-group-item list-group-timeline-danger">NIS harus unik dalam file. Jika ada yang double, pratinjau menampilkan pesan perbaiki data dan simpan ditolak.</li>
@@ -155,7 +155,7 @@
                             <li class="list-group-item list-group-timeline-danger">Hapus baris contoh (NIS <span class="fw-bold">99999999…</span>) sebelum import.</li>
                             <li class="list-group-item list-group-timeline-danger">Contoh file:
                                 <a class="btn btn-sm btn-outline-primary fw-bolder"
-                                   href="{{asset('contoh_excel/TEMPLATE MENU UPLOAD TAGIHAN EXCEL.xlsx')}}?v=20261007-gender">
+                                   href="{{asset('contoh_excel/TEMPLATE MENU UPLOAD TAGIHAN EXCEL.xlsx')}}?v=20261007-gender-lp">
                                     <i class="ri ri-file-excel-line me-2"></i>Contoh File
                                 </a>
                             </li>
