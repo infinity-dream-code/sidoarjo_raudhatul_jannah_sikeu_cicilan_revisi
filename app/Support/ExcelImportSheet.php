@@ -7,6 +7,77 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 class ExcelImportSheet
 {
     /**
+     * Selalu pakai sheet paling kiri (index 0); sheet lain diabaikan.
+     * Header yang kurang dikembalikan di 'missing' agar pesan error ditangani pemanggil.
+     *
+     * @param  string|array<int, string>  $idHeading
+     * @return array{index: int, headings: array<int, string>, usable: int, name: string, missing: array<int, string>}
+     */
+    public static function pickFirst(
+        string $path,
+        array $requiredHeadings,
+        string|array $idHeading,
+        ?callable $skipId = null,
+    ): array {
+        $reader = IOFactory::createReaderForFile($path);
+        $reader->setReadDataOnly(true);
+
+        $sheetNames = method_exists($reader, 'listWorksheetNames') ? $reader->listWorksheetNames($path) : [];
+        if (!empty($sheetNames)) {
+            $reader->setLoadSheetsOnly([$sheetNames[0]]);
+        }
+
+        $spreadsheet = $reader->load($path);
+
+        try {
+            $sheet = $spreadsheet->getSheet(0);
+            $rows = $sheet->toArray(null, true, true, false);
+            $headings = isset($rows[0]) && is_array($rows[0])
+                ? array_map(static fn ($heading) => strtolower(trim((string) $heading)), $rows[0])
+                : [];
+
+            $required = array_map(static fn ($heading) => strtolower(trim((string) $heading)), $requiredHeadings);
+            $missing = array_values(array_diff($required, $headings));
+
+            $idCols = [];
+            foreach ((array) $idHeading as $idName) {
+                $idName = strtolower(trim((string) $idName));
+                $col = array_search($idName, $headings, true);
+                if ($idName !== '' && $col !== false) {
+                    $idCols[$idName] = $col;
+                }
+            }
+
+            $usable = 0;
+            foreach (array_slice($rows, 1) as $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
+                foreach ($idCols as $idName => $idCol) {
+                    $id = self::normalizeId($row[$idCol] ?? null);
+                    if ($id === '' || strcasecmp($id, $idName) === 0 || ($skipId && $skipId($id))) {
+                        continue;
+                    }
+                    $usable++;
+                    break;
+                }
+            }
+
+            return [
+                'index' => 0,
+                'name' => $sheet->getTitle(),
+                'headings' => $headings,
+                'missing' => $missing,
+                'usable' => $usable,
+                'hasIdColumn' => $idCols !== [],
+            ];
+        } finally {
+            $spreadsheet->disconnectWorksheets();
+            unset($spreadsheet);
+        }
+    }
+
+    /**
      * Pilih 1 sheet untuk diimpor.
      * Default: sheet dengan baris data terbanyak, tie-break sheet aktif lalu sheet terakhir.
      * $preferActive: pakai sheet yang sedang dibuka di Excel jika headernya valid.

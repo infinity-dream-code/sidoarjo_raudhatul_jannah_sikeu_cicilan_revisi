@@ -149,12 +149,20 @@ class UploadTagihanExcelController extends Controller
                 'nis', 'nama', 'unit', 'kelas', 'kelompok', 'angkatan',
                 'keterangan', 'nominal', 'cicil',
             ];
-            $sheet = ExcelImportSheet::pickBest(
+            $sheet = ExcelImportSheet::pickFirst(
                 $file->getRealPath(),
                 $requiredColumns,
                 'nis',
                 [ExcelImportSheet::class, 'isTemplateSampleNis']
             );
+
+            if (!empty($sheet['missing'])) {
+                throw new \Exception(
+                    'Sheet paling kiri ("' . e($sheet['name']) . '") tidak memiliki kolom: '
+                    . strtoupper(implode(', ', $sheet['missing']))
+                    . '.<br>Pastikan data tagihan ada di sheet paling kiri dengan header sesuai template.'
+                );
+            }
 
             if ((int) ($sheet['usable'] ?? 0) === 0) {
                 throw new \Exception('File hanya berisi baris contoh template (NIS 99999999…). Ganti dengan NIS siswa yang sebenarnya, hapus baris contoh, lalu import ulang.');

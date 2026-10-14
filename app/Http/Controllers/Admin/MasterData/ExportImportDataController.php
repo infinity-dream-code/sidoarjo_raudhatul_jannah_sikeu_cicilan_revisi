@@ -158,12 +158,10 @@ class ExportImportDataController extends Controller
                 'nama', 'unit', 'kelas', 'kelompok', 'angkatan',
             ];
             $conditionalColumns = ['nis', 'nodaftar'];
-            $sheet = ExcelImportSheet::pickBest(
+            $sheet = ExcelImportSheet::pickFirst(
                 $file->getRealPath(),
                 $requiredColumns,
                 ['nis', 'nodaftar'],
-                null,
-                true,
             );
 
             $headings = $sheet['headings'];

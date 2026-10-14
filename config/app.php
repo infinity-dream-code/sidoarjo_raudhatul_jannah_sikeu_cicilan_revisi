@@ -17,7 +17,7 @@ return [
     */
 
     'name' => env('APP_NAME', 'Raudlatul Jannah'),
-    'nama_instansi' => env('APP_NAMA_INSTANSI', 'Sidoarjo_Raudlatul_Jannah'),
+    'nama_instansi' => str_replace('_', ' ', (string) env('APP_NAMA_INSTANSI', 'Sidoarjo Raudlatul Jannah')),
     'alamat' => env('APP_ALAMAT', 'Kota Sidoarjo, Prov. Jawa Timur'),
     'logo' => env('APP_LOGO', 'icon-jannah.jpeg'),
     'email' => env('APP_EMAIL', 'ypisabkho@gmail.com'),

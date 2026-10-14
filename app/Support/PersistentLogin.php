@@ -161,20 +161,37 @@ class PersistentLogin
     public static function failedRestoreResponse(string $where, ?Throwable $e = null)
     {
         $reason = self::$lastFailure ?? 'unknown';
+        $request = request();
+        $permanent = in_array($reason, self::PERMANENT_FAILURES, true);
+        $isAjax = $request->ajax()
+            || $request->expectsJson()
+            || $request->header('X-Requested-With') === 'XMLHttpRequest';
 
         try {
             Log::warning('[gangguan-sementara] ' . $where . ': ' . $reason, [
-                'url' => request()->fullUrl(),
-                'ip' => request()->ip(),
+                'url' => $request->url(),
+                'ip' => $request->ip(),
+                'cookie_urut' => self::readCookiePayload()['urut'] ?? null,
                 'error' => self::$lastError ?? $e?->getMessage(),
                 'exception' => $e ? $e::class : null,
             ]);
         } catch (Throwable) {
         }
 
-        if (in_array($reason, self::PERMANENT_FAILURES, true)) {
+        if ($permanent) {
             self::clear();
+        }
 
+        if ($isAjax) {
+            return response()->json([
+                'ok' => false,
+                'message' => $permanent
+                    ? 'Sesi login sudah tidak berlaku, silakan login ulang.'
+                    : 'Gangguan sementara. Silakan coba lagi.',
+            ], $permanent ? 401 : 503);
+        }
+
+        if ($permanent) {
             return redirect()->route('login')
                 ->with('error', 'Sesi login sudah tidak berlaku, silakan login ulang.');
         }
