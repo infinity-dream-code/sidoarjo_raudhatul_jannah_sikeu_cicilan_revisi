@@ -27,7 +27,7 @@ class CheckUserRoles
             }
 
             if (PersistentLogin::hasCookie()) {
-                return response()->view('errors.500', [], 500);
+                return PersistentLogin::failedRestoreResponse('roles');
             }
 
             return redirect()->route('login');

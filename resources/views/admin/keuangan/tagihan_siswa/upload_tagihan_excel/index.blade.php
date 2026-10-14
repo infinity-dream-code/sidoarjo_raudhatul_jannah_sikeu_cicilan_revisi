@@ -117,7 +117,11 @@
             </table>
         </div>
 
-        <div class="card-footer d-flex justify-content-end border-top">
+        <div class="card-footer d-flex justify-content-end gap-3 border-top">
+            <button type="button" class="btn btn-danger" id="btn-clear-data">
+                <span class="ri-delete-bin-2-line me-2"></span>
+                Bersihkan Data
+            </button>
             <button type="button" class="btn btn-primary" data-bs-toggle="modal"
                     data-bs-target="#modal-validate">
                 <span class="ri-save-line me-2"></span>
@@ -450,6 +454,35 @@
 
                     clearErrorMessages(form.id);
                 });
+            });
+
+            document.getElementById('btn-clear-data').addEventListener('click', function () {
+                loadingAlert('Membersihkan data pratinjau ...');
+                const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+                fetch('{{ route('admin.keuangan.tagihan-siswa.upload-tagihan-excel.clear-data') }}', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                })
+                    .then(async response => {
+                        const payload = await parseJsonResponse(response);
+                        if (!response.ok) {
+                            throw {status: response.status, payload};
+                        }
+                        return payload;
+                    })
+                    .then(data => {
+                        successAlert(data.message);
+                        dataReload('main_table');
+                    })
+                    .catch(error => {
+                        const message = error.payload?.message || error.message;
+                        errorAlert(message || 'Gagal membersihkan data, silahkan muat ulang halaman.');
+                    });
             });
         });
 

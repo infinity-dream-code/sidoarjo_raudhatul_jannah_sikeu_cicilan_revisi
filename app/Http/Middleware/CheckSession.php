@@ -38,8 +38,7 @@ class CheckSession
                 return $next($request);
             }
 
-            // Masih gagal → halaman soft-retry (bukan putus login)
-            return response()->view('errors.500', [], 500);
+            return \App\Support\PersistentLogin::failedRestoreResponse('session');
         }
 
         return redirect()->route('login');

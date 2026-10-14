@@ -63,6 +63,14 @@ class UploadTagihanExcelController extends Controller
         return view('admin.keuangan.tagihan_siswa.upload_tagihan_excel.index', $data);
     }
 
+    public function clearData()
+    {
+        Cache::forget($this->cacheKey);
+        Cache::forget($this->resolvedCacheKey());
+
+        return response()->json(['message' => 'Data pratinjau dibersihkan. Silahkan import ulang file Excel.'], 200);
+    }
+
     public function getColumn()
     {
         return [

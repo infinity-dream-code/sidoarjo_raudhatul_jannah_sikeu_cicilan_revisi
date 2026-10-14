@@ -14,8 +14,10 @@ use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
 class ImportDataSiswa implements WithMultipleSheets, ToCollection, WithHeadingRow, SkipsEmptyRows
 {
-    public function __construct(private int $sheetIndex = 0)
-    {
+    public function __construct(
+        private int $sheetIndex = 0,
+        private string $cacheKey = 'import_data_siswa',
+    ) {
     }
 
     public function sheets(): array
@@ -27,17 +29,25 @@ class ImportDataSiswa implements WithMultipleSheets, ToCollection, WithHeadingRo
 
     public function collection(Collection $collection): void
     {
-        $cacheKey = 'import_data_siswa';
+        $cacheKey = $this->cacheKey;
         $requiredKeys = ['nama', 'unit', 'kelas', 'kelompok', 'angkatan'];
         $parsedRows = [];
 
         foreach ($collection as $row) {
-            if ($row->filter()->isEmpty()) {
+            if ($row->filter(fn ($value) => trim((string) $value) !== '')->isEmpty()) {
                 continue;
             }
 
             $rowData = $row->toArray();
             if (count(array_intersect_key(array_flip($requiredKeys), $rowData)) !== count($requiredKeys)) {
+                continue;
+            }
+
+            // Baris tanpa identitas siswa (hanya format/sisa isi kolom lain) bukan data.
+            $hasIdentity = trim((string) ($rowData['nis'] ?? '')) !== ''
+                || trim((string) ($rowData['nodaftar'] ?? '')) !== ''
+                || trim((string) ($rowData['nama'] ?? '')) !== '';
+            if (!$hasIdentity) {
                 continue;
             }
 

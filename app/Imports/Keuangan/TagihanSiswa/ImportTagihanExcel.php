@@ -29,7 +29,7 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
         $parsedRows = [];
 
         foreach ($collection as $row) {
-            if ($row->filter()->isEmpty()) {
+            if ($row->filter(fn ($value) => trim((string) $value) !== '')->isEmpty()) {
                 continue;
             }
 

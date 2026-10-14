@@ -29,6 +29,12 @@
 <div style="font-family: system-ui, sans-serif; padding: 2rem; text-align: center;">
     <h1 style="font-size: 1.25rem;">Terjadi gangguan sementara</h1>
     <p>Silakan muat ulang halaman beberapa detik lagi.</p>
+    <p style="color: #888; font-size: .8rem;">
+        Kode: {{ $code ?? 'ERROR-500' }} &middot; {{ now()->format('d-m-Y H:i:s') }}
+    </p>
+    <p style="font-size: .85rem;">
+        Jika terus muncul, <a href="{{ url('/logout-paksa') }}">klik di sini untuk login ulang</a>.
+    </p>
 </div>
 </body>
 </html>

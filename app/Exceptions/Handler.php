@@ -47,7 +47,7 @@ class Handler extends ExceptionHandler
             }
 
             if (PersistentLogin::hasCookie()) {
-                return response()->view('errors.500', [], 500);
+                return PersistentLogin::failedRestoreResponse('auth', $e);
             }
         }
 
@@ -61,7 +61,7 @@ class Handler extends ExceptionHandler
                 ], 503);
             }
 
-            return response()->view('errors.500', [], 500);
+            return response()->view('errors.500', ['code' => 'TRANSIENT-' . class_basename($e)], 500);
         }
 
         if ($e instanceof TokenMismatchException) {

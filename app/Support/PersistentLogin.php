@@ -5,11 +5,20 @@ namespace App\Support;
 use App\Models\CyberKey;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cookie;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class PersistentLogin
 {
     public const COOKIE = 'sidoarjo_jannah';
+
+    /** Alasan restore() terakhir gagal (untuk log & halaman gangguan). */
+    public static ?string $lastFailure = null;
+
+    public static ?string $lastError = null;
+
+    /** Kegagalan yang tidak akan sembuh dengan refresh → harus login ulang. */
+    private const PERMANENT_FAILURES = ['bad_payload', 'stamp_mismatch', 'users_mismatch', 'user_not_found'];
 
     public static function minutes(): int
     {
@@ -55,30 +64,38 @@ class PersistentLogin
 
     public static function restore(): bool
     {
+        self::$lastFailure = null;
+        self::$lastError = null;
+
         if (Auth::check()) {
             return true;
         }
 
         $data = self::readCookiePayload();
         if (!is_array($data)) {
+            self::$lastFailure = request()->cookie(self::COOKIE) ? 'bad_payload' : 'no_cookie';
             return false;
         }
 
         $urut = (int) ($data['urut'] ?? 0);
         if ($urut < 1) {
+            self::$lastFailure = 'bad_payload';
             return false;
         }
 
         $user = self::findUser($urut);
         if (!$user instanceof CyberKey) {
+            self::$lastFailure ??= 'user_not_found';
             return false;
         }
 
         if (!hash_equals(self::stamp($user), (string) ($data['stamp'] ?? ''))) {
+            self::$lastFailure = 'stamp_mismatch';
             return false;
         }
 
         if (isset($data['users']) && (string) $data['users'] !== (string) $user->users) {
+            self::$lastFailure = 'users_mismatch';
             return false;
         }
 
@@ -137,6 +154,34 @@ class PersistentLogin
         return $previous instanceof Throwable && self::isTransient($previous);
     }
 
+    /**
+     * Respon saat user punya cookie login tapi sesi tidak bisa dipulihkan.
+     * Kegagalan permanen → hapus cookie & ke login; selain itu halaman gangguan + log.
+     */
+    public static function failedRestoreResponse(string $where, ?Throwable $e = null)
+    {
+        $reason = self::$lastFailure ?? 'unknown';
+
+        try {
+            Log::warning('[gangguan-sementara] ' . $where . ': ' . $reason, [
+                'url' => request()->fullUrl(),
+                'ip' => request()->ip(),
+                'error' => self::$lastError ?? $e?->getMessage(),
+                'exception' => $e ? $e::class : null,
+            ]);
+        } catch (Throwable) {
+        }
+
+        if (in_array($reason, self::PERMANENT_FAILURES, true)) {
+            self::clear();
+
+            return redirect()->route('login')
+                ->with('error', 'Sesi login sudah tidak berlaku, silakan login ulang.');
+        }
+
+        return response()->view('errors.500', ['code' => strtoupper($where . '-' . $reason)], 500);
+    }
+
     public static function hasCookie(): bool
     {
         return self::readCookiePayload() !== null;
@@ -169,8 +214,14 @@ class PersistentLogin
         $attempts = 0;
         do {
             try {
-                return CyberKey::query()->where('urut', $urut)->first();
+                $user = CyberKey::query()->where('urut', $urut)->first();
+                self::$lastFailure = null;
+                self::$lastError = null;
+
+                return $user;
             } catch (Throwable $e) {
+                self::$lastFailure = 'db_error';
+                self::$lastError = $e->getMessage();
                 if (!self::isTransient($e) || $attempts >= 1) {
                     return null;
                 }

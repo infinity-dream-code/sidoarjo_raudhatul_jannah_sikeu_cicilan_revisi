@@ -16,6 +16,7 @@ use App\Support\SchoolScope;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -29,8 +30,16 @@ class ExportImportDataController extends Controller
     public string $dataTitle = 'Export Import Data';
     public string $cacheKey = 'import_data_siswa';
 
+    private function resolvedCacheKey(): string
+    {
+        return $this->cacheKey . ':' . (Auth::id() ?? 'guest');
+    }
+
     public function index()
     {
+        Cache::forget($this->cacheKey);
+        Cache::forget($this->resolvedCacheKey());
+
         $data['title'] = $this->title;
         $data['mainTitle'] = $this->mainTitle;
         $data['dataTitle'] = $this->dataTitle;
@@ -77,7 +86,7 @@ class ExportImportDataController extends Controller
         }
 
         try {
-            $cached = Cache::get($this->cacheKey, []);
+            $cached = Cache::get($this->resolvedCacheKey(), []);
             $cachedData = collect(is_array($cached) ? $cached : []);
         } catch (\Throwable $e) {
             Log::warning('export_import_data.getData.cache_failed', [
@@ -181,10 +190,10 @@ class ExportImportDataController extends Controller
                 );
             }
 
-            Cache::forget($this->cacheKey);
-            Excel::import(new ImportDataSiswa($sheet['index']), $file);
+            Cache::forget($this->resolvedCacheKey());
+            Excel::import(new ImportDataSiswa($sheet['index'], $this->resolvedCacheKey()), $file);
 
-            $data = Cache::get($this->cacheKey) ?? [];
+            $data = Cache::get($this->resolvedCacheKey()) ?? [];
             $invalidCount = collect($data)->where('status', 0)->count();
             $message = 'Sukses, data siswa telah diimport, silahkan periksa kembali';
             if ($invalidCount > 0) {
@@ -220,7 +229,7 @@ class ExportImportDataController extends Controller
             ValidationMessage::attributes()
         );
 
-        $data = Cache::get($this->cacheKey);
+        $data = Cache::get($this->resolvedCacheKey());
         if (is_null($data) || (is_array($data) && empty($data))) {
             return response()->json(['message' => 'Tidak ada data yang dapat diproses, silahkan upload file terlebih dahulu'], 422);
         }
@@ -434,7 +443,7 @@ class ExportImportDataController extends Controller
             }
 
             $this->commitIfActive();
-            Cache::forget($this->cacheKey);
+            Cache::forget($this->resolvedCacheKey());
 
             return response()->json(['message' => 'Sukses, data siswa telah disimpan, silahkan periksa kembali'], 200);
         } catch (\Throwable $e) {
@@ -459,7 +468,7 @@ class ExportImportDataController extends Controller
 
     public function clearData()
     {
-        Cache::forget($this->cacheKey);
+        Cache::forget($this->resolvedCacheKey());
         return response()->json(['message' => 'Data dibersihkan'], 200);
     }
 

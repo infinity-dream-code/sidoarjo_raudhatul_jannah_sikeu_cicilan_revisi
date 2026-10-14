@@ -35,6 +35,17 @@ Route::get('admin/session-ping', function () {
         'csrf' => $csrf,
     ]);
 })->name('admin.session-ping');
+Route::get('/logout-paksa', function () {
+    try {
+        \Illuminate\Support\Facades\Auth::logout();
+        request()->session()->invalidate();
+        request()->session()->regenerateToken();
+    } catch (\Throwable) {
+    }
+    \App\Support\PersistentLogin::clear();
+
+    return redirect()->route('login');
+})->name('logout-paksa');
 Route::get("/reload-captcha", [AuthController::class, "reloadCaptcha"])->name("reload-captcha");
 Route::get("/reload-math-captcha", [\App\Http\Controllers\Auth\LoginController::class, "reloadMathCaptcha"])->name("reload-math-captcha");
 
@@ -178,6 +189,7 @@ Route::prefix("admin")
                         Route::get("get-data", "getData")->name("get-data");
                         Route::get("get-column", "getColumn")->name("get-column");
                         Route::post("validate-excel", "validateExcel")->name("validate-excel");
+                        Route::post("clear-data", "clearData")->name("clear-data");
                         Route::resource("", \App\Http\Controllers\Admin\Keuangan\TagihanSiswa\UploadTagihanExcelController::class)->parameters(["" => "id"]);
                     });
                 });
