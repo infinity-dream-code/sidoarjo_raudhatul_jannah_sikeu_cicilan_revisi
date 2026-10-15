@@ -30,7 +30,7 @@
         </tr>
         <tr>
             <td style="width: auto"
-                class="border-right-0">NOVA
+                class="border-right-0">No. VA
             </td>
             <td class="border-left-0">
                 :<strong> {{$nova ?? ''}}</strong>
@@ -51,66 +51,51 @@
             <th>#</th>
             <th>Tahun Akademik</th>
             <th>Nama Tagihan</th>
-            <th>Jumlah</th>
+            <th>Jumlah Tagihan</th>
+            <th>Terbayar</th>
+            <th>Sisa Tagihan</th>
             <th>Status</th>
         </tr>
         </thead>
         <tbody>
         @php
-            $paid = 0;
-            $unpaid = 0;
+            $kartuRows = \App\Support\KartuSiswaRows::build($tagihans);
+            $sumTotal = array_sum(array_column($kartuRows, 'total'));
+            $sumPaid = array_sum(array_column($kartuRows, 'terbayar'));
+            $sumSisa = array_sum(array_column($kartuRows, 'sisa'));
         @endphp
-        @foreach($tagihans as $tagihan)
-            @php
-                $BILLNM = $tagihan['BILLNM'];
-                $nextBILLNM =  false;
-                $beforeBILLNM =  false;
-                $BILLNMClass = '';
-                if (count($tagihans) > 1){
-                    if ($loop->index > 0 && $loop->index < (count($tagihans) - 1)){
-                        if($tagihans[$loop->index + 1]['BILLNM'] == $tagihan['BILLNM']) $nextBILLNM = true;
-                        if($tagihans[$loop->index - 1]['BILLNM'] == $tagihan['BILLNM']) $beforeBILLNM = true;
-                    }elseif ($loop->index ==0){
-                        if($tagihans[$loop->index + 1]['BILLNM'] == $tagihan['BILLNM']) $nextBILLNM = true;
-                    }elseif ($loop->index == (count($tagihans) - 1)){
-                        if($tagihans[$loop->index - 1]['BILLNM'] == $tagihan['BILLNM']) $beforeBILLNM = true;
-                    }
-                }
-//
-                $BILLNMClass = !$nextBILLNM ? '' : ' border-bottom-0';
-                $BILLNMClass .= !$beforeBILLNM?'':' border-top-0';
-
-                if($nextBILLNM && $beforeBILLNM) $BILLNM = '';
-                if($beforeBILLNM) $BILLNM = '';
-
-                if ($tagihan['PAIDST'] == 0) {
-                    $unpaid += $tagihan['BILLAM'];
-                } else{
-                    $paid += $tagihan['BILLAM'];
-                }
-            @endphp
+        @foreach($kartuRows as $row)
             <tr>
                 <th scope="row">{{$loop->index + 1}}</th>
-                <td>{{$tagihan['BTA']}}</td>
-                <td class="{{$BILLNMClass}}">{{$BILLNM}}</td>
-                <td align="right">@rupiah($tagihan['BILLAM'])</td>
-                <td align="center">{!! $tagihan['PAIDST'] == 0 ? '<span style="color:red;">BELUM LUNAS</span>': '<span style="color:green;">LUNAS</span>'!!}</td>
+                <td>{{$row['bta']}}</td>
+                <td>{{$row['nama']}}</td>
+                <td align="right">@rupiah($row['total'])</td>
+                <td align="right">@rupiah($row['terbayar'])</td>
+                <td align="right">@rupiah($row['sisa'])</td>
+                <td align="center">{!! $row['lunas'] ? '<span style="color:green;">LUNAS</span>' : '<span style="color:red;">BELUM LUNAS</span>' !!}</td>
             </tr>
         @endforeach
         </tbody>
         <tfoot style="background-color: #ededed; font-weight: bold;">
         <tr>
+            <td colspan="3">Total</td>
+            <td align="right">@rupiah($sumTotal)</td>
+            <td align="right">@rupiah($sumPaid)</td>
+            <td align="right">@rupiah($sumSisa)</td>
+            <td></td>
+        </tr>
+        <tr>
             <td colspan="3">Total Tagihan</td>
-            <td align="right">@rupiah($paid + $unpaid)</td>
+            <td colspan="3" align="right">@rupiah($sumTotal)</td>
             <td rowspan="3"></td>
         </tr>
         <tr>
             <td colspan="3">Total Tagihan Terbayar</td>
-            <td align="right">@rupiah($paid)</td>
+            <td colspan="3" align="right">@rupiah($sumPaid)</td>
         </tr>
         <tr>
             <td colspan="3">Total Sisa Tagihan</td>
-            <td align="right">@rupiah($unpaid)</td>
+            <td colspan="3" align="right">@rupiah($sumSisa)</td>
         </tr>
         </tfoot>
     </table>

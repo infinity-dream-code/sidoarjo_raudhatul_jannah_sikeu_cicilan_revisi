@@ -99,8 +99,14 @@ class PersistentLogin
             return false;
         }
 
+        // Tanpa Auth::login(): login() me-regenerate ID sesi, sehingga request AJAX paralel
+        // masing-masing membuat sesi + token CSRF baru → 419 beruntun.
         try {
-            Auth::login($user, false);
+            $guard = Auth::guard();
+            if (method_exists($guard, 'getName') && request()->hasSession()) {
+                request()->session()->put($guard->getName(), $user->getAuthIdentifier());
+            }
+            $guard->setUser($user);
         } catch (Throwable) {
             Auth::setUser($user);
         }
@@ -192,11 +198,31 @@ class PersistentLogin
         }
 
         if ($permanent) {
-            return redirect()->route('login')
-                ->with('error', 'Sesi login sudah tidak berlaku, silakan login ulang.');
+            return self::redirectToLogin('Sesi login sudah tidak berlaku, silakan login ulang.');
         }
 
         return response()->view('errors.500', ['code' => strtoupper($where . '-' . $reason)], 500);
+    }
+
+    /**
+     * Ke halaman login sambil mengingat halaman terakhir, agar setelah login
+     * user kembali ke halaman yang sedang dibuka (bukan ke beranda).
+     */
+    public static function redirectToLogin(?string $message = null)
+    {
+        $request = request();
+        $intended = $request->isMethod('GET') ? $request->fullUrl() : url()->previous();
+
+        try {
+            if ($request->hasSession() && $intended && !str_contains($intended, '/login')) {
+                $request->session()->put('url.intended', $intended);
+            }
+        } catch (Throwable) {
+        }
+
+        $redirect = redirect()->route('login');
+
+        return $message ? $redirect->with('error', $message) : $redirect;
     }
 
     public static function hasCookie(): bool

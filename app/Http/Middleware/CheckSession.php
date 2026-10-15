@@ -41,6 +41,6 @@ class CheckSession
             return \App\Support\PersistentLogin::failedRestoreResponse('session');
         }
 
-        return redirect()->route('login');
+        return \App\Support\PersistentLogin::redirectToLogin();
     }
 }

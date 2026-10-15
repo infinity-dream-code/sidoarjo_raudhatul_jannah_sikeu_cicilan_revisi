@@ -30,7 +30,7 @@ class CheckUserRoles
                 return PersistentLogin::failedRestoreResponse('roles');
             }
 
-            return redirect()->route('login');
+            return PersistentLogin::redirectToLogin();
         }
         $user = Auth::user();
 

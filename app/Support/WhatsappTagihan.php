@@ -42,6 +42,47 @@ class WhatsappTagihan
             . "Mohon dapat segera diselesaikan. Terima kasih.";
     }
 
+    /**
+     * Template aktif + baris nominal (jumlah/terbayar/sisa) yang belum ada di template
+     * ditambahkan otomatis agar pesan tagihan selalu memuat rincian nominal.
+     */
+    public static function activeTemplateWithAmounts(?string $kode = self::KODE_TAGIHAN): string
+    {
+        $template = rtrim(self::activeTemplate($kode));
+
+        $lines = [];
+        if (!str_contains($template, '{jumlah_tagihan}')) {
+            $lines[] = "Jumlah tagihan: Rp {jumlah_tagihan}";
+        }
+        if (!str_contains($template, '{terbayar}')) {
+            $lines[] = "Sudah dibayar: Rp {terbayar}";
+        }
+        if (!str_contains($template, '{sisa_tagihan}')) {
+            $lines[] = "Sisa tagihan: Rp {sisa_tagihan}";
+        }
+
+        return $lines === [] ? $template : $template . "\n\n" . implode("\n", $lines);
+    }
+
+    /**
+     * @return array{total: int, terbayar: int, sisa: int}
+     */
+    public static function amounts(mixed $billAm, mixed $billPaid, mixed $paymentLeft, mixed $paidSt = 0): array
+    {
+        $total = max(0, (int) ($billAm ?? 0));
+        if ($paymentLeft === null || $paymentLeft === '') {
+            $sisa = (int) $paidSt === 1 ? 0 : max(0, $total - (int) ($billPaid ?? 0));
+        } else {
+            $sisa = max(0, (int) $paymentLeft);
+        }
+
+        return [
+            'total' => $total,
+            'terbayar' => max(0, $total - $sisa),
+            'sisa' => $sisa,
+        ];
+    }
+
     public static function activeTemplate(?string $kode = self::KODE_TAGIHAN): string
     {
         try {

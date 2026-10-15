@@ -65,13 +65,7 @@ class Handler extends ExceptionHandler
         }
 
         if ($e instanceof TokenMismatchException) {
-            try {
-                if ($request->hasSession()) {
-                    $request->session()->regenerateToken();
-                }
-            } catch (Throwable) {
-            }
-
+            // Jangan regenerateToken() di sini: token baru membuat tab/request lain ikut 419.
             if ($request->expectsJson()
                 || $request->ajax()
                 || $request->wantsJson()
@@ -82,7 +76,9 @@ class Handler extends ExceptionHandler
                 ], 419);
             }
 
-            return redirect()->back();
+            return redirect()->back()
+                ->withInput($request->except($this->dontFlash))
+                ->with('error', 'Halaman sudah diperbarui, silakan kirim ulang.');
         }
 
         return parent::render($request, $e);

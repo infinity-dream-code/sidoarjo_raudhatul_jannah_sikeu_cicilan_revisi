@@ -947,7 +947,7 @@ class DataTagihanController extends Controller
             ->get();
 
         $lastPaymentDates = $this->getLastPaymentDatesForBills($rows);
-        $waTemplate = WhatsappTagihan::activeTemplate();
+        $waTemplate = WhatsappTagihan::activeTemplateWithAmounts();
 
         $records = $rows
             ->map(function ($item, $index) use ($lastPaymentDates, $waTemplate) {
@@ -969,6 +969,7 @@ class DataTagihanController extends Controller
                     : null;
                 $kelasLabel = trim((string) ($get('DESC02') ?? '') . ' ' . (string) ($get('DESC03') ?? ''));
                 $noWa = $get('NO_WA');
+                $waAmounts = WhatsappTagihan::amounts($get('BILLAM'), $get('BILLPAID'), $get('PAYMENTLEFT'), $get('PAIDST'));
                 $waMessage = WhatsappTagihan::applyTemplate($waTemplate, [
                     'nama' => $get('NMCUST') ?: '-',
                     'nis' => ($nocust && $nocust !== '-') ? $nocust : '-',
@@ -978,9 +979,9 @@ class DataTagihanController extends Controller
                     'unit' => $get('CODE02') ?: '-',
                     'nama_tagihan' => $get('BILLNM') ?: '-',
                     'periode' => $get('BILLAC') ?: '-',
-                    'jumlah_tagihan' => WhatsappTagihan::formatRupiah($get('BILLAM')),
-                    'terbayar' => WhatsappTagihan::formatRupiah($get('BILLPAID')),
-                    'sisa_tagihan' => WhatsappTagihan::formatRupiah($get('PAYMENTLEFT')),
+                    'jumlah_tagihan' => WhatsappTagihan::formatRupiah($waAmounts['total']),
+                    'terbayar' => WhatsappTagihan::formatRupiah($waAmounts['terbayar']),
+                    'sisa_tagihan' => WhatsappTagihan::formatRupiah($waAmounts['sisa']),
                     'no_va' => $noVa ?: '-',
                 ]);
 
