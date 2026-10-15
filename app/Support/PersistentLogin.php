@@ -10,7 +10,10 @@ use Throwable;
 
 class PersistentLogin
 {
-    public const COOKIE = 'sidoarjo_jannah';
+    public const COOKIE = 'sikeu_rj_login';
+
+    /** Cookie lama: bisa berisi user dari database/domain sebelumnya → diabaikan & dihapus. */
+    public const LEGACY_COOKIE = 'sidoarjo_jannah';
 
     /** Alasan restore() terakhir gagal (untuk log & halaman gangguan). */
     public static ?string $lastFailure = null;
@@ -51,6 +54,8 @@ class PersistentLogin
             false,
             config('session.same_site', 'lax')
         ));
+
+        self::forgetLegacy();
     }
 
     public static function clear(): void
@@ -60,6 +65,22 @@ class PersistentLogin
             config('session.path', '/'),
             config('session.domain')
         ));
+
+        self::forgetLegacy();
+    }
+
+    private static function forgetLegacy(): void
+    {
+        try {
+            if (request()->cookies->has(self::LEGACY_COOKIE)) {
+                Cookie::queue(Cookie::forget(
+                    self::LEGACY_COOKIE,
+                    config('session.path', '/'),
+                    config('session.domain')
+                ));
+            }
+        } catch (Throwable) {
+        }
     }
 
     public static function restore(): bool
@@ -89,7 +110,7 @@ class PersistentLogin
             return false;
         }
 
-        if (!hash_equals(self::stamp($user), (string) ($data['stamp'] ?? ''))) {
+        if (!self::stampMatches($user, (string) ($data['stamp'] ?? ''))) {
             self::$lastFailure = 'stamp_mismatch';
             return false;
         }
@@ -276,13 +297,36 @@ class PersistentLogin
         return null;
     }
 
+    /**
+     * Kunci dari hash password di DB (bukan APP_KEY) agar cookie tetap valid walau request
+     * dilayani instance/server lain dengan APP_KEY berbeda. Ganti password = cookie batal.
+     */
     private static function stamp(CyberKey $user): string
+    {
+        return hash_hmac(
+            'sha256',
+            'sikeu-rj-login|'.$user->urut.'|'.$user->users,
+            (string) $user->password
+        );
+    }
+
+    private static function legacyStamp(CyberKey $user): string
     {
         return hash_hmac(
             'sha256',
             $user->urut.'|'.$user->users.'|'.$user->password,
             (string) config('app.key')
         );
+    }
+
+    private static function stampMatches(CyberKey $user, string $stamp): bool
+    {
+        if ($stamp === '' || trim((string) $user->password) === '') {
+            return false;
+        }
+
+        return hash_equals(self::stamp($user), $stamp)
+            || hash_equals(self::legacyStamp($user), $stamp);
     }
 
     private static function secure(): bool

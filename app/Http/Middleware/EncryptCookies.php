@@ -13,5 +13,6 @@ class EncryptCookies extends Middleware
      */
     protected $except = [
         \App\Support\PersistentLogin::COOKIE,
+        \App\Support\PersistentLogin::LEGACY_COOKIE,
     ];
 }
