@@ -12,8 +12,12 @@ class WhatsappGateway
     public static function clientId(): string
     {
         $id = trim((string) config('whatsapp.client_id', ''));
+        if ($id === '') {
+            $id = 'sidoarjo_raudlatul_j';
+        }
 
-        return $id !== '' ? $id : 'sidoarjo_raudlatul_jannah';
+        // Kolom client di farrelep_broadcaster.whatsapp_queue = varchar(20).
+        return substr($id, 0, 20);
     }
 
     public static function enqueue(string $phone, string $message, int|string $logId): mixed
