@@ -158,6 +158,15 @@ Route::prefix("admin")
         });
 
         Route::prefix("keuangan")->name("keuangan.")->group(function () {
+            Route::prefix("kirim-wa-tagihan")
+                ->name("kirim-wa-tagihan.")
+                ->controller(\App\Http\Controllers\Admin\Keuangan\KirimWaTagihanController::class)
+                ->group(function () {
+                    Route::get("", "index")->name("index");
+                    Route::get("get-data", "getData")->name("get-data");
+                    Route::post("send-wa", "sendWa")->name("send-wa");
+                });
+
             Route::controller(\App\Http\Controllers\Admin\Keuangan\ManualPembayaranController::class)
                 ->prefix("manual-pembayaran")->name("manual-pembayaran.")->group(function () {
                     Route::get("get-data", "getData")->name("get-data");

@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS `wa_template` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `kode` VARCHAR(50) NOT NULL COMMENT 'Kode pemakaian, contoh: tagihan',
   `nama` VARCHAR(100) NOT NULL COMMENT 'Nama template',
-  `template` TEXT NOT NULL COMMENT 'Isi pesan. Placeholder: {nama} {nis} {no_daftar} {kelas} {kelompok} {unit} {nama_tagihan} {periode} {jumlah_tagihan} {terbayar} {sisa_tagihan} {no_va}',
+  `template` TEXT NOT NULL COMMENT 'Isi pesan. Placeholder: {nama} {nis} {no_daftar} {kelas} {kelompok} {unit} {nama_tagihan} {periode} {jumlah_tagihan} {terbayar} {sisa_tagihan} {rincian} {no_va}',
   `is_active` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '1=aktif, 0=nonaktif',
   `created_at` DATETIME NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

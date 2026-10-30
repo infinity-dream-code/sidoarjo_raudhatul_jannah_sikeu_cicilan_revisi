@@ -23,6 +23,7 @@ class WhatsappTagihan
             "{jumlah_tagihan}" => "Jumlah tagihan",
             "{terbayar}" => "Jumlah terbayar",
             "{sisa_tagihan}" => "Sisa tagihan",
+            "{rincian}" => "Daftar rincian tagihan",
             "{no_va}" => "Nomor VA",
         ];
     }
@@ -124,6 +125,80 @@ class WhatsappTagihan
         }
 
         return $digits;
+    }
+
+    public static function formatPhoneGateway(?string $raw): ?string
+    {
+        $digits = self::formatPhone($raw);
+
+        return $digits === null ? null : '+' . $digits;
+    }
+
+    public static function templateById(?int $id): ?string
+    {
+        if (!$id) {
+            return self::defaultTemplate();
+        }
+
+        try {
+            $tpl = WaTemplate::query()
+                ->where('id', $id)
+                ->where('is_active', 1)
+                ->value('template');
+
+            if (is_string($tpl) && trim($tpl) !== '') {
+                return $tpl;
+            }
+        } catch (Throwable) {
+            // Tabel belum ada.
+        }
+
+        return null;
+    }
+
+    public static function withRincianPlaceholder(string $template): string
+    {
+        if (str_contains($template, '{rincian}')) {
+            return $template;
+        }
+
+        return rtrim($template) . "\n\nRincian:{rincian}";
+    }
+
+    /**
+     * @param  iterable<mixed>  $bills
+     */
+    public static function rincian(iterable $bills): string
+    {
+        $lines = [];
+
+        foreach ($bills as $bill) {
+            $nama = trim((string) self::billValue($bill, 'BILLNM', '-'));
+            $periode = trim((string) self::billValue($bill, 'BILLAC', ''));
+            $amounts = self::amounts(
+                self::billValue($bill, 'BILLAM', 0),
+                self::billValue($bill, 'BILLPAID', 0),
+                self::billValue($bill, 'PAYMENTLEFT', null),
+                self::billValue($bill, 'PAIDST', 0)
+            );
+            $label = $periode !== '' ? $nama . ' (' . $periode . ')' : $nama;
+            $lines[] = '- ' . $label . ': Rp *' . self::formatRupiah($amounts['sisa']) . '*';
+        }
+
+        return $lines === [] ? '-' : "\n" . implode("\n", $lines);
+    }
+
+    private static function billValue(mixed $bill, string $key, mixed $default = null): mixed
+    {
+        if (is_array($bill)) {
+            return $bill[$key] ?? $default;
+        }
+
+        if (is_object($bill)) {
+            return $bill->{$key} ?? $default;
+        }
+
+        return $default;
     }
 
     public static function formatRupiah(mixed $value): string
