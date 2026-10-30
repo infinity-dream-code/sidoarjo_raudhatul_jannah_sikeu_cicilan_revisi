@@ -120,6 +120,11 @@ class WhatsappTagihan
             $digits = "62" . $digits;
         }
 
+        // 6208123... (62 + 0) → 628123...
+        if (str_starts_with($digits, "620")) {
+            $digits = "62" . substr($digits, 3);
+        }
+
         if (!str_starts_with($digits, "62") || strlen($digits) < 10) {
             return null;
         }
