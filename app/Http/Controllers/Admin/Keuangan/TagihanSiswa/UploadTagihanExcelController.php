@@ -85,6 +85,7 @@ class UploadTagihanExcelController extends Controller
             ['data' => 'kelompok', 'name' => 'Kelompok', 'searchable' => true, 'orderable' => true],
             ['data' => 'angkatan', 'name' => 'Angkatan', 'searchable' => true, 'orderable' => true],
             ['data' => 'no_wa', 'name' => 'No WA', 'searchable' => true, 'orderable' => true],
+            ['data' => 'email_ortu', 'name' => 'Email Ortu', 'searchable' => true, 'orderable' => true],
             ['data' => 'nama_tagihan', 'name' => 'Nama Tagihan', 'searchable' => true, 'orderable' => true],
             ['data' => 'nominal', 'name' => 'Nominal', 'searchable' => true, 'orderable' => true, 'columnType' => 'currency'],
             ['data' => 'cicil', 'name' => 'Cicil', 'searchable' => true, 'orderable' => true, 'className' => 'text-center'],
@@ -109,6 +110,7 @@ class UploadTagihanExcelController extends Controller
                 'kelompok' => $item['kelompok'] ?? null,
                 'angkatan' => $item['angkatan'] ?? null,
                 'no_wa' => $item['no_wa'] ?? null,
+                'email_ortu' => $item['email_ortu'] ?? null,
                 'nama_tagihan' => $item['nama_tagihan'] ?? null,
                 'nominal' => $item['nominal'] ?? null,
                 'cicil' => $this->formatCicilLabel($item['cicil'] ?? null),
@@ -438,6 +440,11 @@ class UploadTagihanExcelController extends Controller
             $payload['NO_WA'] = $noWa;
         }
 
+        $emailOrtu = $this->normalizeEmail($item['email_ortu'] ?? null);
+        if ($emailOrtu !== null) {
+            $payload['EMAIL_ORTU'] = $emailOrtu;
+        }
+
         if ($existing) {
             $existing->update($payload);
 
@@ -449,6 +456,16 @@ class UploadTagihanExcelController extends Controller
         $payload['STCUST'] = 1;
 
         return scctcust::create($payload);
+    }
+
+    private function normalizeEmail(mixed $value): ?string
+    {
+        $email = trim((string) ($value ?? ''));
+        if ($email === '' || strlen($email) > 150) {
+            return null;
+        }
+
+        return filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : null;
     }
 
     private function normalizeNoWa(mixed $value): ?string

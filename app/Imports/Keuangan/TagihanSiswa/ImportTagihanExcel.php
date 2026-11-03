@@ -61,6 +61,13 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
                 'no_wa' => $this->normalizeNoWa(
                     $rowData['no_wa'] ?? $rowData['nowa'] ?? $rowData['no wa'] ?? null
                 ),
+                'email_ortu' => $this->normalizeEmail(
+                    $rowData['email_ortu']
+                        ?? $rowData['email ortu']
+                        ?? $rowData['email']
+                        ?? $rowData['emailortu']
+                        ?? null
+                ),
                 'nama_tagihan' => $namaTagihan,
                 'nominal' => $rowData['nominal'] ?? null,
                 'cicil' => $rowData['cicil'] ?? $rowData['is_cicil'] ?? $rowData['iscicil'] ?? null,
@@ -189,6 +196,7 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
             mb_strtolower(trim((string) ($row['kelompok'] ?? ''))),
             mb_strtolower(trim((string) ($row['angkatan'] ?? ''))),
             trim((string) ($row['no_wa'] ?? '')),
+            mb_strtolower(trim((string) ($row['email_ortu'] ?? ''))),
         ]);
     }
 
@@ -209,6 +217,16 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
         }
 
         return $digits;
+    }
+
+    private function normalizeEmail(mixed $value): ?string
+    {
+        $email = trim((string) ($value ?? ''));
+        if ($email === '' || strlen($email) > 150) {
+            return null;
+        }
+
+        return filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : null;
     }
 
     /**

@@ -150,7 +150,7 @@
                         <ul class="list-group list-group-timeline mb-3">
                             <li class="list-group-item list-group-timeline-danger">File harus berformat <span class="fw-bold">XLS/XLSX</span>.</li>
                             <li class="list-group-item list-group-timeline-danger">Ukuran file tidak boleh lebih dari <span class="fw-bold">1024KB/1MB</span>.</li>
-                            <li class="list-group-item list-group-timeline-danger">Kolom: <span class="fw-bold">NIS, NAMA, GENDER, UNIT, KELAS, KELOMPOK, ANGKATAN, NO_WA, KETERANGAN, NOMINAL, CICIL</span>.</li>
+                            <li class="list-group-item list-group-timeline-danger">Kolom: <span class="fw-bold">NIS, NAMA, GENDER, UNIT, KELAS, KELOMPOK, ANGKATAN, NO_WA, EMAIL_ORTU, KETERANGAN, NOMINAL, CICIL</span>.</li>
                             <li class="list-group-item list-group-timeline-danger">Kolom <span class="fw-bold">GENDER</span>: isi <span class="fw-bold">L</span> (Laki-Laki) atau <span class="fw-bold">P</span> (Perempuan).</li>
                             <li class="list-group-item list-group-timeline-danger">Kolom <span class="fw-bold">KETERANGAN</span> = nama tagihan (tidak boleh kosong).</li>
                             <li class="list-group-item list-group-timeline-danger">Kolom <span class="fw-bold">CICIL</span>: isi <span class="fw-bold">1</span> = bisa dicicil, <span class="fw-bold">0</span> = tidak bisa dicicil.</li>

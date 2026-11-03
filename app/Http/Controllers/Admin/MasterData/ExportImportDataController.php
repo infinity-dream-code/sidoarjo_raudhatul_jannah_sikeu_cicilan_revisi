@@ -73,6 +73,7 @@ class ExportImportDataController extends Controller
             ['data' => 'ortu', 'name' => 'Ortu / Wali', 'searchable' => false, 'orderable' => false],
             ['data' => 'alamat', 'name' => 'Alamat', 'searchable' => false, 'orderable' => false],
             ['data' => 'no_wa', 'name' => 'No WA', 'searchable' => false, 'orderable' => false],
+            ['data' => 'email_ortu', 'name' => 'Email Ortu', 'searchable' => false, 'orderable' => false],
         ];
     }
 
@@ -128,6 +129,7 @@ class ExportImportDataController extends Controller
                 'ortu' => $item['ortu'] ?? $item['genus'] ?? null,
                 'alamat' => $item['alamat'] ?? null,
                 'no_wa' => $item['no_wa'] ?? null,
+                'email_ortu' => $item['email_ortu'] ?? null,
                 'status' => $item['status'] ?? 0,
                 'keterangan' => $item['keterangan'] ?? null,
             ];
@@ -308,6 +310,7 @@ class ExportImportDataController extends Controller
 
                     $this->upsertImportedCustomer($item, $sekolah, $kelas, $thnAka);
                     $this->syncNoWa($item, 'NOCUST', $nis);
+                    $this->syncEmailOrtu($item, 'NOCUST', $nis);
 
                     $saved++;
                 }
@@ -409,6 +412,7 @@ class ExportImportDataController extends Controller
                             'DESC03' => $kelas->kelas,
                         ]);
                         $this->syncNoWa($item, 'NOCUST', (string) $item['nis']);
+                        $this->syncEmailOrtu($item, 'NOCUST', (string) $item['nis']);
                     }
                 }
             } elseif ($request->metode == '4') {
@@ -436,6 +440,7 @@ class ExportImportDataController extends Controller
                             'NOCUST' => $item['nis'],
                         ]);
                         $this->syncNoWa($item, 'NOCUST', (string) $item['nis']);
+                        $this->syncEmailOrtu($item, 'NOCUST', (string) $item['nis']);
                     }
                 }
             }
@@ -495,6 +500,9 @@ class ExportImportDataController extends Controller
             ? (string) $item['nodaftar']
             : null;
         $item['no_wa'] = $this->normalizeNoWa($item['no_wa'] ?? $item['nowa'] ?? null);
+        $item['email_ortu'] = $this->normalizeEmail(
+            $item['email_ortu'] ?? $item['email ortu'] ?? $item['email'] ?? $item['emailortu'] ?? null
+        );
 
         return $item;
     }
@@ -518,6 +526,16 @@ class ExportImportDataController extends Controller
         return $digits;
     }
 
+    private function normalizeEmail(mixed $value): ?string
+    {
+        $email = trim((string) ($value ?? ''));
+        if ($email === '' || strlen($email) > 150) {
+            return null;
+        }
+
+        return filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : null;
+    }
+
     private function syncNoWa(array $item, string $column, string $lookup): void
     {
         $noWa = $this->normalizeNoWa($item['no_wa'] ?? null);
@@ -526,6 +544,16 @@ class ExportImportDataController extends Controller
         }
 
         scctcust::where($column, $lookup)->update(['NO_WA' => $noWa]);
+    }
+
+    private function syncEmailOrtu(array $item, string $column, string $lookup): void
+    {
+        $email = $this->normalizeEmail($item['email_ortu'] ?? null);
+        if ($email === null || $lookup === '') {
+            return;
+        }
+
+        scctcust::where($column, $lookup)->update(['EMAIL_ORTU' => $email]);
     }
 
     /** Nama ortu/wali utama (kolom ortu / genus / ayah di Excel). */
@@ -631,6 +659,11 @@ class ExportImportDataController extends Controller
         $noWa = $this->normalizeNoWa($item['no_wa'] ?? null);
         if ($noWa !== null) {
             $payload['NO_WA'] = $noWa;
+        }
+
+        $emailOrtu = $this->normalizeEmail($item['email_ortu'] ?? null);
+        if ($emailOrtu !== null) {
+            $payload['EMAIL_ORTU'] = $emailOrtu;
         }
 
         if ($existingCust) {

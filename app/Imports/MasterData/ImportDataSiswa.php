@@ -65,6 +65,13 @@ class ImportDataSiswa implements WithMultipleSheets, ToCollection, WithHeadingRo
             $rowData['no_wa'] = $this->normalizeNoWa(
                 $rowData['no_wa'] ?? $rowData['nowa'] ?? $rowData['no wa'] ?? $rowData['wa'] ?? null
             );
+            $rowData['email_ortu'] = $this->normalizeEmail(
+                $rowData['email_ortu']
+                    ?? $rowData['email ortu']
+                    ?? $rowData['email']
+                    ?? $rowData['emailortu']
+                    ?? null
+            );
 
             $parsedRows[] = $rowData;
         }
@@ -198,6 +205,16 @@ class ImportDataSiswa implements WithMultipleSheets, ToCollection, WithHeadingRo
         }
 
         return $digits;
+    }
+
+    private function normalizeEmail(mixed $value): ?string
+    {
+        $email = trim((string) ($value ?? ''));
+        if ($email === '' || strlen($email) > 150) {
+            return null;
+        }
+
+        return filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : null;
     }
 
     public function headingRow(): int

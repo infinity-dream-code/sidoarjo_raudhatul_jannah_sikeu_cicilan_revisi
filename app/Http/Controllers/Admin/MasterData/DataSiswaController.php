@@ -92,6 +92,7 @@ class DataSiswaController extends Controller
             ["data" => "DESC05", "name" => "Alamat", "searchable" => true, "orderable" => true, "exportable" => true],
             ["data" => "GENUS", "name" => "Orang Tua", "searchable" => true, "orderable" => true, "exportable" => true],
             ["data" => "NO_WA", "name" => "No WA", "searchable" => true, "orderable" => true, "exportable" => true],
+            ["data" => "EMAIL_ORTU", "name" => "Email Ortu", "searchable" => true, "orderable" => true, "exportable" => true],
             ["data" => "STCUST", "name" => "Status (1/0)", "searchable" => true, "orderable" => true, "exportable" => true],
             [
                 "data" => "edit_siswa",
@@ -144,7 +145,7 @@ class DataSiswaController extends Controller
 
         $sortable = [
             "nocust", "NUM2ND", "nmcust", "CODE02", "DESC02", "DESC03",
-            "DESC04", "CODE04", "DESC05", "GENUS", "NO_WA", "STCUST",
+            "DESC04", "CODE04", "DESC05", "GENUS", "NO_WA", "EMAIL_ORTU", "STCUST",
         ];
 
         $orderArr = $request->get("order");
@@ -206,6 +207,7 @@ class DataSiswaController extends Controller
             "scctcust.NUM2ND",
             "scctcust.GENUS",
             "scctcust.NO_WA",
+            "scctcust.EMAIL_ORTU",
             "scctcust.CODE04",
             "scctcust.DESC05",
         ];
@@ -223,6 +225,7 @@ class DataSiswaController extends Controller
             "scctcust.DESC05",
             "scctcust.GENUS",
             "scctcust.NO_WA",
+            "scctcust.EMAIL_ORTU",
             "scctcust.STCUST",
         ];
 
@@ -304,6 +307,7 @@ class DataSiswaController extends Controller
                 $row["alamat"] = $item->DESC05;
                 $row["ayah"] = $item->GENUS;
                 $row["no_wa"] = $item->NO_WA;
+                $row["email_ortu"] = $item->EMAIL_ORTU;
                 $row["edit_siswa"] = true;
                 $row["set_status"] = true;
                 $row["link_tagihan"] = SmUserCredentialLink::tableCellHtml(
@@ -662,6 +666,7 @@ class DataSiswaController extends Controller
                 "alamat" => ["nullable", "string", "max:255"],
                 "gender" => ["nullable", "string", "max:50"],
                 "no_wa" => ["nullable", "string", "max:50"],
+                "email_ortu" => ["nullable", "email", "max:150"],
                 "stcust" => ["nullable", "in:0,1"],
             ],
             ValidationMessage::messages(),
@@ -690,6 +695,7 @@ class DataSiswaController extends Controller
                 "CODE04" => $request->input("gender") ?: null,
                 "DESC05" => $request->input("alamat") ?: null,
                 "NO_WA" => $request->input("no_wa") ?: null,
+                "EMAIL_ORTU" => $request->input("email_ortu") ?: null,
                 "STCUST" => $request->filled("stcust")
                     ? (int) $request->input("stcust")
                     : (int) ($siswa->STCUST ?? 0),

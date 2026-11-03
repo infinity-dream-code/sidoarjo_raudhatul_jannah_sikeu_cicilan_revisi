@@ -249,9 +249,11 @@
                                 <input type="text" class="form-control form-control-sm"
                                        id="edit_siswa-nowa" name="no_wa">
                             </div>
-                            <div class="col-md-9">
-                                <label class="form-label">Alamat</label>
-                                <textarea class="form-control form-control-sm" id="edit_siswa-alamat" name="alamat" rows="2"></textarea>
+                            <div class="col-md-4">
+                                <label class="form-label">Email Ortu</label>
+                                <input type="email" class="form-control form-control-sm"
+                                       id="edit_siswa-email-ortu" name="email_ortu"
+                                       placeholder="nama@email.com">
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">Status</label>
@@ -259,6 +261,10 @@
                                     <option value="1">Aktif</option>
                                     <option value="0">Nonaktif</option>
                                 </select>
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label">Alamat</label>
+                                <textarea class="form-control form-control-sm" id="edit_siswa-alamat" name="alamat" rows="2"></textarea>
                             </div>
                         </div>
                         <input type="hidden" id="edit_siswa-item_id" name="item_id" value="">
@@ -500,6 +506,7 @@
                 DESC05: 55,
                 GENUS: 55,
                 NO_WA: 48,
+                EMAIL_ORTU: 55,
                 STCUST: 24,
             },
             printCustomize: function (win) {
@@ -658,6 +665,7 @@
                 setValue('#form-edit-siswa [name="nama"]', pickValue(rowData.nama, rowData.nmcust, rowData.NMCUST));
                 setValue('#form-edit-siswa [name="ayah"]', pickValue(rowData.ayah, rowData.genus, rowData.GENUS));
                 setValue('#form-edit-siswa [name="no_wa"]', pickValue(rowData.no_wa, rowData.NO_WA));
+                setValue('#form-edit-siswa [name="email_ortu"]', pickValue(rowData.email_ortu, rowData.EMAIL_ORTU));
                 setValue('#form-edit-siswa [name="stcust"]', pickValue(rowData.stcust, rowData.STCUST, 0));
                 setValue('#form-edit-siswa [name="unit"]', pickValue(rowData.code02, rowData.CODE02));
                 setValue('#form-edit-siswa [name="kelas"]', pickValue(rowData.desc02, rowData.DESC02));
