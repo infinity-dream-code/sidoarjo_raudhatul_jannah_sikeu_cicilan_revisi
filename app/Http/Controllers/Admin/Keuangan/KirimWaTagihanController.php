@@ -236,16 +236,8 @@ class KirimWaTagihanController extends Controller
             ], 503);
         }
 
-        $parts = [$queued . ' pesan masuk antrian email'];
-        if ($skipped > 0) {
-            $parts[] = $skipped . ' dilewati karena email ortu kosong';
-        }
-        if ($failed > 0) {
-            $parts[] = $failed . ' gagal';
-        }
-
         return response()->json([
-            'message' => implode('. ', $parts) . '. Pengiriman SMTP diproses bertahap oleh Email Broadcaster (max 60/10 menit).',
+            'message' => $queued . ' pesan masuk antrian email',
             'queued' => $queued,
             'skipped' => $skipped,
             'failed' => $failed,
