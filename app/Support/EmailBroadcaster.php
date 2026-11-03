@@ -93,4 +93,57 @@ class EmailBroadcaster
             'errors' => is_array($body['errors'] ?? null) ? $body['errors'] : [],
         ];
     }
+
+    /**
+     * Proses antrian PENDING sekarang (tanpa tunggu cron).
+     *
+     * @return array<string, mixed>
+     */
+    public static function processNow(): array
+    {
+        $base = rtrim((string) config('email_broadcaster.url', ''), '/');
+        if ($base === '') {
+            throw new RuntimeException('EMAIL_BROADCASTER_URL belum dikonfigurasi.');
+        }
+
+        $url = $base . '/api/process-now.php';
+        $timeout = max(10, (int) config('email_broadcaster.timeout', 30));
+        $token = trim((string) config('email_broadcaster.token', ''));
+
+        $headers = [
+            'Accept' => 'application/json',
+        ];
+        if ($token !== '') {
+            $headers['Authorization'] = 'Bearer ' . $token;
+            $headers['X-Api-Token'] = $token;
+        }
+
+        try {
+            $response = Http::withHeaders($headers)
+                ->timeout($timeout)
+                ->post($url);
+        } catch (Throwable $e) {
+            Log::warning('email broadcaster process-now failed', [
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+            throw new RuntimeException(
+                'Gagal memproses antrian email sekarang: ' . $e->getMessage(),
+                0,
+                $e
+            );
+        }
+
+        $body = $response->json();
+        if (!is_array($body)) {
+            $body = [];
+        }
+
+        if (!$response->successful()) {
+            $message = (string) ($body['error'] ?? $body['message'] ?? ('HTTP ' . $response->status()));
+            throw new RuntimeException('Process-now ditolak: ' . $message);
+        }
+
+        return $body;
+    }
 }

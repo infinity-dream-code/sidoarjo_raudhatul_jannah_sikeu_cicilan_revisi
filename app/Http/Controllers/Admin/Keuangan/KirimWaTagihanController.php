@@ -206,6 +206,7 @@ class KirimWaTagihanController extends Controller
         }
 
         $queued = 0;
+        $sentNow = 0;
         if ($messages !== []) {
             try {
                 $result = EmailBroadcaster::enqueueBilling($messages);
@@ -236,9 +237,29 @@ class KirimWaTagihanController extends Controller
             ], 503);
         }
 
+        $immediateMax = max(0, (int) config('email_broadcaster.immediate_max', 3));
+        if ($queued > 0 && $queued <= $immediateMax) {
+            try {
+                $processed = EmailBroadcaster::processNow();
+                $sentNow = (int) ($processed['sent'] ?? 0);
+                $failed += (int) ($processed['failed'] ?? 0);
+            } catch (Throwable $e) {
+                // Antrian sudah masuk; cron tetap akan mengirim.
+                Log::warning('kirim tagihan email process-now gagal', [
+                    'queued' => $queued,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        $message = $sentNow > 0
+            ? ($sentNow . ' pesan terkirim')
+            : ($queued . ' pesan masuk antrian email');
+
         return response()->json([
-            'message' => $queued . ' pesan masuk antrian email',
+            'message' => $message,
             'queued' => $queued,
+            'sent' => $sentNow,
             'skipped' => $skipped,
             'failed' => $failed,
         ]);
