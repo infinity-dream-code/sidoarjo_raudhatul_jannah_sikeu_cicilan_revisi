@@ -40,10 +40,20 @@ function render_billing_email(array $message): array
     $brandAccent = (string) Config::get('MAIL_BRAND_ACCENT', '#4fbef7');
     $brandOrange = (string) Config::get('MAIL_BRAND_ORANGE', '#f59d42');
 
+    $portalPassword = (string) Config::get('DEFAULT_PORTAL_PASSWORD', '123');
+    $loginNis = (string) ($message['studentNis'] ?? '');
+
+    $loginBlock = '<div style="margin-top:20px;padding:14px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:13px;line-height:1.7;color:#1e3a8a;">
+      <div style="font-weight:700;margin-bottom:6px;">Informasi Login Portal Tagihan</div>
+      <div>NIS / Username : <strong>' . escape_html($loginNis !== '' ? $loginNis : '-') . '</strong></div>
+      <div>Password : <strong>' . escape_html($portalPassword) . '</strong></div>
+      <div style="margin-top:6px;color:#1d4ed8;font-size:12px;">Gunakan data di atas untuk masuk ke portal tagihan.</div>
+    </div>';
+
     $paymentButton = '';
     if (!empty($message['paymentLink'])) {
         $paymentButton = '<p style="margin:28px 0 8px;text-align:center;">
-        <a href="' . escape_html($message['paymentLink']) . '" style="display:inline-block;background:' . escape_html($brandOrange) . ';color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:700;">Lihat Cara Bayar</a>
+        <a href="' . escape_html($message['paymentLink']) . '" style="display:inline-block;background:' . escape_html($brandOrange) . ';color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:700;">Buka Portal Tagihan</a>
       </p>
       <p style="margin:0 0 8px;text-align:center;font-size:12px;color:#6b7280;">
         atau buka: <a href="' . escape_html($message['paymentLink']) . '" style="color:' . escape_html($brandAccent) . ';">' . escape_html($message['paymentLink']) . '</a>
@@ -131,12 +141,13 @@ function render_billing_email(array $message): array
             </table>
 
             ' . $paymentButton . '
+            ' . $loginBlock . '
             ' . $guideBlock . '
           </td>
         </tr>
         <tr>
           <td style="padding:14px 24px;background:#f9fafb;color:#6b7280;font-size:12px;">
-            Email ini dikirim otomatis oleh ' . escape_html($org) . '.
+            Email ini dikirim otomatis (noreply) oleh ' . escape_html($org) . '. Mohon tidak membalas email ini.
           </td>
         </tr>
       </table>
@@ -179,8 +190,11 @@ function render_billing_email(array $message): array
         $text .= 'Outstanding / Sisa Cicilan : ' . format_rupiah($message['outstandingAmount']) . "\n";
     }
     if (!empty($message['paymentLink'])) {
-        $text .= "\nBayar Disini : " . $message['paymentLink'] . "\n";
+        $text .= "\nPortal Tagihan : " . $message['paymentLink'] . "\n";
     }
+    $text .= "\nInformasi Login Portal Tagihan:\n";
+    $text .= 'NIS / Username : ' . ($loginNis !== '' ? $loginNis : '-') . "\n";
+    $text .= 'Password : ' . $portalPassword . "\n";
     if (!empty($message['paymentGuide'])) {
         $text .= "\nPANDUAN/TATA CARA PEMBAYARAN:\n" . $message['paymentGuide'] . "\n";
     }

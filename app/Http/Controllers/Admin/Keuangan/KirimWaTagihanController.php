@@ -360,7 +360,7 @@ class KirimWaTagihanController extends Controller
             'va' => $noVa !== '' ? $noVa : null,
             'subject' => $subject,
             'organizationName' => (string) (config('app.nama_instansi') ?: 'Raudlatul Jannah Sidoarjo'),
-            'paymentLink' => 'https://raudlatuljannah-sidoarjo.smartpayment.co.id',
+            'paymentLink' => rtrim((string) config('app.url_web_tagihan', 'https://tagihan-raudlatuljannah-sidoarjo.smartpayment.co.id'), '/') . '/',
             'totalAmount' => $total,
             'outstandingAmount' => $sisa,
             'items' => $items,
