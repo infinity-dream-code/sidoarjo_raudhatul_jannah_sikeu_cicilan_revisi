@@ -43,7 +43,7 @@ function render_billing_email(array $message): array
     $paymentButton = '';
     if (!empty($message['paymentLink'])) {
         $paymentButton = '<p style="margin:28px 0 8px;text-align:center;">
-        <a href="' . escape_html($message['paymentLink']) . '" style="display:inline-block;background:' . escape_html($brandOrange) . ';color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:700;">Bayar Disini</a>
+        <a href="' . escape_html($message['paymentLink']) . '" style="display:inline-block;background:' . escape_html($brandOrange) . ';color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:700;">Lihat Cara Bayar</a>
       </p>
       <p style="margin:0 0 8px;text-align:center;font-size:12px;color:#6b7280;">
         atau buka: <a href="' . escape_html($message['paymentLink']) . '" style="color:' . escape_html($brandAccent) . ';">' . escape_html($message['paymentLink']) . '</a>
@@ -97,7 +97,8 @@ function render_billing_email(array $message): array
       <table role="presentation" width="100%" style="max-width:640px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08);">
         <tr>
           <td style="background:' . escape_html($brandBg) . ';color:#fff;padding:18px 20px;border-bottom:3px solid ' . escape_html($brandAccent) . ';">
-            <div style="font-size:18px;font-weight:700;color:#ffffff;">Notifikasi Tagihan</div>
+            <div style="font-size:18px;font-weight:700;color:#ffffff;">' . escape_html($org) . '</div>
+            <div style="font-size:13px;color:#d1d5db;margin-top:4px;">Informasi Tagihan Siswa</div>
             <div style="margin-top:4px;font-size:13px;color:' . escape_html($brandAccent) . ';">Assalamu\'alaikum Warrahmatullahi Wabarakatuh</div>
           </td>
         </tr>

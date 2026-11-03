@@ -206,7 +206,6 @@ class KirimWaTagihanController extends Controller
         }
 
         $queued = 0;
-        $sentNow = 0;
         if ($messages !== []) {
             try {
                 $result = EmailBroadcaster::enqueueBilling($messages);
@@ -237,29 +236,24 @@ class KirimWaTagihanController extends Controller
             ], 503);
         }
 
+        // 1–3 pesan: langsung success ke UI, process-now jalan setelah response terkirim.
         $immediateMax = max(0, (int) config('email_broadcaster.immediate_max', 3));
         if ($queued > 0 && $queued <= $immediateMax) {
-            try {
-                $processed = EmailBroadcaster::processNow();
-                $sentNow = (int) ($processed['sent'] ?? 0);
-                $failed += (int) ($processed['failed'] ?? 0);
-            } catch (Throwable $e) {
-                // Antrian sudah masuk; cron tetap akan mengirim.
-                Log::warning('kirim tagihan email process-now gagal', [
-                    'queued' => $queued,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+            dispatch(function () use ($queued) {
+                try {
+                    EmailBroadcaster::processNow();
+                } catch (Throwable $e) {
+                    Log::warning('kirim tagihan email process-now background gagal', [
+                        'queued' => $queued,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            })->afterResponse();
         }
 
-        $message = $sentNow > 0
-            ? ($sentNow . ' pesan terkirim')
-            : ($queued . ' pesan masuk antrian email');
-
         return response()->json([
-            'message' => $message,
+            'message' => $queued . ' pesan masuk antrian email',
             'queued' => $queued,
-            'sent' => $sentNow,
             'skipped' => $skipped,
             'failed' => $failed,
         ]);
@@ -353,12 +347,9 @@ class KirimWaTagihanController extends Controller
         $kelasLabel = trim((string) ($siswa->DESC02 ?? '') . ' ' . (string) ($siswa->DESC03 ?? ''));
         $noVa = scctcust::showVA($nis, $first->isINSTALLABLE ?? null);
 
-        $subject = 'Tagihan ' . $nama;
+        $subject = 'Informasi tagihan ananda ' . $nama;
         if ($kelasLabel !== '') {
-            $subject .= ' - ' . $kelasLabel;
-        }
-        if ($templateName !== '') {
-            $subject .= ' | ' . $templateName;
+            $subject .= ' (' . $kelasLabel . ')';
         }
 
         return [
@@ -368,6 +359,8 @@ class KirimWaTagihanController extends Controller
             'kelas' => $kelasLabel !== '' ? $kelasLabel : null,
             'va' => $noVa !== '' ? $noVa : null,
             'subject' => $subject,
+            'organizationName' => (string) (config('app.nama_instansi') ?: 'Raudlatul Jannah Sidoarjo'),
+            'paymentLink' => 'https://raudlatuljannah-sidoarjo.smartpayment.co.id',
             'totalAmount' => $total,
             'outstandingAmount' => $sisa,
             'items' => $items,

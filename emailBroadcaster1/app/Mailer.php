@@ -88,14 +88,19 @@ class Mailer
             $altBody .= chunk_split(base64_encode($html)) . "\r\n";
             $altBody .= '--' . $altBoundary . "--\r\n";
 
+            $replyTo = trim((string) Config::get('MAIL_REPLY_TO', $fromEmail));
             $headers = [];
             $headers[] = 'Date: ' . date('r');
             $headers[] = 'From: ' . self::encodeAddress($fromName, $fromEmail);
+            if ($replyTo !== '' && filter_var($replyTo, FILTER_VALIDATE_EMAIL)) {
+                $headers[] = 'Reply-To: <' . $replyTo . '>';
+            }
             $headers[] = 'To: <' . $to . '>';
             $headers[] = 'Subject: ' . self::encodeHeader($subject);
             $headers[] = 'MIME-Version: 1.0';
-            $headers[] = 'Message-ID: <' . bin2hex(random_bytes(12)) . '@' . $ehloHost . '>';
-            $headers[] = 'X-Mailer: EmailBroadcaster-PHP';
+            $headers[] = 'Message-ID: <' . bin2hex(random_bytes(12)) . '@' . self::messageIdHost($fromEmail, $ehloHost) . '>';
+            $headers[] = 'X-Auto-Response-Suppress: OOF, AutoReply';
+            $headers[] = 'Auto-Submitted: auto-generated';
 
             if ($hasInline) {
                 $headers[] = 'Content-Type: multipart/related; type="multipart/alternative"; boundary="' . $relatedBoundary . '"';
@@ -150,6 +155,18 @@ class Mailer
             return $host;
         }
         return 'email-broadcaster.local';
+    }
+
+    private static function messageIdHost(string $fromEmail, string $fallback): string
+    {
+        $at = strrpos($fromEmail, '@');
+        if ($at !== false) {
+            $domain = substr($fromEmail, $at + 1);
+            if (is_string($domain) && $domain !== '') {
+                return $domain;
+            }
+        }
+        return $fallback !== '' ? $fallback : 'localhost';
     }
 
     private static function detectMime(string $path): string

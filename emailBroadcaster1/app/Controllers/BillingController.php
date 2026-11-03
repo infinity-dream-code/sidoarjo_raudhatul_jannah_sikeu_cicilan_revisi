@@ -69,7 +69,7 @@ class BillingController
         $paymentLink = first_value(
             $payload,
             ['paymentLink', 'linkPembayaran'],
-            Config::get('DEFAULT_PAYMENT_LINK', 'https://sdit-gemanurani.smartpayment.co.id')
+            Config::get('DEFAULT_PAYMENT_LINK', 'https://raudlatuljannah-sidoarjo.smartpayment.co.id')
         );
         $orderNumber = first_value($payload, ['orderNumber', 'invoiceNumber', 'noInvoice']);
 
