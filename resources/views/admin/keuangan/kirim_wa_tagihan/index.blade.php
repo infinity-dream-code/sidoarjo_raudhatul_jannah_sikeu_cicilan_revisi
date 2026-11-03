@@ -30,27 +30,27 @@
     <ul class="breadcrumb breadcrumb-style2">
         <li class="breadcrumb-item"><a href="{{ route('admin.index') }}">Beranda</a></li>
         <li class="breadcrumb-item">{{ $title ?? 'Keuangan' }}</li>
-        <li class="breadcrumb-item active">{{ $dataTitle ?? 'Kirim WA Tagihan' }}</li>
+        <li class="breadcrumb-item active">{{ $dataTitle ?? 'Kirim Tagihan Email' }}</li>
     </ul>
 
     <div class="card mb-3">
         <div class="card-header">
-            <h5 class="mb-0">Kirim WA Tagihan</h5>
+            <h5 class="mb-0">Kirim Tagihan Email</h5>
         </div>
         <div class="card-body">
             <ul class="list-group list-group-timeline mb-4">
                 <li class="list-group-item list-group-timeline-danger">
-                    <strong>Pilih template WA dulu sebelum mengirim.</strong>
+                    <strong>Pilih template email dulu sebelum mengirim.</strong>
                 </li>
                 <li class="list-group-item list-group-timeline-danger">
-                    <strong>Siswa tanpa nomor WhatsApp tidak akan menerima pesan.</strong>
+                    <strong>Siswa tanpa email ortu tidak akan menerima pesan.</strong>
                 </li>
             </ul>
 
             <form id="filter-form">
                 <div class="row g-3">
                     <div class="col-md-4">
-                        <label class="form-label" for="template_id">Template WA</label>
+                        <label class="form-label" for="template_id">Template Email</label>
                         <select class="form-select" id="template_id" name="template_id" data-control="select2" required>
                             <option value="">Pilih template</option>
                             @forelse(($templates ?? []) as $tpl)
@@ -59,7 +59,7 @@
                                 <option value="0">Template default</option>
                             @endforelse
                         </select>
-                        <div class="form-text">Isi template diatur di Master Data → Template WA.</div>
+                        <div class="form-text">Isi template diatur di Master Data → Template Email.</div>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label" for="filter_siswa">NIS / Nama</label>
@@ -112,12 +112,12 @@
                         </th>
                         <th>NIS</th>
                         <th>Nama</th>
-                        <th>No WA</th>
+                        <th>Email Ortu</th>
                         <th>Tahun</th>
                         <th>Nama Tagihan</th>
                         <th class="text-end">Jumlah</th>
                         <th class="text-end">Sisa</th>
-                        <th>Status No WA</th>
+                        <th>Status Email</th>
                         <th></th>
                     </tr>
                     </thead>
@@ -132,8 +132,8 @@
             </div>
             <div class="d-flex gap-2">
                 <button type="button" class="btn btn-outline-secondary" id="btn-clear-selection">Kosongkan Pilihan</button>
-                <button type="button" class="btn btn-success" id="btn-kirim-massal" disabled>
-                    <i class="ri-whatsapp-line me-1"></i> Kirim Massal
+                <button type="button" class="btn btn-primary" id="btn-kirim-massal" disabled>
+                    <i class="ri-mail-send-line me-1"></i> Kirim Massal
                 </button>
             </div>
         </div>
@@ -210,7 +210,7 @@
             function sendWhatsapp(tagihan) {
                 const templateId = selectedTemplateId();
                 if (templateId === '' || templateId === null) {
-                    warningAlert('Pilih template WA terlebih dahulu.');
+                    warningAlert('Pilih template email terlebih dahulu.');
                     return;
                 }
 
@@ -256,7 +256,7 @@
                             errorAlert('Sesi/CSRF sudah habis. Silakan muat ulang halaman lalu coba lagi.');
                             return;
                         }
-                        errorAlert(err.message || 'Gagal mengirim WhatsApp.');
+                        errorAlert(err.message || 'Gagal mengirim email.');
                     });
             }
 
@@ -290,7 +290,7 @@
                     },
                     { data: 'NOCUST', defaultContent: '-' },
                     { data: 'NMCUST', defaultContent: '-' },
-                    { data: 'NO_WA', defaultContent: '-' },
+                    { data: 'EMAIL_ORTU', defaultContent: '-' },
                     { data: 'BTA', defaultContent: '-' },
                     { data: 'BILLNM', defaultContent: '-' },
                     {
@@ -304,7 +304,7 @@
                         render: (d) => formatRp(d),
                     },
                     {
-                        data: 'has_wa',
+                        data: 'has_email',
                         className: 'text-center',
                         orderable: false,
                         render: function (d) {
@@ -319,9 +319,9 @@
                         searchable: false,
                         className: 'text-center',
                         render: function (d, t, row) {
-                            const disabled = row.has_wa ? '' : 'disabled';
-                            return `<button type="button" class="btn btn-sm btn-success btn-kirim-satu" ${disabled}>
-                                <i class="ri-whatsapp-line me-1"></i> Kirim
+                            const disabled = row.has_email ? '' : 'disabled';
+                            return `<button type="button" class="btn btn-sm btn-primary btn-kirim-satu" ${disabled}>
+                                <i class="ri-mail-send-line me-1"></i> Kirim
                             </button>`;
                         },
                     },

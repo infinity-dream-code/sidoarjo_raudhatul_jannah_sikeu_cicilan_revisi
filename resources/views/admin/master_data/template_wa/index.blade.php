@@ -61,7 +61,7 @@
             <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">Tambah Template WA</h5>
+                        <h5 class="modal-title">Tambah Template Email</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body py-4">
@@ -70,7 +70,7 @@
                                 <label class="form-label required" for="create_kode">Kode</label>
                                 <input type="text" class="form-control" name="kode" id="create_kode" autocomplete="off"
                                        placeholder="tagihan" required>
-                                <div class="form-text">Pakai kode <code>tagihan</code> untuk tombol Kirim WA di Data Tagihan.</div>
+                                <div class="form-text">Pakai kode <code>tagihan</code> untuk notifikasi tagihan (WA / email).</div>
                                 <div class="invalid-feedback" role="alert"><strong></strong></div>
                             </div>
                             <div class="mb-3">
@@ -82,7 +82,7 @@
                             <div class="mb-3">
                                 <label class="form-label required" for="create_template">Isi Template</label>
                                 <textarea class="form-control" name="template" id="create_template" rows="10"
-                                          placeholder="Isi pesan WhatsApp" required></textarea>
+                                          placeholder="Isi pesan email" required></textarea>
                                 <div class="form-text">{{ $placeholderHelp }}</div>
                                 <div class="invalid-feedback" role="alert"><strong></strong></div>
                             </div>
@@ -116,7 +116,7 @@
             <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title">Edit Template WA</h5>
+                        <h5 class="modal-title">Edit Template Email</h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body py-4">
@@ -124,7 +124,7 @@
                             <div class="mb-3">
                                 <label class="form-label required" for="edit_kode">Kode</label>
                                 <input type="text" class="form-control" name="kode" id="edit_kode" autocomplete="off" required>
-                                <div class="form-text">Pakai kode <code>tagihan</code> untuk tombol Kirim WA di Data Tagihan.</div>
+                                <div class="form-text">Pakai kode <code>tagihan</code> untuk notifikasi tagihan (WA / email).</div>
                                 <div class="invalid-feedback" role="alert"><strong></strong></div>
                             </div>
                             <div class="mb-3">
@@ -170,13 +170,13 @@
                 <div class="modal-content">
                     <div class="modal-status bg-danger"></div>
                     <div class="modal-header">
-                        <div class="modal-title">Hapus Template WA</div>
+                        <div class="modal-title">Hapus Template Email</div>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body text-center py-4">
                         <span class="ri-delete-bin-line ri-3x"></span>
                         <h4>Hapus template?</h4>
-                        <div>Anda yakin akan menghapus template WA ini?</div>
+                        <div>Anda yakin akan menghapus template email ini?</div>
                     </div>
                     <div class="modal-body py-4">
                         <fieldset class="form-fieldset">
@@ -284,7 +284,7 @@
 
             switch (action) {
                 case 'store':
-                    loadingAlert('Menyimpan template WA...');
+                    loadingAlert('Menyimpan template email...');
                     url = '{{ route('admin.master-data.template-wa.store') }}';
                     data = new FormData(document.getElementById('addForm'));
                     request = new Request(url, {
@@ -294,7 +294,7 @@
                     });
                     break;
                 case 'update':
-                    loadingAlert('Mengubah template WA...');
+                    loadingAlert('Mengubah template email...');
                     const itemId = document.getElementById('edit_id').value;
                     if (isEmpty(itemId)) {
                         warningAlert('Data tidak valid, silahkan muat ulang halaman');
@@ -310,7 +310,7 @@
                     });
                     break;
                 case 'delete':
-                    loadingAlert('Menghapus template WA...');
+                    loadingAlert('Menghapus template email...');
                     const deleteId = document.getElementById('delete_id').value;
                     if (isEmpty(deleteId)) {
                         warningAlert('Data tidak valid, silahkan muat ulang halaman');

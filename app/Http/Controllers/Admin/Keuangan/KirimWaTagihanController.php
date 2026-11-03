@@ -22,8 +22,8 @@ use Throwable;
 class KirimWaTagihanController extends Controller
 {
     private string $title = 'Keuangan';
-    private string $mainTitle = 'Kirim WA Tagihan';
-    private string $dataTitle = 'Kirim WA Tagihan';
+    private string $mainTitle = 'Kirim Tagihan Email';
+    private string $dataTitle = 'Kirim Tagihan Email';
     public ?string $sekolah = null;
 
     public function __construct()
@@ -75,7 +75,7 @@ class KirimWaTagihanController extends Controller
         $orderable = [
             'NOCUST' => 'scctcust.nocust',
             'NMCUST' => 'scctcust.nmcust',
-            'NO_WA' => 'scctcust.NO_WA',
+            'EMAIL_ORTU' => 'scctcust.EMAIL_ORTU',
             'BTA' => 'scctbill.BTA',
             'BILLNM' => 'scctbill.BILLNM',
             'BILLAM' => 'scctbill.BILLAM',
@@ -102,14 +102,15 @@ class KirimWaTagihanController extends Controller
                 $row->PAYMENTLEFT,
                 $row->PAIDST
             );
-            $hasWa = WhatsappTagihan::formatPhoneGateway($row->NO_WA) !== null;
+            $email = trim((string) ($row->EMAIL_ORTU ?? ''));
+            $hasEmail = $email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL);
 
             return [
                 'AA' => $row->AA,
                 'CUSTID' => $row->CUSTID,
                 'NOCUST' => $row->NOCUST,
                 'NMCUST' => $row->NMCUST,
-                'NO_WA' => $row->NO_WA,
+                'EMAIL_ORTU' => $email !== '' ? $email : null,
                 'CODE02' => $row->CODE02,
                 'DESC02' => $row->DESC02,
                 'DESC03' => $row->DESC03,
@@ -119,7 +120,7 @@ class KirimWaTagihanController extends Controller
                 'BILLAM' => $amounts['total'],
                 'BILLPAID' => $amounts['terbayar'],
                 'PAYMENTLEFT' => $amounts['sisa'],
-                'has_wa' => $hasWa,
+                'has_email' => (bool) $hasEmail,
             ];
         })->values();
 
@@ -139,7 +140,7 @@ class KirimWaTagihanController extends Controller
             'template_id' => ['required', 'integer'],
             'tagihan' => ['required', 'array', 'min:1'],
         ], [], [
-            'template_id' => 'Template WA',
+            'template_id' => 'Template Email',
             'tagihan' => 'Tagihan',
         ]);
 
@@ -167,7 +168,7 @@ class KirimWaTagihanController extends Controller
         $template = WhatsappTagihan::templateById($templateId);
         if ($template === null) {
             return response()->json([
-                'message' => 'Template WA tidak ditemukan atau tidak aktif.',
+                'message' => 'Template Email tidak ditemukan atau tidak aktif.',
             ], 422);
         }
         $template = WhatsappTagihan::withRincianPlaceholder($template);
@@ -188,7 +189,7 @@ class KirimWaTagihanController extends Controller
                 }
             } catch (Throwable $e) {
                 $failed++;
-                Log::channel('whatsapp')->error('kirim wa tagihan gagal', [
+                Log::channel('whatsapp')->error('kirim tagihan email gagal', [
                     'custid' => $custId,
                     'error' => $e->getMessage(),
                 ]);
@@ -197,7 +198,7 @@ class KirimWaTagihanController extends Controller
 
         if ($queued === 0 && $failed === 0) {
             return response()->json([
-                'message' => 'Tidak ada pesan yang dikirim. Semua siswa terpilih belum punya nomor WhatsApp.',
+                'message' => 'Tidak ada pesan yang dikirim. Semua siswa terpilih belum punya email ortu.',
                 'queued' => $queued,
                 'skipped' => $skipped,
                 'failed' => $failed,
@@ -206,7 +207,7 @@ class KirimWaTagihanController extends Controller
 
         if ($queued === 0) {
             return response()->json([
-                'message' => 'Gagal mengantrekan pesan WhatsApp. Periksa koneksi gateway (DB_WA_* / WA_CLIENT_ID).',
+                'message' => 'Gagal mengantrekan pesan email. Periksa koneksi gateway (DB_WA_* / WA_CLIENT_ID).',
                 'queued' => $queued,
                 'skipped' => $skipped,
                 'failed' => $failed,
@@ -215,7 +216,7 @@ class KirimWaTagihanController extends Controller
 
         $parts = [$queued . ' pesan masuk antrian'];
         if ($skipped > 0) {
-            $parts[] = $skipped . ' dilewati karena No WA kosong';
+            $parts[] = $skipped . ' dilewati karena email ortu kosong';
         }
         if ($failed > 0) {
             $parts[] = $failed . ' gagal';
@@ -273,6 +274,12 @@ class KirimWaTagihanController extends Controller
             return 'failed';
         }
 
+        $email = trim((string) ($siswa->EMAIL_ORTU ?? ''));
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return 'skipped';
+        }
+
+        // Sementara pengiriman masih lewat gateway WA; No WA tetap dibutuhkan.
         $phone = WhatsappTagihan::formatPhoneGateway($siswa->NO_WA ?? null);
         if ($phone === null) {
             return 'skipped';
@@ -393,6 +400,7 @@ class KirimWaTagihanController extends Controller
                 'scctcust.nocust as NOCUST',
                 'scctcust.nmcust as NMCUST',
                 'scctcust.NO_WA',
+                'scctcust.EMAIL_ORTU',
                 'scctcust.CODE02',
                 'scctcust.DESC02',
                 'scctcust.DESC03',
@@ -452,6 +460,7 @@ class KirimWaTagihanController extends Controller
             $query->where(function ($q) use ($sanitize) {
                 $q->where('scctcust.nmcust', 'like', '%' . $sanitize . '%')
                     ->orWhere('scctcust.nocust', 'like', '%' . $sanitize . '%')
+                    ->orWhere('scctcust.EMAIL_ORTU', 'like', '%' . $sanitize . '%')
                     ->orWhere('scctcust.NO_WA', 'like', '%' . $sanitize . '%')
                     ->orWhere('scctbill.BILLNM', 'like', '%' . $sanitize . '%');
             });

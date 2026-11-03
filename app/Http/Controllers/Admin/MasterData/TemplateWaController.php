@@ -15,8 +15,8 @@ use Illuminate\Validation\Rule;
 class TemplateWaController extends Controller
 {
     public string $title = "Master Data";
-    public string $mainTitle = "Template WA";
-    public string $dataTitle = "Template WA";
+    public string $mainTitle = "Template Email";
+    public string $dataTitle = "Template Email";
 
     public function index()
     {
@@ -171,7 +171,7 @@ class TemplateWaController extends Controller
     {
         $item = WaTemplate::query()->find($id);
         if (!$item) {
-            return response()->json(["message" => "Template WA tidak ditemukan!"], 422);
+            return response()->json(["message" => "Template Email tidak ditemukan!"], 422);
         }
 
         $validator = Validator::make(
@@ -210,7 +210,7 @@ class TemplateWaController extends Controller
     {
         $item = WaTemplate::query()->find($id);
         if (!$item) {
-            return response()->json(["message" => "Template WA tidak ditemukan!"], 422);
+            return response()->json(["message" => "Template Email tidak ditemukan!"], 422);
         }
 
         try {

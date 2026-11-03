@@ -76,7 +76,7 @@
                 </li>
                 <li class="menu-item {{ Request::is(['admin/master-data/template-wa*']) ? 'active' : '' }}">
                     <a href="{{ route('admin.master-data.template-wa.index') }}" class="menu-link">
-                        <div data-i18n="Template WA">Template WA</div>
+                        <div data-i18n="Template Email">Template Email</div>
                     </a>
                 </li>
             </ul>
@@ -118,7 +118,7 @@
                 </li>
                 <li class="menu-item {{ Request::is(['admin/keuangan/kirim-wa-tagihan*']) ? 'active' : '' }}">
                     <a href="{{ route('admin.keuangan.kirim-wa-tagihan.index') }}" class="menu-link">
-                        <div data-i18n="Kirim WA Tagihan">Kirim WA Tagihan</div>
+                        <div data-i18n="Kirim Tagihan Email">Kirim Tagihan Email</div>
                     </a>
                 </li>
                 <li class="menu-item {{ Request::is(['admin/keuangan/manual-pembayaran*']) ? 'active' : '' }}">
