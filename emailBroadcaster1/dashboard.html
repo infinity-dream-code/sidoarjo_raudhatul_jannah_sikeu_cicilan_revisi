@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Email Broadcaster — Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="bg-stage" aria-hidden="true">
+    <div class="bg-grid"></div>
+    <div class="bg-orb a"></div>
+    <div class="bg-orb b"></div>
+    <div class="bg-orb c"></div>
+    <div class="bg-scan"></div>
+  </div>
+
+  <div class="shell">
+    <header class="top">
+      <div class="brand">
+        <img src="logo.png" alt="ICT" width="56" height="56" />
+        <div>
+          <h1>Email Broadcaster</h1>
+          <p class="muted">Pantau antrian penagihan &amp; konfirmasi pembayaran</p>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="btnRefresh" type="button">Refresh</button>
+        <button id="btnProcess" type="button" class="primary">Proses Sekarang</button>
+      </div>
+    </header>
+
+    <section class="cards" id="summaryCards">
+      <article class="card"><span>Pending</span><strong id="cPending">0</strong></article>
+      <article class="card sent"><span>Terkirim</span><strong id="cSent">0</strong></article>
+      <article class="card failed"><span>Gagal</span><strong id="cFailed">0</strong></article>
+      <article class="card"><span>Sending</span><strong id="cSending">0</strong></article>
+    </section>
+
+    <section class="toolbar">
+      <input id="q" type="search" placeholder="Cari nama / email / NIS / invoice..." />
+      <select id="status">
+        <option value="">Semua status</option>
+        <option value="PENDING">PENDING</option>
+        <option value="SENT">SENT</option>
+        <option value="FAILED">FAILED</option>
+        <option value="SENDING">SENDING</option>
+      </select>
+      <select id="type">
+        <option value="">Semua tipe</option>
+        <option value="BILLING">BILLING</option>
+        <option value="PAYMENT_CONFIRMATION">PAYMENT_CONFIRMATION</option>
+      </select>
+    </section>
+
+    <section class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Waktu</th>
+            <th>Tipe</th>
+            <th>Siswa</th>
+            <th>Email</th>
+            <th>Subject</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="rows">
+          <tr><td colspan="7" class="muted">Memuat...</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="pager" id="pager">
+      <div class="pager-info" id="pagerInfo">—</div>
+      <div class="pager-actions">
+        <label class="pager-size">
+          Per halaman
+          <select id="pageSize">
+            <option value="20">20</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+          </select>
+        </label>
+        <button type="button" id="btnPrev" disabled>Sebelumnya</button>
+        <span class="pager-page" id="pagerPage">Halaman 1 / 1</span>
+        <button type="button" id="btnNext" disabled>Berikutnya</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="detailModal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+      <div class="modal-head">
+        <div>
+          <h2 id="detailTitle">Detail Pesan</h2>
+          <p class="muted small" id="detailSub">—</p>
+        </div>
+        <button type="button" class="modal-close" id="btnCloseDetail">Tutup</button>
+      </div>
+      <div class="modal-body" id="detailBody">Memuat...</div>
+    </div>
+  </div>
+
+  <p id="toast" class="toast" hidden></p>
+
+  <script>
+    const apiToken = localStorage.getItem('API_TOKEN') || '';
+    let currentPage = 1;
+    let totalPages = 1;
+    let totalRows = 0;
+
+    function headers() {
+      const h = { 'Content-Type': 'application/json' };
+      if (apiToken) h['Authorization'] = `Bearer ${apiToken}`;
+      return h;
+    }
+
+    function toast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.hidden = false;
+      setTimeout(() => { el.hidden = true; }, 2800);
+    }
+
+    function badge(status) {
+      return `<span class="badge ${String(status).toLowerCase()}">${status}</span>`;
+    }
+
+    function fmt(dt) {
+      if (!dt) return '-';
+      return new Date(String(dt).replace(' ', 'T')).toLocaleString('id-ID');
+    }
+
+    function formatRp(n) {
+      const num = Number(n || 0);
+      return 'Rp' + num.toLocaleString('id-ID');
+    }
+
+    function escapeHtml(v) {
+      return String(v ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function parseItems(itemsJson) {
+      try {
+        const items = typeof itemsJson === 'string' ? JSON.parse(itemsJson) : itemsJson;
+        return Array.isArray(items) ? items : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function row(label, value) {
+      if (value === null || value === undefined || value === '') return '';
+      return `<div class="k">${escapeHtml(label)}</div><div class="v">${value}</div>`;
+    }
+
+    function renderDetail(m) {
+      const items = parseItems(m.itemsJson);
+      const meta = m.meta || {};
+      const isBilling = m.type === 'BILLING';
+
+      const itemRows = items.length
+        ? items.map((it) => `
+            <tr>
+              <td>${escapeHtml(it.name || '-')}</td>
+              <td class="num">${formatRp(it.amount)}</td>
+            </tr>`).join('')
+        : `<tr><td colspan="2" class="muted">Tidak ada item tagihan</td></tr>`;
+
+      let totalLine = formatRp(m.totalAmount);
+      if (meta.adminFee != null && meta.adminFee !== '') {
+        totalLine += ` + ${formatRp(meta.adminFee)} (${escapeHtml(meta.adminFeeLabel || 'Admin')})`;
+      }
+
+      document.getElementById('detailTitle').textContent = isBilling ? 'Detail Penagihan' : 'Detail Konfirmasi';
+      document.getElementById('detailSub').textContent = `${m.subject || '-'} · ${m.status || '-'}`;
+
+      document.getElementById('detailBody').innerHTML = `
+        <div class="detail-grid">
+          ${row('Status', badge(m.status))}
+          ${row('Tipe', escapeHtml(isBilling ? 'Penagihan' : 'Konfirmasi Pembayaran'))}
+          ${row('Dibuat', escapeHtml(fmt(m.createdAt)))}
+          ${row('Terkirim', escapeHtml(m.sentAt ? fmt(m.sentAt) : '-'))}
+          ${row('Nama', escapeHtml(m.studentName))}
+          ${row('Kelas', escapeHtml(m.studentClass || '-'))}
+          ${row('NIS', escapeHtml(m.studentNis || '-'))}
+          ${row('Email', escapeHtml(m.recipientEmail))}
+          ${row('No. Invoice', escapeHtml(m.orderNumber || '-'))}
+          ${row('Nomor VA', escapeHtml(m.vaNumber || '-'))}
+          ${row('Jenis Tagihan', escapeHtml(meta.billType || '-'))}
+          ${row('Tanggal Dibuat', escapeHtml(meta.invoiceDate || '-'))}
+          ${row('Tanggal Aktif', escapeHtml(meta.activeDate || '-'))}
+          ${row('Tanggal Berakhir', escapeHtml(meta.expireDate || '-'))}
+          ${row('Organisasi', escapeHtml(meta.organizationName || '-'))}
+          ${row('Link Pembayaran', m.paymentLink ? `<a href="${escapeHtml(m.paymentLink)}" target="_blank" rel="noopener">${escapeHtml(m.paymentLink)}</a>` : '-')}
+          ${!isBilling ? row('Jumlah Bayar', escapeHtml(formatRp(m.paymentAmount))) : ''}
+          ${!isBilling ? row('Total Tagihan', escapeHtml(formatRp(m.billAmount ?? m.totalAmount))) : ''}
+          ${m.outstandingAmount != null ? row('Outstanding', escapeHtml(formatRp(m.outstandingAmount))) : ''}
+          ${row('Referensi', escapeHtml(m.referenceNumber || '-'))}
+          ${row('Metode', escapeHtml(m.paymentMethod || '-'))}
+          ${m.errorMessage ? row('Error', `<span class="err">${escapeHtml(m.errorMessage)}</span>`) : ''}
+        </div>
+
+        <div style="font-weight:700;margin-bottom:6px;">Rincian Item</div>
+        <table class="detail-items">
+          <thead>
+            <tr>
+              <th>Jenis Tagihan</th>
+              <th class="num">Nominal</th>
+            </tr>
+          </thead>
+          <tbody>${itemRows}</tbody>
+        </table>
+        <div class="detail-total">Total Nominal: ${escapeHtml(totalLine)}</div>
+        ${m.paymentGuide ? `<div style="margin-top:14px;"><div class="muted small" style="font-weight:700;margin-bottom:4px;">Tata Cara</div><div style="white-space:pre-wrap;">${escapeHtml(m.paymentGuide)}</div></div>` : ''}
+      `;
+    }
+
+    async function openDetail(id) {
+      const modal = document.getElementById('detailModal');
+      const body = document.getElementById('detailBody');
+      body.textContent = 'Memuat...';
+      modal.hidden = false;
+      try {
+        const res = await fetch(`api/message.php?id=${encodeURIComponent(id)}`, { headers: headers() });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Gagal memuat detail');
+        renderDetail(json.data);
+      } catch (e) {
+        body.innerHTML = `<p class="err">${escapeHtml(e.message)}</p>`;
+      }
+    }
+
+    function closeDetail() {
+      document.getElementById('detailModal').hidden = true;
+    }
+
+    function updatePager(json) {
+      const limit = Number(json.limit || document.getElementById('pageSize').value || 50);
+      totalRows = Number(json.total || 0);
+      currentPage = Number(json.page || 1);
+      totalPages = Math.max(1, Math.ceil(totalRows / limit) || 1);
+
+      const from = totalRows === 0 ? 0 : (currentPage - 1) * limit + 1;
+      const to = Math.min(currentPage * limit, totalRows);
+
+      document.getElementById('pagerInfo').textContent =
+        totalRows === 0 ? 'Tidak ada data' : `Menampilkan ${from}–${to} dari ${totalRows} pesan`;
+      document.getElementById('pagerPage').textContent = `Halaman ${currentPage} / ${totalPages}`;
+      document.getElementById('btnPrev').disabled = currentPage <= 1;
+      document.getElementById('btnNext').disabled = currentPage >= totalPages;
+    }
+
+    async function loadMessages(resetPage = false) {
+      if (resetPage) currentPage = 1;
+
+      const q = document.getElementById('q').value.trim();
+      const status = document.getElementById('status').value;
+      const type = document.getElementById('type').value;
+      const limit = document.getElementById('pageSize').value || '50';
+      const params = new URLSearchParams({
+        limit: String(limit),
+        page: String(currentPage),
+      });
+      if (q) params.set('q', q);
+      if (status) params.set('status', status);
+      if (type) params.set('type', type);
+
+      const res = await fetch(`api/messages.php?${params}`, { headers: headers() });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Gagal memuat');
+
+      const s = json.summary || {};
+      document.getElementById('cPending').textContent = s.PENDING || 0;
+      document.getElementById('cSent').textContent = s.SENT || 0;
+      document.getElementById('cFailed').textContent = s.FAILED || 0;
+      document.getElementById('cSending').textContent = s.SENDING || 0;
+      updatePager(json);
+
+      const tbody = document.getElementById('rows');
+      if (!json.data?.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="muted">Belum ada pesan</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = json.data.map((m) => `
+        <tr class="row-click" data-id="${escapeHtml(m.id)}" title="Klik untuk lihat detail">
+          <td>${fmt(m.createdAt)}</td>
+          <td>${m.type === 'BILLING' ? 'Penagihan' : 'Konfirmasi'}</td>
+          <td>
+            <div>${escapeHtml(m.studentName)}</div>
+            <div class="muted small">${escapeHtml([m.studentClass, m.studentNis].filter(Boolean).join(' · ') || '-')}</div>
+          </td>
+          <td>${escapeHtml(m.recipientEmail)}</td>
+          <td>${escapeHtml(m.subject)}</td>
+          <td>
+            ${badge(m.status)}
+            ${m.errorMessage ? `<div class="err">${escapeHtml(m.errorMessage)}</div>` : ''}
+            ${m.sentAt ? `<div class="muted small">sent ${fmt(m.sentAt)}</div>` : ''}
+          </td>
+          <td>
+            ${m.status === 'FAILED' ? `<button data-retry="${m.id}" class="linkish">Retry</button>` : `<span class="muted small">Detail</span>`}
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    document.getElementById('btnRefresh').onclick = () => loadMessages().catch((e) => toast(e.message));
+    document.getElementById('q').oninput = debounce(() => loadMessages(true).catch((e) => toast(e.message)), 350);
+    document.getElementById('status').onchange = () => loadMessages(true).catch((e) => toast(e.message));
+    document.getElementById('type').onchange = () => loadMessages(true).catch((e) => toast(e.message));
+    document.getElementById('pageSize').onchange = () => loadMessages(true).catch((e) => toast(e.message));
+    document.getElementById('btnPrev').onclick = () => {
+      if (currentPage <= 1) return;
+      currentPage -= 1;
+      loadMessages().catch((e) => toast(e.message));
+    };
+    document.getElementById('btnNext').onclick = () => {
+      if (currentPage >= totalPages) return;
+      currentPage += 1;
+      loadMessages().catch((e) => toast(e.message));
+    };
+    document.getElementById('btnCloseDetail').onclick = closeDetail;
+    document.getElementById('detailModal').addEventListener('click', (e) => {
+      if (e.target.id === 'detailModal') closeDetail();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeDetail();
+    });
+
+    document.getElementById('btnProcess').onclick = async () => {
+      try {
+        const res = await fetch('api/process-now.php', { method: 'POST', headers: headers() });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error || 'Gagal proses');
+        toast(json.skipped ? json.reason : `Diproses: ${json.processed}, sent: ${json.sent}, failed: ${json.failed}`);
+        await loadMessages();
+      } catch (e) {
+        toast(e.message);
+      }
+    };
+
+    document.getElementById('rows').onclick = async (e) => {
+      const retryId = e.target?.dataset?.retry;
+      if (retryId) {
+        e.stopPropagation();
+        try {
+          const res = await fetch(`api/retry.php?id=${encodeURIComponent(retryId)}`, { method: 'POST', headers: headers() });
+          const json = await res.json();
+          if (!res.ok) throw new Error(json.error || 'Gagal retry');
+          toast('Pesan dikembalikan ke PENDING');
+          await loadMessages();
+        } catch (err) {
+          toast(err.message);
+        }
+        return;
+      }
+
+      const tr = e.target.closest('tr[data-id]');
+      if (!tr) return;
+      openDetail(tr.dataset.id);
+    };
+
+    function debounce(fn, ms) {
+      let t;
+      return (...args) => {
+        clearTimeout(t);
+        t = setTimeout(() => fn(...args), ms);
+      };
+    }
+
+    loadMessages().catch((e) => toast(e.message));
+    setInterval(() => loadMessages().catch(() => {}), 30000);
+  </script>
+</body>
+</html>

@@ -3,14 +3,13 @@
 namespace App\Http\Controllers\Admin\Keuangan;
 
 use App\Http\Controllers\Controller;
-use App\Models\LogWhatsapp;
 use App\Models\mst_kelas;
 use App\Models\mst_thn_aka;
 use App\Models\scctbill;
 use App\Models\scctcust;
 use App\Models\WaTemplate;
+use App\Support\EmailBroadcaster;
 use App\Support\SchoolScope;
-use App\Support\WhatsappGateway;
 use App\Support\WhatsappTagihan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -165,56 +164,79 @@ class KirimWaTagihanController extends Controller
         }
 
         $templateId = (int) $request->input('template_id');
-        $template = WhatsappTagihan::templateById($templateId);
-        if ($template === null) {
+        $templateMeta = $this->activeTemplateMeta($templateId);
+        if ($templateMeta === null) {
             return response()->json([
                 'message' => 'Template Email tidak ditemukan atau tidak aktif.',
             ], 422);
         }
-        $template = WhatsappTagihan::withRincianPlaceholder($template);
 
-        $queued = 0;
+        $messages = [];
         $skipped = 0;
         $failed = 0;
 
         foreach ($grouped as $custId => $billIds) {
             try {
-                $result = $this->sendForStudent((string) $custId, $billIds, $template);
-                if ($result === 'queued') {
-                    $queued++;
-                } elseif ($result === 'skipped') {
+                $payload = $this->buildBillingPayload((string) $custId, $billIds, $templateMeta['nama']);
+                if ($payload === null) {
                     $skipped++;
-                } else {
-                    $failed++;
+                    continue;
                 }
+                if ($payload === false) {
+                    $failed++;
+                    continue;
+                }
+                $messages[] = $payload;
             } catch (Throwable $e) {
                 $failed++;
-                Log::channel('whatsapp')->error('kirim tagihan email gagal', [
+                Log::error('kirim tagihan email build gagal', [
                     'custid' => $custId,
                     'error' => $e->getMessage(),
                 ]);
             }
         }
 
-        if ($queued === 0 && $failed === 0) {
+        if ($messages === [] && $failed === 0) {
             return response()->json([
                 'message' => 'Tidak ada pesan yang dikirim. Semua siswa terpilih belum punya email ortu.',
-                'queued' => $queued,
+                'queued' => 0,
                 'skipped' => $skipped,
                 'failed' => $failed,
             ], 422);
         }
 
+        $queued = 0;
+        if ($messages !== []) {
+            try {
+                $result = EmailBroadcaster::enqueueBilling($messages);
+                $queued = (int) ($result['queued'] ?? 0);
+                $failed += (int) ($result['failed'] ?? 0);
+            } catch (Throwable $e) {
+                Log::error('kirim tagihan email enqueue gagal', [
+                    'count' => count($messages),
+                    'error' => $e->getMessage(),
+                ]);
+
+                return response()->json([
+                    'message' => 'Gagal mengantrekan pesan email. Periksa EMAIL_BROADCASTER_URL / token / koneksi ke Email Broadcaster.',
+                    'queued' => 0,
+                    'skipped' => $skipped,
+                    'failed' => $failed + count($messages),
+                    'error' => $e->getMessage(),
+                ], 503);
+            }
+        }
+
         if ($queued === 0) {
             return response()->json([
-                'message' => 'Gagal mengantrekan pesan email. Periksa koneksi gateway (DB_WA_* / WA_CLIENT_ID).',
+                'message' => 'Gagal mengantrekan pesan email. Periksa EMAIL_BROADCASTER_URL / token / koneksi ke Email Broadcaster.',
                 'queued' => $queued,
                 'skipped' => $skipped,
                 'failed' => $failed,
             ], 503);
         }
 
-        $parts = [$queued . ' pesan masuk antrian'];
+        $parts = [$queued . ' pesan masuk antrian email'];
         if ($skipped > 0) {
             $parts[] = $skipped . ' dilewati karena email ortu kosong';
         }
@@ -223,7 +245,7 @@ class KirimWaTagihanController extends Controller
         }
 
         return response()->json([
-            'message' => implode('. ', $parts) . '.',
+            'message' => implode('. ', $parts) . '. Pengiriman SMTP diproses bertahap oleh Email Broadcaster (max 60/10 menit).',
             'queued' => $queued,
             'skipped' => $skipped,
             'failed' => $failed,
@@ -264,35 +286,30 @@ class KirimWaTagihanController extends Controller
 
     /**
      * @param  array<int, string>  $billIds
+     * @return array<string, mixed>|null|false null=skipped (no email), false=failed, array=payload
      */
-    private function sendForStudent(string $custId, array $billIds, string $template): string
+    private function buildBillingPayload(string $custId, array $billIds, string $templateName): array|false|null
     {
         $siswaQuery = scctcust::query()->where('CUSTID', $custId);
         SchoolScope::apply($siswaQuery, 'scctcust', $this->sekolah);
         $siswa = $siswaQuery->first();
         if (!$siswa) {
-            return 'failed';
+            return false;
         }
 
         $email = trim((string) ($siswa->EMAIL_ORTU ?? ''));
         if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            return 'skipped';
-        }
-
-        // Sementara pengiriman masih lewat gateway WA; No WA tetap dibutuhkan.
-        $phone = WhatsappTagihan::formatPhoneGateway($siswa->NO_WA ?? null);
-        if ($phone === null) {
-            return 'skipped';
+            return null;
         }
 
         $bills = $this->billsForStudent($custId, $billIds);
         if ($bills->isEmpty()) {
-            return 'failed';
+            return false;
         }
 
         $total = 0;
-        $terbayar = 0;
         $sisa = 0;
+        $items = [];
         foreach ($bills as $bill) {
             $amounts = WhatsappTagihan::amounts(
                 $bill->BILLAM,
@@ -301,56 +318,70 @@ class KirimWaTagihanController extends Controller
                 $bill->PAIDST
             );
             $total += $amounts['total'];
-            $terbayar += $amounts['terbayar'];
             $sisa += $amounts['sisa'];
+
+            $itemName = trim((string) ($bill->BILLNM ?? 'Tagihan'));
+            $periode = trim((string) ($bill->BILLAC ?? $bill->BTA ?? ''));
+            if ($periode !== '') {
+                $itemName .= ' (' . $periode . ')';
+            }
+
+            $items[] = [
+                'name' => $itemName,
+                'amount' => $amounts['sisa'] > 0 ? $amounts['sisa'] : $amounts['total'],
+            ];
         }
 
         $first = $bills->first();
         $nis = (!empty($siswa->NOCUST) && $siswa->NOCUST !== '-')
             ? $siswa->NOCUST
             : ($siswa->nocust ?? $siswa->NUM2ND ?? '');
+        $nama = (string) ($siswa->NMCUST ?? $siswa->nmcust ?? '-');
         $kelasLabel = trim((string) ($siswa->DESC02 ?? '') . ' ' . (string) ($siswa->DESC03 ?? ''));
         $noVa = scctcust::showVA($nis, $first->isINSTALLABLE ?? null);
 
-        $message = WhatsappTagihan::applyTemplate($template, [
-            'nama' => $siswa->NMCUST ?? $siswa->nmcust ?? '-',
-            'nis' => $nis !== '' ? $nis : '-',
-            'no_daftar' => $siswa->NUM2ND ?? '-',
-            'kelas' => $kelasLabel !== '' ? $kelasLabel : '-',
-            'kelompok' => $siswa->DESC03 ?? '-',
-            'unit' => $siswa->CODE02 ?? '-',
-            'nama_tagihan' => $first->BILLNM ?? '-',
-            'periode' => $first->BILLAC ?? $first->BTA ?? '-',
-            'jumlah_tagihan' => WhatsappTagihan::formatRupiah($total),
-            'terbayar' => WhatsappTagihan::formatRupiah($terbayar),
-            'sisa_tagihan' => WhatsappTagihan::formatRupiah($sisa),
-            'rincian' => WhatsappTagihan::rincian($bills),
-            'no_va' => $noVa !== '' ? $noVa : '-',
-        ]);
-
-        $log = LogWhatsapp::create([
-            'status' => 0,
-            'log_id' => 0,
-            'user_id' => Auth::id(),
-            'custid' => $custId,
-            'nama' => $siswa->NMCUST ?? $siswa->nmcust,
-            'no_wa' => $phone,
-            'pesan' => $message,
-            'response' => '',
-        ]);
-
-        try {
-            $result = WhatsappGateway::enqueue($phone, $message, $log->id);
-            $log->response = json_encode($result, JSON_UNESCAPED_UNICODE);
-            $log->save();
-        } catch (Throwable $e) {
-            $log->status = -1;
-            $log->response = $e->getMessage();
-            $log->save();
-            throw $e;
+        $subject = 'Tagihan ' . $nama;
+        if ($kelasLabel !== '') {
+            $subject .= ' - ' . $kelasLabel;
+        }
+        if ($templateName !== '') {
+            $subject .= ' | ' . $templateName;
         }
 
-        return 'queued';
+        return [
+            'nama' => $nama,
+            'email' => $email,
+            'nis' => $nis !== '' ? $nis : null,
+            'kelas' => $kelasLabel !== '' ? $kelasLabel : null,
+            'va' => $noVa !== '' ? $noVa : null,
+            'subject' => $subject,
+            'totalAmount' => $total,
+            'outstandingAmount' => $sisa,
+            'items' => $items,
+        ];
+    }
+
+    /**
+     * @return array{id:int,nama:string}|null
+     */
+    private function activeTemplateMeta(int $templateId): ?array
+    {
+        try {
+            $row = WaTemplate::query()
+                ->where('id', $templateId)
+                ->where('is_active', 1)
+                ->first(['id', 'nama']);
+            if (!$row) {
+                return null;
+            }
+
+            return [
+                'id' => (int) $row->id,
+                'nama' => trim((string) ($row->nama ?? '')),
+            ];
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**

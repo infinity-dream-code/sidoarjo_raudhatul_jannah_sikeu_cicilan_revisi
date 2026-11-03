@@ -1,0 +1,209 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "Email Broadcaster API",
+    "description": "API antrian email penagihan & konfirmasi pembayaran.\n\nBase URL contoh: http://101.50.2.56/emailBroadcaster\n\nVariabel collection:\n- baseUrl\n- apiToken (opsional)\n- messageId (untuk detail/retry)\n\nDetail lengkap field payload: lihat docs/POSTMAN.md\n\nmethod = jenis notifikasi (billing | payment_confirmation)\npaymentMethod = nama bank (Permata/BSI) - jangan tertukar.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://101.50.2.56/emailBroadcaster"
+    },
+    {
+      "key": "apiToken",
+      "value": ""
+    },
+    {
+      "key": "messageId",
+      "value": ""
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{apiToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET Health",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health.php",
+            "description": "Cek SMTP + DB driver."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notify (disarankan)",
+      "item": [
+        {
+          "name": "Billing CLOSE",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"billing\",\n  \"nama\": \"Gaza Solahudin Mubarok\",\n  \"email\": \"fatwaakbar2003@gmail.com\",\n  \"kelas\": \"Daycare A\",\n  \"nis\": \"2026001\",\n  \"va\": \"900362125117\",\n  \"orderNumber\": \"DAYCARE02/262701-0006\",\n  \"billType\": \"CLOSE\",\n  \"invoiceDate\": \"09 July 2026\",\n  \"activeDate\": \"09 July 2026\",\n  \"expireDate\": \"15 July 2026\",\n  \"adminFee\": 2500,\n  \"adminFeeLabel\": \"Admin VA BSI\",\n  \"items\": [\n    { \"name\": \"SPP DAYCARE JULI 2026\", \"amount\": 247500 },\n    { \"name\": \"SPP DAYCARE AGUSTUS 2026\", \"amount\": 207500 },\n    { \"name\": \"SPP DAYCARE MARET 2026\", \"amount\": 347500 }\n  ],\n  \"paymentGuide\": \"Via ATM BSI (Tipe Close Payment)\"\n}"
+            },
+            "url": "{{baseUrl}}/api/notify.php",
+            "description": "Kirim email penagihan (CLOSE).\n\nWajib: method, nama, email\nOpsional: nis, kelas, va, orderNumber, billType, invoiceDate, activeDate, expireDate, adminFee, adminFeeLabel, items, totalAmount, paymentLink, paymentGuide, subject, organizationName, recipientName\n\nitems[]: { name, amount }"
+          }
+        },
+        {
+          "name": "Billing OPEN (cicilan)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"billing\",\n  \"nama\": \"Gaza Solahudin Mubarok\",\n  \"email\": \"fatwaakbar2003@gmail.com\",\n  \"kelas\": \"Daycare A\",\n  \"nis\": \"2026001\",\n  \"va\": \"900362125117\",\n  \"orderNumber\": \"DAYCARE02/262701-0006\",\n  \"billType\": \"OPEN\",\n  \"invoiceDate\": \"09 July 2026\",\n  \"activeDate\": \"09 July 2026\",\n  \"expireDate\": \"15 July 2026\",\n  \"outstandingAmount\": 555000,\n  \"adminFee\": 2500,\n  \"adminFeeLabel\": \"Admin VA BSI\",\n  \"items\": [\n    { \"name\": \"SPP DAYCARE JULI 2026\", \"amount\": 247500 },\n    { \"name\": \"SPP DAYCARE AGUSTUS 2026\", \"amount\": 207500 },\n    { \"name\": \"SPP DAYCARE MARET 2026\", \"amount\": 347500 }\n  ],\n  \"paymentGuide\": \"Via ATM BSI (Tipe Open Payment / Cicilan)\"\n}"
+            },
+            "url": "{{baseUrl}}/api/notify.php",
+            "description": "Kirim email penagihan OPEN + outstandingAmount (sisa cicilan).\n\nField sama Billing CLOSE; bedanya billType=OPEN dan outstandingAmount wajib diisi untuk cicilan."
+          }
+        },
+        {
+          "name": "Billing Bulk",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"billing\",\n  \"messages\": [\n    {\n      \"nama\": \"Siswa A\",\n      \"email\": \"a@mail.com\",\n      \"kelas\": \"1A\",\n      \"nis\": \"2026001\",\n      \"va\": \"9001\",\n      \"billType\": \"CLOSE\",\n      \"items\": [{ \"name\": \"SPP\", \"amount\": 500000 }]\n    },\n    {\n      \"nama\": \"Siswa B\",\n      \"email\": \"b@mail.com\",\n      \"kelas\": \"1B\",\n      \"va\": \"9002\",\n      \"billType\": \"OPEN\",\n      \"outstandingAmount\": 250000,\n      \"items\": [\n        { \"name\": \"SPP\", \"amount\": 500000 },\n        { \"name\": \"Ekskul Futsal\", \"amount\": 75000 }\n      ]\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/api/notify.php",
+            "description": "Bulk penagihan via messages[]. Setiap elemen messages[] memakai field billing yang sama (tanpa method per item)."
+          }
+        },
+        {
+          "name": "Payment Confirmation",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"payment_confirmation\",\n  \"nama\": \"IBRAHIM ARFA GUNAWAN\",\n  \"email\": \"fatwaakbar2003@gmail.com\",\n  \"recipientName\": \"Orang Tua Ibrahim\",\n  \"nis\": \"2025123\",\n  \"kelas\": \"TK B\",\n  \"va\": \"900362199999\",\n  \"orderNumber\": \"QUBAP-DFU-262701-221\",\n  \"paymentAmount\": 2708000,\n  \"billAmount\": 10028000,\n  \"outstandingAmount\": 7320000,\n  \"referenceNumber\": \"1787702013506227\",\n  \"paymentMethod\": \"Permata\",\n  \"paidAt\": \"2026-08-26T06:53:44+07:00\",\n  \"organizationName\": \"Yayasan ICT\",\n  \"items\": [\n    { \"name\": \"Daftar Ulang Tahun 2026/2027\", \"amount\": 10028000 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/api/notify.php",
+            "description": "Konfirmasi pembayaran berhasil.\n\nWajib: method, nama, email, paymentAmount\nOpsional: nis, kelas, va, orderNumber, billAmount, outstandingAmount, referenceNumber, paymentMethod, paidAt, items, subject, organizationName, recipientName\n\nResponse type harus PAYMENT_CONFIRMATION."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Endpoint Lama",
+      "item": [
+        {
+          "name": "POST billing.php",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"billing\",\n  \"nama\": \"Tes Siswa\",\n  \"email\": \"ortu@gmail.com\",\n  \"kelas\": \"1A\",\n  \"items\": [{ \"name\": \"SPP Juli\", \"amount\": 247500 }]\n}"
+            },
+            "url": "{{baseUrl}}/api/billing.php",
+            "description": "Endpoint lama. Field method tetap dihormati."
+          }
+        },
+        {
+          "name": "POST payment-confirmation.php",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"method\": \"payment_confirmation\",\n  \"nama\": \"IBRAHIM ARFA GUNAWAN\",\n  \"email\": \"fatwaakbar2003@gmail.com\",\n  \"recipientName\": \"Orang Tua Ibrahim\",\n  \"nis\": \"2025123\",\n  \"kelas\": \"TK B\",\n  \"va\": \"900362199999\",\n  \"orderNumber\": \"QUBAP-DFU-262701-221\",\n  \"paymentAmount\": 2708000,\n  \"billAmount\": 10028000,\n  \"outstandingAmount\": 7320000,\n  \"referenceNumber\": \"1787702013506227\",\n  \"paymentMethod\": \"Permata\",\n  \"paidAt\": \"2026-08-26T06:53:44+07:00\",\n  \"organizationName\": \"Yayasan ICT\",\n  \"items\": [\n    { \"name\": \"Daftar Ulang Tahun 2026/2027\", \"amount\": 10028000 }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/api/payment-confirmation.php",
+            "description": "Endpoint lama untuk konfirmasi pembayaran. Body field sama dengan Notify → Payment Confirmation."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Messages",
+      "item": [
+        {
+          "name": "List Messages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/messages.php?page=1&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "messages.php"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "50" },
+                { "key": "status", "value": "", "disabled": true },
+                { "key": "type", "value": "", "disabled": true },
+                { "key": "q", "value": "", "disabled": true }
+              ]
+            },
+            "description": "List + summary. Filter opsional: status, type, q."
+          }
+        },
+        {
+          "name": "List PAYMENT_CONFIRMATION",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/messages.php?type=PAYMENT_CONFIRMATION&page=1&limit=50"
+          }
+        },
+        {
+          "name": "Detail Message",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/message.php?id={{messageId}}",
+            "description": "Set variabel messageId dari response create/list."
+          }
+        },
+        {
+          "name": "Retry Failed",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/retry.php?id={{messageId}}",
+            "description": "Ubah FAILED → PENDING."
+          }
+        },
+        {
+          "name": "Process Now",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/process-now.php",
+            "description": "Proses antrian PENDING sekarang tanpa tunggu cron."
+          }
+        }
+      ]
+    }
+  ]
+}
