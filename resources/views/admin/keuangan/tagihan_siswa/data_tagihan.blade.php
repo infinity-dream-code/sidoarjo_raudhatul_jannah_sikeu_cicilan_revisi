@@ -237,7 +237,7 @@
                                         data-placeholder="Status Expired">
                                     <option value="all">Semua</option>
                                     <option value="1">Sudah Expired</option>
-                                    <option value="0">Belum Expired</option>
+                                    <option value="0" selected>Belum Expired</option>
                                 </select>
                             </div>
                             <div class="mb-5">
