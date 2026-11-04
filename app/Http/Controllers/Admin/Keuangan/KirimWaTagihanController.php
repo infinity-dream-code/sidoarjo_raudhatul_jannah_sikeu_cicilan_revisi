@@ -157,9 +157,13 @@ class KirimWaTagihanController extends Controller
             ], 422);
         }
 
-        if (count($grouped) > 100) {
+        $totalBills = 0;
+        foreach ($grouped as $billIds) {
+            $totalBills += count($billIds);
+        }
+        if ($totalBills > 200) {
             return response()->json([
-                'message' => 'Jumlah siswa yang dipilih tidak boleh lebih dari 100.',
+                'message' => 'Jumlah tagihan yang dipilih tidak boleh lebih dari 200 (1 tagihan = 1 email).',
             ], 413);
         }
 
@@ -175,24 +179,28 @@ class KirimWaTagihanController extends Controller
         $skipped = 0;
         $failed = 0;
 
+        // 1 tagihan = 1 email (meski siswa yang sama punya beberapa tagihan).
         foreach ($grouped as $custId => $billIds) {
-            try {
-                $payload = $this->buildBillingPayload((string) $custId, $billIds, $templateMeta['nama']);
-                if ($payload === null) {
-                    $skipped++;
-                    continue;
-                }
-                if ($payload === false) {
+            foreach ($billIds as $billId) {
+                try {
+                    $payload = $this->buildBillingPayload((string) $custId, [(string) $billId], $templateMeta['nama']);
+                    if ($payload === null) {
+                        $skipped++;
+                        continue;
+                    }
+                    if ($payload === false) {
+                        $failed++;
+                        continue;
+                    }
+                    $messages[] = $payload;
+                } catch (Throwable $e) {
                     $failed++;
-                    continue;
+                    Log::error('kirim tagihan email build gagal', [
+                        'custid' => $custId,
+                        'bill' => $billId,
+                        'error' => $e->getMessage(),
+                    ]);
                 }
-                $messages[] = $payload;
-            } catch (Throwable $e) {
-                $failed++;
-                Log::error('kirim tagihan email build gagal', [
-                    'custid' => $custId,
-                    'error' => $e->getMessage(),
-                ]);
             }
         }
 
@@ -339,15 +347,19 @@ class KirimWaTagihanController extends Controller
             ];
         }
 
-        $first = $bills->first();
+        $bill = $bills->first();
         $nis = (!empty($siswa->NOCUST) && $siswa->NOCUST !== '-')
             ? $siswa->NOCUST
             : ($siswa->nocust ?? $siswa->NUM2ND ?? '');
         $nama = (string) ($siswa->NMCUST ?? $siswa->nmcust ?? '-');
         $kelasLabel = trim((string) ($siswa->DESC02 ?? '') . ' ' . (string) ($siswa->DESC03 ?? ''));
-        $noVa = scctcust::showVA($nis, $first->isINSTALLABLE ?? null);
+        $noVa = scctcust::showVA($nis, $bill->isINSTALLABLE ?? null);
 
+        $billLabel = trim((string) ($items[0]['name'] ?? ($bill->BILLNM ?? 'Tagihan')));
         $subject = 'Informasi tagihan ananda ' . $nama;
+        if ($billLabel !== '') {
+            $subject .= ' - ' . $billLabel;
+        }
         if ($kelasLabel !== '') {
             $subject .= ' (' . $kelasLabel . ')';
         }
