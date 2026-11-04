@@ -641,7 +641,7 @@
             prefetchedColumns: @json($tableColumns ?? []),
         };
     </script>
-    <script src="{{asset('js/data-tagihan-init.js')}}?v=20260914-pdf-total"></script>
+    <script src="{{asset('js/data-tagihan-init.js')}}?v=20261104-expired-default"></script>
     <script src="{{asset('main/libs/moment/moment.js')}}"></script>
     <script src="{{asset('main/libs/bootstrap-daterangepicker/bootstrap-daterangepicker.js')}}"></script>
     <script src="{{asset('js/unlimited-daterange.js')}}?v=20260911-no-limit"></script>
@@ -1583,6 +1583,18 @@
                         allowClear: true
                     });
                 });
+            }
+
+            // Default Status Expired = Belum Expired (Select2/allowClear sering menjatuhkan value "0"/kosong ke Semua)
+            const $filterExpired = $('#filter_expired');
+            if ($filterExpired.length) {
+                const currentExpired = String($filterExpired.val() ?? '');
+                if (currentExpired === '' || currentExpired === 'all' || currentExpired === '0') {
+                    $filterExpired.val('belum').trigger('change');
+                    if (typeof dataReFilter === 'function' && dtOptions.tableId) {
+                        dataReFilter(dtOptions.tableId);
+                    }
+                }
             }
 
             bindUnlimitedDateRange('#tanggal-pembuatan');

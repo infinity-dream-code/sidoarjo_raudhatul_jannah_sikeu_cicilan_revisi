@@ -29,6 +29,16 @@
 
         window.__dataTagihanTableBooted = true;
 
+        // Default Status Expired = Belum Expired (sebelum request pertama).
+        // Select2 treat value "0" sebagai kosong, jadi pakai "belum".
+        const $filterExpired = $('#filter_expired');
+        if ($filterExpired.length) {
+            const cur = String($filterExpired.val() ?? '');
+            if (cur === '' || cur === 'all' || cur === '0' || cur === 'null') {
+                $filterExpired.val('belum');
+            }
+        }
+
         const dtOptions = {
             tableId: 'main_table',
             formId: 'filter-form',
