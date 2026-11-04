@@ -375,6 +375,8 @@ class KirimWaTagihanController extends Controller
             'paymentLink' => rtrim((string) config('app.url_web_tagihan', 'https://tagihan-raudlatuljannah-sidoarjo.smartpayment.co.id'), '/') . '/',
             'totalAmount' => $total,
             'outstandingAmount' => $sisa,
+            'adminFee' => 2000,
+            'adminFeeLabel' => 'Admin',
             'items' => $items,
         ];
     }
