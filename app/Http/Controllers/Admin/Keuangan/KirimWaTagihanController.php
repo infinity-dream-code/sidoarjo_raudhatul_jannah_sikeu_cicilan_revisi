@@ -9,6 +9,7 @@ use App\Models\scctbill;
 use App\Models\scctcust;
 use App\Support\EmailBroadcaster;
 use App\Support\SchoolScope;
+use App\Support\TagihanEmailPayload;
 use App\Support\WhatsappTagihan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -171,13 +172,9 @@ class KirimWaTagihanController extends Controller
         foreach ($grouped as $custId => $billIds) {
             foreach ($billIds as $billId) {
                 try {
-                    $payload = $this->buildBillingPayload((string) $custId, [(string) $billId]);
+                    $payload = TagihanEmailPayload::forBill((string) $custId, (string) $billId, $this->sekolah);
                     if ($payload === null) {
                         $skipped++;
-                        continue;
-                    }
-                    if ($payload === false) {
-                        $failed++;
                         continue;
                     }
                     $messages[] = $payload;
@@ -285,124 +282,6 @@ class KirimWaTagihanController extends Controller
         }
 
         return $grouped;
-    }
-
-    /**
-     * @param  array<int, string>  $billIds
-     * @return array<string, mixed>|null|false null=skipped (no email), false=failed, array=payload
-     */
-    private function buildBillingPayload(string $custId, array $billIds): array|false|null
-    {
-        $siswaQuery = scctcust::query()->where('CUSTID', $custId);
-        SchoolScope::apply($siswaQuery, 'scctcust', $this->sekolah);
-        $siswa = $siswaQuery->first();
-        if (!$siswa) {
-            return false;
-        }
-
-        $email = trim((string) ($siswa->EMAIL_ORTU ?? ''));
-        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            return null;
-        }
-
-        $bills = $this->billsForStudent($custId, $billIds);
-        if ($bills->isEmpty()) {
-            return false;
-        }
-
-        $total = 0;
-        $sisa = 0;
-        $items = [];
-        foreach ($bills as $bill) {
-            $amounts = WhatsappTagihan::amounts(
-                $bill->BILLAM,
-                $bill->BILLPAID,
-                $bill->PAYMENTLEFT,
-                $bill->PAIDST
-            );
-            $total += $amounts['total'];
-            $sisa += $amounts['sisa'];
-
-            $itemName = trim((string) ($bill->BILLNM ?? 'Tagihan'));
-            $periode = trim((string) ($bill->BILLAC ?? $bill->BTA ?? ''));
-            if ($periode !== '') {
-                $itemName .= ' (' . $periode . ')';
-            }
-
-            $items[] = [
-                'name' => $itemName,
-                'amount' => $amounts['sisa'] > 0 ? $amounts['sisa'] : $amounts['total'],
-            ];
-        }
-
-        $bill = $bills->first();
-        $nis = (!empty($siswa->NOCUST) && $siswa->NOCUST !== '-')
-            ? $siswa->NOCUST
-            : ($siswa->nocust ?? $siswa->NUM2ND ?? '');
-        $nama = (string) ($siswa->NMCUST ?? $siswa->nmcust ?? '-');
-        $kelasLabel = trim((string) ($siswa->DESC02 ?? '') . ' ' . (string) ($siswa->DESC03 ?? ''));
-        $noVa = scctcust::showVA($nis, $bill->isINSTALLABLE ?? null);
-
-        $billLabel = trim((string) ($items[0]['name'] ?? ($bill->BILLNM ?? 'Tagihan')));
-        $subject = 'Informasi tagihan ananda ' . $nama;
-        if ($billLabel !== '') {
-            $subject .= ' - ' . $billLabel;
-        }
-        if ($kelasLabel !== '') {
-            $subject .= ' (' . $kelasLabel . ')';
-        }
-
-        return [
-            'nama' => $nama,
-            'email' => $email,
-            'nis' => $nis !== '' ? $nis : null,
-            'kelas' => $kelasLabel !== '' ? $kelasLabel : null,
-            'va' => $noVa !== '' ? $noVa : null,
-            'subject' => $subject,
-            'organizationName' => (string) (config('app.nama_instansi') ?: 'Raudlatul Jannah Sidoarjo'),
-            'paymentLink' => rtrim((string) config('app.url_web_tagihan', 'https://tagihan-raudlatuljannah-sidoarjo.smartpayment.co.id'), '/') . '/',
-            'totalAmount' => $total,
-            'outstandingAmount' => $sisa,
-            'adminFee' => 2000,
-            'adminFeeLabel' => 'Admin VA',
-            'paymentGuide' => "PANDUAN/TATA CARA PEMBAYARAN:\n"
-                . "1. Transfer ke Virtual Account (VA) yang tertera\n"
-                . "2. Nominal transfer = total tagihan + Rp 2.000 biaya Admin VA\n"
-                . "   Contoh: tagihan Rp 500.000 → transfer Rp 502.000\n"
-                . "3. Atau buka Link/Portal Pembayaran pada email\n"
-                . "4. Simpan bukti pembayaran",
-            'items' => $items,
-        ];
-    }
-
-    /**
-     * @param  array<int, string>  $billIds
-     */
-    private function billsForStudent(string $custId, array $billIds)
-    {
-        $query = scctbill::query()
-            ->join('scctcust', 'scctcust.CUSTID', '=', 'scctbill.CUSTID')
-            ->where('scctbill.CUSTID', $custId)
-            ->whereIn('scctbill.AA', $billIds)
-            ->where('scctbill.FSTSBolehBayar', 1)
-            ->whereRaw('CAST(COALESCE(scctcust.STCUST, 0) AS SIGNED) = 1')
-            ->select([
-                'scctbill.AA',
-                'scctbill.CUSTID',
-                'scctbill.BILLNM',
-                'scctbill.BILLAC',
-                'scctbill.BTA',
-                'scctbill.BILLAM',
-                'scctbill.BILLPAID',
-                'scctbill.PAYMENTLEFT',
-                'scctbill.PAIDST',
-                'scctbill.isINSTALLABLE',
-            ]);
-
-        $this->applyBelumLunasScope($query);
-        SchoolScope::apply($query, 'scctcust', $this->sekolah);
-
-        return $query->get();
     }
 
     private function baseBillQuery()

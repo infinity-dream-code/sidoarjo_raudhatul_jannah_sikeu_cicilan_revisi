@@ -14,6 +14,7 @@ use App\Support\EnsureImportSchoolClass;
 use App\Support\ExcelImportSheet;
 use App\Support\InputSiswaProcedure;
 use App\Support\InputTagihanProcedure;
+use App\Support\TagihanEmailPayload;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -251,6 +252,7 @@ class UploadTagihanExcelController extends Controller
             $failed = [];
             $insertedCount = 0;
             $upsertedCust = 0;
+            $emailBillRefs = [];
 
             foreach ($data as $item) {
                 if (($item['status'] ?? null) != 1) {
@@ -352,6 +354,10 @@ class UploadTagihanExcelController extends Controller
                 }
 
                 $insertedCount++;
+                $emailBillRefs[] = [
+                    'custid' => $siswa->CUSTID,
+                    'aa' => $newBill->AA,
+                ];
             }
 
             Cache::forget($this->resolvedCacheKey());
@@ -370,6 +376,10 @@ class UploadTagihanExcelController extends Controller
             if ($insertedCount === 0 && empty($skippedInactive)) {
                 return response()->json(['message' => $message ?: 'Tidak ada tagihan yang berhasil dibuat.'], 422);
             }
+
+            // Antri email di background (tidak menambah loading); hanya jika EMAIL_ORTU ada.
+            TagihanEmailPayload::dispatchEnqueueAfterResponse($emailBillRefs);
+            $message .= '<hr>Email tagihan akan diantrikan otomatis untuk siswa yang punya email ortu.';
 
             return response()->json(['message' => $message], 200);
         } catch (\Throwable $e) {
