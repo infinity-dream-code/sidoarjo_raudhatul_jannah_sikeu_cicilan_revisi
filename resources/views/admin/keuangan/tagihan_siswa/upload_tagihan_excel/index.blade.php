@@ -153,7 +153,6 @@
                             <li class="list-group-item list-group-timeline-danger">Kolom: <span class="fw-bold">NIS, NAMA, GENDER, UNIT, KELAS, KELOMPOK, ANGKATAN, NO_WA, EMAIL_ORTU, KETERANGAN, NOMINAL, CICIL</span>.</li>
                             <li class="list-group-item list-group-timeline-danger">Kolom <span class="fw-bold">GENDER</span>: isi <span class="fw-bold">L</span> (Laki-Laki) atau <span class="fw-bold">P</span> (Perempuan).</li>
                             <li class="list-group-item list-group-timeline-danger">Kolom <span class="fw-bold">KETERANGAN</span> = nama tagihan (tidak boleh kosong).</li>
-                            <li class="list-group-item list-group-timeline-danger">Sekolah: <span class="fw-bold">Sidoarjo Raudlatul Jannah</span> (isi di kolom <span class="fw-bold">UNIT</span>).</li>
                             <li class="list-group-item list-group-timeline-danger">Kolom <span class="fw-bold">CICIL</span>: isi <span class="fw-bold">1</span> = bisa dicicil, <span class="fw-bold">0</span> = tidak bisa dicicil. Default contoh: <span class="fw-bold">0</span>.</li>
                             <li class="list-group-item list-group-timeline-danger">NIS sama boleh untuk beberapa baris tagihan (beda <span class="fw-bold">KETERANGAN / NOMINAL / CICIL</span>). Jika data siswa lain berbeda untuk NIS yang sama (mis. NAMA beda), pratinjau menampilkan pesan perbaiki data dan simpan ditolak.</li>
                             <li class="list-group-item list-group-timeline-danger">Kolom <span class="fw-bold">ANGKATAN</span> default contoh: <span class="fw-bold">2026/2027</span>. Jika belum ada di master tahun akademik akan dibuat otomatis saat simpan.</li>
@@ -161,7 +160,7 @@
                             <li class="list-group-item list-group-timeline-danger">Hapus baris contoh (NIS <span class="fw-bold">99999999…</span>) sebelum import.</li>
                             <li class="list-group-item list-group-timeline-danger">Contoh file:
                                 <a class="btn btn-sm btn-outline-primary fw-bolder"
-                                   href="{{asset('contoh_excel/TEMPLATE MENU UPLOAD TAGIHAN EXCEL.xlsx')}}?v=20261104-rj-cicil0-angkatan">
+                                   href="{{asset('contoh_excel/TEMPLATE MENU UPLOAD TAGIHAN EXCEL SIDOARJO RAUDLATUL JANNAH.xlsx')}}?v=20261104-filename-school">
                                     <i class="ri ri-file-excel-line me-2"></i>Contoh File
                                 </a>
                             </li>
