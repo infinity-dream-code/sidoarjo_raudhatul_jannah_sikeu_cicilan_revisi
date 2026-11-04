@@ -85,7 +85,11 @@ class TagihanEmailPayload
             : ($siswa->nocust ?? $siswa->NUM2ND ?? '');
         $nama = (string) ($siswa->NMCUST ?? $siswa->nmcust ?? '-');
         $kelasLabel = trim((string) ($siswa->DESC02 ?? '') . ' ' . (string) ($siswa->DESC03 ?? ''));
-        $noVa = scctcust::showVA($nis, $bill->isINSTALLABLE ?? null);
+
+        // isINSTALLABLE: 0 = Close (797789), 1 = Open/cicil (797790)
+        $isInstallable = ((int) ($bill->isINSTALLABLE ?? 0) === 1) ? 1 : 0;
+        $noVa = scctcust::showVA($nis, $isInstallable);
+        $billType = $isInstallable === 1 ? 'OPEN' : 'CLOSE';
 
         $subject = 'Informasi tagihan ananda ' . $nama;
         if ($itemName !== '') {
@@ -101,6 +105,8 @@ class TagihanEmailPayload
             'nis' => $nis !== '' ? $nis : null,
             'kelas' => $kelasLabel !== '' ? $kelasLabel : null,
             'va' => $noVa !== '' ? $noVa : null,
+            'billType' => $billType,
+            'tipeTagihan' => $billType,
             'subject' => $subject,
             'organizationName' => (string) (config('app.nama_instansi') ?: 'Raudlatul Jannah Sidoarjo'),
             'paymentLink' => self::paymentLink(),

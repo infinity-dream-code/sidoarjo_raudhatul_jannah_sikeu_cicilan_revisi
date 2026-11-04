@@ -84,14 +84,32 @@ class SaldoVirtualAccountController extends Controller
         $this->showTitle = 'Detail ' . $label;
     }
 
+    /**
+     * Filter transaksi per mode VA.
+     * - Open: hanya REFFBANK yang diawali prefix Open (797790).
+     * - Close: REFFBANK Close (797789) + transaksi legacy yang REFFBANK-nya
+     *   kosong / tidak diawali prefix Open maupun Close.
+     *   (Banyak top-up VA lama tidak menyimpan nomor VA penuh di REFFBANK,
+     *   sehingga filter ketat LIKE '797789%' membuat detail/data transaksi kosong.)
+     */
     private function applyReffBankPrefixFilter($query, string $column = 'REFFBANK')
     {
         $prefix = $this->currentVaPrefix();
+        $open = scctcust::vaPrefixOpen();
+        $close = scctcust::vaPrefixClose();
+        $reff = "TRIM(COALESCE(CAST({$column} AS CHAR), ''))";
 
-        return $query->whereRaw(
-            "TRIM(COALESCE(CAST({$column} AS CHAR), '')) LIKE ?",
-            [$prefix . '%']
-        );
+        return $query->where(function ($q) use ($reff, $prefix, $open, $close) {
+            $q->whereRaw("{$reff} LIKE ?", [$prefix . '%']);
+
+            if (!$this->isVaOpen()) {
+                $q->orWhereRaw("{$reff} = ''")
+                    ->orWhereRaw(
+                        "{$reff} NOT LIKE ? AND {$reff} NOT LIKE ?",
+                        [$open . '%', $close . '%']
+                    );
+            }
+        });
     }
 
     /**
@@ -397,9 +415,11 @@ class SaldoVirtualAccountController extends Controller
 
     private function getCustTransactions(string|int $custId)
     {
-        return $this->excludeManualCashScope(
-            sccttran::query()->where('CUSTID', $custId),
-            'FIDBANK'
+        return $this->applyReffBankPrefixFilter(
+            $this->excludeManualCashScope(
+                sccttran::query()->where('CUSTID', $custId),
+                'FIDBANK'
+            )
         )
             ->orderBy('TRXDATE', 'desc')
             ->get(['METODE', 'TRXDATE', 'DEBET', 'KREDIT', 'NOREFF', 'TRANSNO']);
@@ -839,7 +859,7 @@ class SaldoVirtualAccountController extends Controller
         if ($custid) {
             $modeKey = $this->resolveVaMode();
             $totalKredit = Cache::remember(
-                "total_kredit_va_{$modeKey}_custid_" . $custid,
+                "total_kredit_va_{$modeKey}_v2_custid_" . $custid,
                 600,
                 fn () => (int) $this->applyReffBankPrefixFilter(
                     $this->excludeManualCashScope(sccttran::query())->where('CUSTID', $custid)
@@ -847,7 +867,7 @@ class SaldoVirtualAccountController extends Controller
             );
 
             $totalDebet = Cache::remember(
-                "total_debet_va_{$modeKey}_custid_" . $custid,
+                "total_debet_va_{$modeKey}_v2_custid_" . $custid,
                 600,
                 fn () => (int) $this->applyReffBankPrefixFilter(
                     $this->excludeManualCashScope(sccttran::query())->where('CUSTID', $custid)
