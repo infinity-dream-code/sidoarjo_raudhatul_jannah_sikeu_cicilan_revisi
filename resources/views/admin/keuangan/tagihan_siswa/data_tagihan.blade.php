@@ -237,7 +237,8 @@
                                         data-placeholder="Status Expired">
                                     <option value="all">Semua</option>
                                     <option value="1">Sudah Expired</option>
-                                    <option value="0" selected>Belum Expired</option>
+                                    {{-- value "belum" (bukan "0"): Select2 menganggap "0" kosong lalu jatuh ke Semua --}}
+                                    <option value="belum" selected>Belum Expired</option>
                                 </select>
                             </div>
                             <div class="mb-5">
