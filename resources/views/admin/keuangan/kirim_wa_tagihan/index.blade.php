@@ -40,27 +40,15 @@
         <div class="card-body">
             <ul class="list-group list-group-timeline mb-4">
                 <li class="list-group-item list-group-timeline-danger">
-                    <strong>Pilih template email dulu sebelum mengirim.</strong>
+                    <strong>Siswa tanpa email ortu tidak akan menerima pesan.</strong>
                 </li>
                 <li class="list-group-item list-group-timeline-danger">
-                    <strong>Siswa tanpa email ortu tidak akan menerima pesan.</strong>
+                    <strong>1 tagihan = 1 email.</strong>
                 </li>
             </ul>
 
             <form id="filter-form">
                 <div class="row g-3">
-                    <div class="col-md-4">
-                        <label class="form-label" for="template_id">Template Email</label>
-                        <select class="form-select" id="template_id" name="template_id" data-control="select2" required>
-                            <option value="">Pilih template</option>
-                            @forelse(($templates ?? []) as $tpl)
-                                <option value="{{ $tpl->id }}">{{ $tpl->nama }} ({{ $tpl->kode }})</option>
-                            @empty
-                                <option value="0">Template default</option>
-                            @endforelse
-                        </select>
-                        <div class="form-text">Isi template diatur di Master Data → Template Email.</div>
-                    </div>
                     <div class="col-md-4">
                         <label class="form-label" for="filter_siswa">NIS / Nama</label>
                         <input type="text" class="form-control" id="filter_siswa" name="filter[siswa]"
@@ -191,10 +179,6 @@
                 all.indeterminate = checked.length > 0 && checked.length < boxes.length;
             }
 
-            function selectedTemplateId() {
-                return $('#template_id').val();
-            }
-
             function buildTagihanPayload(rows) {
                 const tagihan = {};
                 rows.forEach((row) => {
@@ -208,19 +192,16 @@
             }
 
             function sendWhatsapp(tagihan) {
-                const templateId = selectedTemplateId();
-                if (templateId === '' || templateId === null) {
-                    warningAlert('Pilih template email terlebih dahulu.');
-                    return;
-                }
-
                 const siswaCount = Object.keys(tagihan).length;
                 if (siswaCount === 0) {
                     warningAlert('Pilih minimal 1 tagihan.');
                     return;
                 }
-                if (siswaCount > 100) {
-                    warningAlert('Jumlah siswa yang dipilih tidak boleh lebih dari 100.');
+
+                let billCount = 0;
+                Object.values(tagihan).forEach((ids) => { billCount += (ids || []).length; });
+                if (billCount > 200) {
+                    warningAlert('Jumlah tagihan yang dipilih tidak boleh lebih dari 200.');
                     return;
                 }
 
@@ -236,7 +217,6 @@
                         'X-Requested-With': 'XMLHttpRequest',
                     },
                     body: JSON.stringify({
-                        template_id: Number(templateId),
                         tagihan: tagihan,
                     }),
                 })

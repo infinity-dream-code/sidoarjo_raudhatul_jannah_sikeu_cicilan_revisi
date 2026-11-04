@@ -7,7 +7,6 @@ use App\Models\mst_kelas;
 use App\Models\mst_thn_aka;
 use App\Models\scctbill;
 use App\Models\scctcust;
-use App\Models\WaTemplate;
 use App\Support\EmailBroadcaster;
 use App\Support\SchoolScope;
 use App\Support\WhatsappTagihan;
@@ -43,7 +42,6 @@ class KirimWaTagihanController extends Controller
             'title' => $this->title,
             'mainTitle' => $this->mainTitle,
             'dataTitle' => $this->dataTitle,
-            'templates' => $this->activeTemplates(),
             'kelas' => mst_kelas::dropdownQuery($this->sekolah)
                 ->orderBy('unit')
                 ->orderByRaw("CASE WHEN jenjang REGEXP '^[0-9]+$' THEN 0 ELSE 1 END, jenjang")
@@ -136,10 +134,8 @@ class KirimWaTagihanController extends Controller
         set_time_limit(500);
 
         $validator = Validator::make($request->all(), [
-            'template_id' => ['required', 'integer'],
             'tagihan' => ['required', 'array', 'min:1'],
         ], [], [
-            'template_id' => 'Template Email',
             'tagihan' => 'Tagihan',
         ]);
 
@@ -167,14 +163,6 @@ class KirimWaTagihanController extends Controller
             ], 413);
         }
 
-        $templateId = (int) $request->input('template_id');
-        $templateMeta = $this->activeTemplateMeta($templateId);
-        if ($templateMeta === null) {
-            return response()->json([
-                'message' => 'Template Email tidak ditemukan atau tidak aktif.',
-            ], 422);
-        }
-
         $messages = [];
         $skipped = 0;
         $failed = 0;
@@ -183,7 +171,7 @@ class KirimWaTagihanController extends Controller
         foreach ($grouped as $custId => $billIds) {
             foreach ($billIds as $billId) {
                 try {
-                    $payload = $this->buildBillingPayload((string) $custId, [(string) $billId], $templateMeta['nama']);
+                    $payload = $this->buildBillingPayload((string) $custId, [(string) $billId]);
                     if ($payload === null) {
                         $skipped++;
                         continue;
@@ -303,7 +291,7 @@ class KirimWaTagihanController extends Controller
      * @param  array<int, string>  $billIds
      * @return array<string, mixed>|null|false null=skipped (no email), false=failed, array=payload
      */
-    private function buildBillingPayload(string $custId, array $billIds, string $templateName): array|false|null
+    private function buildBillingPayload(string $custId, array $billIds): array|false|null
     {
         $siswaQuery = scctcust::query()->where('CUSTID', $custId);
         SchoolScope::apply($siswaQuery, 'scctcust', $this->sekolah);
@@ -376,32 +364,15 @@ class KirimWaTagihanController extends Controller
             'totalAmount' => $total,
             'outstandingAmount' => $sisa,
             'adminFee' => 2000,
-            'adminFeeLabel' => 'Admin',
+            'adminFeeLabel' => 'Admin VA',
+            'paymentGuide' => "PANDUAN/TATA CARA PEMBAYARAN:\n"
+                . "1. Transfer ke Virtual Account (VA) yang tertera\n"
+                . "2. Nominal transfer = total tagihan + Rp 2.000 biaya Admin VA\n"
+                . "   Contoh: tagihan Rp 500.000 → transfer Rp 502.000\n"
+                . "3. Atau buka Link/Portal Pembayaran pada email\n"
+                . "4. Simpan bukti pembayaran",
             'items' => $items,
         ];
-    }
-
-    /**
-     * @return array{id:int,nama:string}|null
-     */
-    private function activeTemplateMeta(int $templateId): ?array
-    {
-        try {
-            $row = WaTemplate::query()
-                ->where('id', $templateId)
-                ->where('is_active', 1)
-                ->first(['id', 'nama']);
-            if (!$row) {
-                return null;
-            }
-
-            return [
-                'id' => (int) $row->id,
-                'nama' => trim((string) ($row->nama ?? '')),
-            ];
-        } catch (Throwable) {
-            return null;
-        }
     }
 
     /**
@@ -515,18 +486,6 @@ class KirimWaTagihanController extends Controller
                     ->orWhere('scctcust.NO_WA', 'like', '%' . $sanitize . '%')
                     ->orWhere('scctbill.BILLNM', 'like', '%' . $sanitize . '%');
             });
-        }
-    }
-
-    private function activeTemplates()
-    {
-        try {
-            return WaTemplate::query()
-                ->where('is_active', 1)
-                ->orderBy('nama')
-                ->get(['id', 'kode', 'nama']);
-        } catch (Throwable) {
-            return collect();
         }
     }
 }

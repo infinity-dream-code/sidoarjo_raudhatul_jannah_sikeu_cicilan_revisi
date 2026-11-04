@@ -23,6 +23,26 @@ function render_billing_email(array $message): array
         $textItems[] = '- ' . ($item['name'] ?? '') . ': ' . format_rupiah($item['amount'] ?? 0);
     }
 
+    $billTotal = (float) ($message['totalAmount'] ?? 0);
+    $adminFeeValue = ($adminFee !== null && $adminFee !== '') ? (float) $adminFee : 0.0;
+    $grandTotal = $billTotal + $adminFeeValue;
+
+    $adminRow = '';
+    if ($adminFeeValue > 0) {
+        $adminRow = '<tr>
+          <td style="padding:10px 12px;border-bottom:1px solid #eee;">Biaya ' . escape_html($adminFeeLabel) . '</td>
+          <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap;">' . format_rupiah($adminFeeValue) . '</td>
+        </tr>';
+        $textItems[] = '- Biaya ' . $adminFeeLabel . ': ' . format_rupiah($adminFeeValue);
+    }
+
+    $totalNote = '';
+    if ($adminFeeValue > 0) {
+        $totalNote = '<div style="margin-top:8px;font-size:12px;color:#6b7280;line-height:1.5;">
+          Keterangan: ' . format_rupiah($billTotal) . ' tagihan + ' . format_rupiah($adminFeeValue) . ' biaya ' . escape_html($adminFeeLabel) . '
+        </div>';
+    }
+
     $outstandingBlock = '';
     if (isset($message['outstandingAmount']) && $message['outstandingAmount'] !== null && $message['outstandingAmount'] !== '') {
         $outstandingBlock = '<tr>
@@ -31,10 +51,7 @@ function render_billing_email(array $message): array
         </tr>';
     }
 
-    $totalLabel = format_rupiah($message['totalAmount'] ?? 0);
-    if ($adminFee !== null && $adminFee !== '') {
-        $totalLabel .= ' + ' . format_rupiah($adminFee) . ' (' . $adminFeeLabel . ')';
-    }
+    $totalLabel = format_rupiah($grandTotal);
 
     $brandBg = (string) Config::get('MAIL_BRAND_COLOR', '#0a0a0a');
     $brandAccent = (string) Config::get('MAIL_BRAND_ACCENT', '#4fbef7');
@@ -132,6 +149,7 @@ function render_billing_email(array $message): array
               </thead>
               <tbody>
                 ' . ($rows !== '' ? $rows : '<tr><td colspan="2" style="padding:12px;color:#6b7280;">Tidak ada item</td></tr>') . '
+                ' . $adminRow . '
                 <tr>
                   <td style="padding:10px 12px;font-weight:700;background:#f9fafb;">Total Nominal</td>
                   <td style="padding:10px 12px;text-align:right;font-weight:700;background:#f9fafb;">' . escape_html($totalLabel) . '</td>
@@ -139,6 +157,7 @@ function render_billing_email(array $message): array
                 ' . $outstandingBlock . '
               </tbody>
             </table>
+            ' . $totalNote . '
 
             ' . $paymentButton . '
             ' . $loginBlock . '
@@ -186,6 +205,9 @@ function render_billing_email(array $message): array
     }
     $text .= "\nRincian Pembayaran :\n" . implode("\n", $textItems) . "\n\n";
     $text .= 'Total Nominal : ' . $totalLabel . "\n";
+    if ($adminFeeValue > 0) {
+        $text .= 'Keterangan : ' . format_rupiah($billTotal) . ' tagihan + ' . format_rupiah($adminFeeValue) . ' biaya ' . $adminFeeLabel . "\n";
+    }
     if (isset($message['outstandingAmount']) && $message['outstandingAmount'] !== null && $message['outstandingAmount'] !== '') {
         $text .= 'Outstanding / Sisa Cicilan : ' . format_rupiah($message['outstandingAmount']) . "\n";
     }

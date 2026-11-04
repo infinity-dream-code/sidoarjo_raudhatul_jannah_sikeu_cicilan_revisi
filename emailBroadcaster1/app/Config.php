@@ -171,7 +171,12 @@ class Config
     {
         return (string) self::get(
             'DEFAULT_PAYMENT_GUIDE',
-            "PANDUAN PEMBAYARAN:\n1. Transfer ke Virtual Account (VA) yang tertera\n2. Atau klik Link Pembayaran pada email\n3. Simpan bukti pembayaran"
+            "PANDUAN/TATA CARA PEMBAYARAN:\n"
+            . "1. Transfer ke Virtual Account (VA) yang tertera\n"
+            . "2. Nominal transfer = total tagihan + Rp 2.000 biaya Admin VA\n"
+            . "   Contoh: tagihan Rp 500.000 → transfer Rp 502.000\n"
+            . "3. Atau buka Link/Portal Pembayaran pada email\n"
+            . "4. Simpan bukti pembayaran"
         );
     }
 
