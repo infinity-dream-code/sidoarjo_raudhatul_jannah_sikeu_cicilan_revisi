@@ -35,7 +35,13 @@ class HealthController
             'dbName' => $driver === 'mysql' ? (string) Config::get('DB_NAME', '') : null,
             'cron' => '*/10 * * * * (via cron/send_emails.php)',
             'batchSize' => (int) Config::get('EMAIL_BATCH_SIZE', 20),
-            'singleAccountMax' => (int) Config::get('SMTP_SINGLE_ACCOUNT_MAX', 20),
+            'accountRules' => [
+                'oneAccountMaxPending' => (int) Config::get('SMTP_SINGLE_ACCOUNT_MAX', 20),
+                'twoAccountMaxPending' => (int) Config::get('SMTP_TWO_ACCOUNT_MAX', 40),
+                'threeAccountsAbove' => (int) Config::get('SMTP_TWO_ACCOUNT_MAX', 40),
+                'quotaPerAccountPerWindow' => Config::smtpQuotaPerAccount(),
+                'windowSeconds' => Config::smtpQuotaWindowSeconds(),
+            ],
         ]);
     }
 }

@@ -129,6 +129,12 @@ class EmailService
     }
 
     /**
+     * Aturan akun berdasarkan antrian PENDING:
+     * - ≤20  → 1 akun (SMTP1)
+     * - ≤40  → 2 akun
+     * - >40  → sampai 3 akun
+     * Kuota tiap akun: 20 pesan / 10 menit (FIFO).
+     *
      * @param list<array{id:string,host:string,port:int,secure:string,user:string,pass:string,from_email:string,from_name:string}> $accounts
      * @return list<array{id:string,host:string,port:int,secure:string,user:string,pass:string,from_email:string,from_name:string}>
      */
@@ -138,13 +144,18 @@ class EmailService
             return [];
         }
 
-        $singleThreshold = (int) Config::get('SMTP_SINGLE_ACCOUNT_MAX', 20);
-        if ($pendingTotal <= $singleThreshold) {
-            $pick = $accounts[array_rand($accounts)];
-            return [$pick];
+        $oneMax = (int) Config::get('SMTP_SINGLE_ACCOUNT_MAX', 20);
+        $twoMax = (int) Config::get('SMTP_TWO_ACCOUNT_MAX', 40);
+
+        if ($pendingTotal <= $oneMax) {
+            $need = 1;
+        } elseif ($pendingTotal <= $twoMax) {
+            $need = 2;
+        } else {
+            $need = 3;
         }
 
-        return $accounts;
+        return array_slice($accounts, 0, min($need, count($accounts)));
     }
 
     private function render(array $message): array
