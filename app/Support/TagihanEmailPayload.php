@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\mst_tagihan;
 use App\Models\scctbill;
 use App\Models\scctcust;
 use Illuminate\Support\Facades\Log;
@@ -9,6 +10,42 @@ use Throwable;
 
 class TagihanEmailPayload
 {
+    /**
+     * Nama tagihan di scctbill.BILLNM sering terpotong (VARCHAR/procedure 30 char).
+     * Ambil nama lengkap dari mst_tagihan bila tersedia.
+     */
+    public static function resolveFullBillName(?string $billNm): string
+    {
+        $billNm = trim((string) $billNm);
+        if ($billNm === '') {
+            return 'Tagihan';
+        }
+
+        try {
+            $exact = mst_tagihan::query()
+                ->where('tagihan', $billNm)
+                ->value('tagihan');
+            if (is_string($exact) && trim($exact) !== '') {
+                return trim($exact);
+            }
+
+            // BILLNM terpotong → cari master yang diawali nama terpotong.
+            if (mb_strlen($billNm) >= 25) {
+                $prefix = mst_tagihan::query()
+                    ->where('tagihan', 'like', str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $billNm) . '%')
+                    ->orderByRaw('CHAR_LENGTH(tagihan) DESC')
+                    ->value('tagihan');
+                if (is_string($prefix) && trim($prefix) !== '') {
+                    return trim($prefix);
+                }
+            }
+        } catch (Throwable $e) {
+            Log::debug('resolveFullBillName fallback', ['billnm' => $billNm, 'error' => $e->getMessage()]);
+        }
+
+        return $billNm;
+    }
+
     public static function adminFee(): int
     {
         // Biaya Admin VA dibebankan ke sekolah — tidak ditampilkan ke ortu di email.
@@ -74,7 +111,7 @@ class TagihanEmailPayload
             $bill->PAIDST
         );
 
-        $itemName = trim((string) ($bill->BILLNM ?? 'Tagihan'));
+        $itemName = self::resolveFullBillName($bill->BILLNM ?? null);
         $periode = trim((string) ($bill->BILLAC ?? $bill->BTA ?? ''));
         if ($periode !== '') {
             $itemName .= ' (' . $periode . ')';

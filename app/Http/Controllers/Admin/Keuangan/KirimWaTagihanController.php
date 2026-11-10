@@ -13,6 +13,7 @@ use App\Support\TagihanEmailPayload;
 use App\Support\WhatsappTagihan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -302,6 +303,8 @@ class KirimWaTagihanController extends Controller
                 'scctbill.BILLPAID',
                 'scctbill.PAYMENTLEFT',
                 'scctbill.PAIDST',
+                'scctbill.ExpDate',
+                'scctbill.FSTSBolehBayar',
                 'scctcust.nocust as NOCUST',
                 'scctcust.nmcust as NMCUST',
                 'scctcust.NO_WA',
@@ -310,12 +313,27 @@ class KirimWaTagihanController extends Controller
                 'scctcust.DESC02',
                 'scctcust.DESC03',
             ])
+            // Aktif & boleh ditagih (0 = soft-delete / nonaktif di SIKEU).
             ->where('scctbill.FSTSBolehBayar', 1)
             ->whereRaw('CAST(COALESCE(scctcust.STCUST, 0) AS SIGNED) = 1');
 
+        $this->applyBelumExpiredScope($query);
         SchoolScope::apply($query, 'scctcust', $this->sekolah);
 
         return $query;
+    }
+
+    /**
+     * Hanya tagihan yang belum expired (ExpDate >= awal hari ini, atau ExpDate kosong).
+     */
+    private function applyBelumExpiredScope($query, string $billTable = 'scctbill'): void
+    {
+        $todayStart = Carbon::now()->startOfDay()->format('Y-m-d H:i:s');
+
+        $query->where(function ($q) use ($billTable, $todayStart) {
+            $q->whereNull("{$billTable}.ExpDate")
+                ->orWhere("{$billTable}.ExpDate", '>=', $todayStart);
+        });
     }
 
     private function applyBelumLunasScope($query, string $billTable = 'scctbill'): void

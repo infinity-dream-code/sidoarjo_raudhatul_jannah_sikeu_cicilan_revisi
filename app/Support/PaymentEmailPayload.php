@@ -100,7 +100,7 @@ class PaymentEmailPayload
         $installableFlag = $isInstallable ? 1 : 0;
         $noVa = scctcust::showVA($nis, $installableFlag);
 
-        $itemName = trim((string) ($bill->BILLNM ?? 'Tagihan'));
+        $itemName = TagihanEmailPayload::resolveFullBillName($bill->BILLNM ?? null);
         $periode = trim((string) ($bill->BILLAC ?? $bill->BTA ?? ''));
         if ($periode !== '') {
             $itemName .= ' (' . $periode . ')';

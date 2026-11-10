@@ -240,52 +240,85 @@
                 return;
             }
 
-            const selectedTagihanDibayar = tableTagihanDibayar.rows({selected: true}).data();
-            if (selectedTagihanDibayar[0]) {
-                warningAlert('Tagihan yang sudah dibayar / dicicil tidak bisa diedit!')
-                return;
-            }
-
             const selectedTagihan = tableTagihan.rows({selected: true});
-            if (!selectedTagihan.data()[0]) {
+            const selectedIndexes = selectedTagihan.indexes().toArray();
+            if (!selectedIndexes.length) {
                 warningAlert('Silahkan pilih tagihan yang bisa diedit!')
                 return;
             }
 
-            const selectedIndexes = selectedTagihan.indexes();
-            const nominal = getSelectedNominalFromRow(tableTagihan, selectedIndexes[0]);
-            if (!nominal || nominal <= 0) {
-                warningAlert('Nominal tagihan tidak valid!');
-                return;
-            }
-            const namaTagihan = getSelectedNamaTagihanFromRow(tableTagihan, selectedIndexes[0]);
-            if (!namaTagihan) {
-                warningAlert('Nama tagihan tidak boleh kosong!');
-                return;
-            }
+            const payloads = [];
+            for (const idx of selectedIndexes) {
+                const rowData = tableTagihan.row(idx).data();
+                if (!rowData?.AA) continue;
 
-            const formData = new FormData();
-            formData.append('siswa', selectedSiswa[0].CUSTID);
-            formData.append('tagihan', selectedTagihan.data()[0].AA);
-            formData.append('nominal', nominal);
-            formData.append('nama_tagihan', namaTagihan);
-            formData.append('_method', 'PUT');
+                const nominal = getSelectedNominalFromRow(tableTagihan, idx);
+                if (!nominal || nominal <= 0) {
+                    warningAlert(`Nominal tagihan tidak valid pada: ${rowData.BILLNM || rowData.AA}`);
+                    return;
+                }
+                const namaTagihan = getSelectedNamaTagihanFromRow(tableTagihan, idx);
+                if (!namaTagihan) {
+                    warningAlert(`Nama tagihan tidak boleh kosong pada baris: ${rowData.AA}`);
+                    return;
+                }
 
-            loadingAlert('Mengedit data...');
-            const request = new Request(
-                `{{route('admin.manual-input.edit-manual.edit-tagihan')}}`,
-                {
-                    method: "POST",
-                    headers: {
-                        'X-CSRF-TOKEN': csrfToken,
-                    },
-                    body: formData
+                const oldNominal = Number(rowData.BILLAM ?? 0);
+                const oldNama = String(rowData.BILLNM ?? '').trim();
+                if (oldNominal === nominal && oldNama === namaTagihan) {
+                    continue;
+                }
+
+                payloads.push({
+                    tagihan: rowData.AA,
+                    nominal,
+                    nama_tagihan: namaTagihan,
+                    label: namaTagihan || rowData.BILLNM || rowData.AA,
                 });
+            }
 
-            let result = await submitForm(request);
-            if (result) {
-                await getTagihan(selectedSiswa[0].CUSTID, false);
-                successAlert(result.message);
+            if (!payloads.length) {
+                warningAlert('Tidak ada perubahan data pada tagihan yang dipilih.');
+                return;
+            }
+
+            loadingAlert(`Mengedit ${payloads.length} tagihan...`);
+            let successCount = 0;
+            const failed = [];
+
+            for (const item of payloads) {
+                const formData = new FormData();
+                formData.append('siswa', selectedSiswa[0].CUSTID);
+                formData.append('tagihan', item.tagihan);
+                formData.append('nominal', item.nominal);
+                formData.append('nama_tagihan', item.nama_tagihan);
+                formData.append('_method', 'PUT');
+
+                const request = new Request(
+                    `{{route('admin.manual-input.edit-manual.edit-tagihan')}}`,
+                    {
+                        method: "POST",
+                        headers: {
+                            'X-CSRF-TOKEN': csrfToken,
+                        },
+                        body: formData
+                    });
+
+                const result = await submitForm(request, {silent: true});
+                if (result) {
+                    successCount++;
+                } else {
+                    failed.push(item.label);
+                    // submitForm sudah menampilkan alert error; hentikan agar tidak spam
+                    break;
+                }
+            }
+
+            await getTagihan(selectedSiswa[0].CUSTID, false);
+            if (successCount > 0 && failed.length === 0) {
+                successAlert(`${successCount} tagihan berhasil diedit!`);
+            } else if (successCount > 0) {
+                warningAlert(`${successCount} berhasil, gagal pada: ${failed.join(', ')}`);
             }
         });
 
@@ -618,18 +651,29 @@
                         },
                         checkboxes: {
                             selectRow: true,
-                            selectAll: false,
+                            selectAll: true,
+                            selectAllPages: true,
                         },
                         className: 'text-center',
                     }
                 ],
                 language: {
                     ...languageData,
-                    emptyTable: "Tidak ada tagihan yang dapat diedit"
+                    emptyTable: "Tidak ada tagihan yang dapat diedit",
+                    select: {
+                        rows: {
+                            _: '%d tagihan dipilih',
+                            0: '',
+                            1: '1 tagihan dipilih',
+                        }
+                    }
                 },
 
                 paging: true,
-                select: {style: 'single'},
+                select: {
+                    style: 'multi',
+                    selector: 'td:first-child',
+                },
                 serverSide: false,
                 searching: false,
                 lengthChange: false,
