@@ -17,9 +17,9 @@ class DispatchPaymentEmails extends Command
     protected $signature = 'payment-email:dispatch
                             {--limit=100 : Maksimal tagihan diproses per run}
                             {--days= : Override lookback days}
-                            {--baseline : Catat snapshot BILLPAID tanpa kirim email (untuk go-live)}';
+                            {--baseline : Catat snapshot BILLPAID/INSTALLMENT tanpa kirim email (untuk go-live)}';
 
-    protected $description = 'Antri email konfirmasi pembayaran untuk tagihan yang BILLPAID naik (manual/bank/Android)';
+    protected $description = 'Antri email konfirmasi pembayaran (Close via BILLPAID; Open/cicil via INSTALLMENT 1,2,…)';
 
     public function handle(): int
     {
@@ -51,6 +51,7 @@ class DispatchPaymentEmails extends Command
                         'billpaid_snapshot' => (int) $bill->BILLPAID,
                     ],
                     [
+                        'installment_snapshot' => (int) ($bill->INSTALLMENT ?? 0),
                         'payment_amount' => 0,
                         'queued_at' => now(),
                         'broadcaster_id' => 'baseline',
@@ -67,7 +68,11 @@ class DispatchPaymentEmails extends Command
         $skipped = 0;
 
         foreach ($candidates as $bill) {
-            $result = PaymentEmailPayload::dispatchForBill((string) $bill->AA, (int) $bill->BILLPAID);
+            $result = PaymentEmailPayload::dispatchForBill(
+                (string) $bill->AA,
+                (int) $bill->BILLPAID,
+                (int) ($bill->INSTALLMENT ?? 0)
+            );
             if (!empty($result['queued'])) {
                 $queued++;
             } else {
@@ -92,7 +97,9 @@ class DispatchPaymentEmails extends Command
     }
 
     /**
-     * Ambil kandidat dari DATA_MYSQL, bandingkan snapshot di DB default (tanpa cross-DB JOIN).
+     * Kandidat:
+     * - Close/umum: BILLPAID naik + PAIDDT dalam lookback
+     * - Cicilan (isINSTALLABLE=1): INSTALLMENT >= 1 dan naik dibanding log
      *
      * @return Collection<int, scctbill>
      */
@@ -108,31 +115,44 @@ class DispatchPaymentEmails extends Command
                     $inner->whereNull('PAIDDT_ACTUAL')
                         ->whereNotNull('PAIDDT')
                         ->where('PAIDDT', '>=', $since);
+                })->orWhere(function ($inner) {
+                    // Cicilan: INSTALLMENT 1,2,... = sudah bayar (kadang PAIDDT kosong).
+                    $inner->where('isINSTALLABLE', 1)
+                        ->where('INSTALLMENT', '>', 0);
                 });
             })
             ->orderByDesc('PAIDDT_ACTUAL')
             ->orderByDesc('PAIDDT')
-            ->limit(max($limit * 5, 100))
-            ->get(['AA', 'BILLPAID']);
+            ->orderByDesc('INSTALLMENT')
+            ->limit(max($limit * 5, 150))
+            ->get(['AA', 'BILLPAID', 'INSTALLMENT', 'isINSTALLABLE']);
 
         if ($bills->isEmpty()) {
             return collect();
         }
 
         $aas = $bills->pluck('AA')->map(fn ($aa) => (string) $aa)->all();
-        $snapshots = PaymentEmailLog::query()
+        $logs = PaymentEmailLog::query()
             ->whereIn('aa', $aas)
-            ->selectRaw('aa, MAX(billpaid_snapshot) as max_paid')
-            ->groupBy('aa')
-            ->pluck('max_paid', 'aa');
+            ->get(['aa', 'billpaid_snapshot', 'installment_snapshot'])
+            ->groupBy('aa');
 
         return $bills
-            ->filter(function ($bill) use ($snapshots) {
+            ->filter(function ($bill) use ($logs) {
                 $aa = (string) $bill->AA;
-                $current = (int) $bill->BILLPAID;
-                $last = (int) ($snapshots[$aa] ?? 0);
+                $group = $logs->get($aa);
+                $lastPaid = $group ? (int) $group->max('billpaid_snapshot') : 0;
+                $lastInst = $group ? (int) $group->max('installment_snapshot') : 0;
 
-                return $current > $last;
+                $currentPaid = (int) $bill->BILLPAID;
+                $currentInst = (int) ($bill->INSTALLMENT ?? 0);
+                $isInstallable = ((int) ($bill->isINSTALLABLE ?? 0) === 1);
+
+                if ($currentPaid > $lastPaid) {
+                    return true;
+                }
+
+                return $isInstallable && $currentInst > 0 && $currentInst > $lastInst;
             })
             ->take($limit)
             ->values();

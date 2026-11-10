@@ -18,11 +18,12 @@ class PaymentEmailPayload
 
     /**
      * Build payload konfirmasi pembayaran untuk 1 tagihan.
-     * null = dilewati (email ortu kosong/invalid, belum ada kenaikan BILLPAID, atau data tidak ditemukan).
+     * Close: deteksi kenaikan BILLPAID.
+     * Open/cicil (isINSTALLABLE=1): deteksi kenaikan INSTALLMENT (1,2,3,...) dan/atau BILLPAID.
      *
-     * @return array{payload:array<string,mixed>,billpaid_snapshot:int,payment_amount:int,aa:string}|null
+     * @return array{payload:array<string,mixed>,billpaid_snapshot:int,installment_snapshot:int,payment_amount:int,aa:string}|null
      */
-    public static function forBillIncrease(string $billAa, ?int $expectedBillPaid = null): ?array
+    public static function forBillIncrease(string $billAa, ?int $expectedBillPaid = null, ?int $expectedInstallment = null): ?array
     {
         $aa = trim($billAa);
         if ($aa === '') {
@@ -34,21 +35,48 @@ class PaymentEmailPayload
             return null;
         }
 
+        $isInstallable = ((int) ($bill->isINSTALLABLE ?? 0) === 1);
         $currentPaid = (int) ($bill->BILLPAID ?? 0);
         if ($expectedBillPaid !== null) {
             $currentPaid = max($currentPaid, $expectedBillPaid);
         }
 
-        if ($currentPaid <= 0) {
+        $currentInstallment = (int) ($bill->INSTALLMENT ?? 0);
+        if ($expectedInstallment !== null) {
+            $currentInstallment = max($currentInstallment, $expectedInstallment);
+        }
+
+        $last = PaymentEmailLog::lastState($aa);
+        $lastPaid = $last['billpaid'];
+        $lastInstallment = $last['installment'];
+
+        $paidIncreased = $currentPaid > $lastPaid;
+        $installmentIncreased = $isInstallable && $currentInstallment > $lastInstallment && $currentInstallment > 0;
+
+        // Close: cukup BILLPAID naik.
+        // Cicilan: INSTALLMENT 1,2,... naik = sudah bayar cicilan; BILLPAID naik juga tetap dihitung.
+        if (!$paidIncreased && !$installmentIncreased) {
             return null;
         }
 
-        $lastSnapshot = PaymentEmailLog::lastSnapshot($aa);
-        if ($currentPaid <= $lastSnapshot) {
+        if ($currentPaid <= 0 && !$installmentIncreased) {
             return null;
         }
 
-        $paymentAmount = $currentPaid - $lastSnapshot;
+        $paymentAmount = $paidIncreased
+            ? ($currentPaid - $lastPaid)
+            : max(0, $currentPaid); // fallback bila hanya installment yang naik tanpa delta paid terdeteksi
+
+        if ($paymentAmount <= 0 && $installmentIncreased) {
+            // Estimasi nominal cicilan dari sisa/total jika delta paid 0 (data tidak konsisten).
+            $billAmount = (int) ($bill->BILLAM ?? 0);
+            $left = (int) ($bill->PAYMENTLEFT ?? 0);
+            $paymentAmount = max(0, $billAmount - $left - $lastPaid);
+            if ($paymentAmount <= 0 && $currentPaid > 0) {
+                $paymentAmount = $currentPaid;
+            }
+        }
+
         if ($paymentAmount <= 0) {
             return null;
         }
@@ -69,13 +97,16 @@ class PaymentEmailPayload
         $nama = (string) ($siswa->NMCUST ?? $siswa->nmcust ?? '-');
         $kelasLabel = trim((string) ($siswa->DESC02 ?? '') . ' ' . (string) ($siswa->DESC03 ?? ''));
 
-        $isInstallable = ((int) ($bill->isINSTALLABLE ?? 0) === 1) ? 1 : 0;
-        $noVa = scctcust::showVA($nis, $isInstallable);
+        $installableFlag = $isInstallable ? 1 : 0;
+        $noVa = scctcust::showVA($nis, $installableFlag);
 
         $itemName = trim((string) ($bill->BILLNM ?? 'Tagihan'));
         $periode = trim((string) ($bill->BILLAC ?? $bill->BTA ?? ''));
         if ($periode !== '') {
             $itemName .= ' (' . $periode . ')';
+        }
+        if ($isInstallable && $currentInstallment > 0) {
+            $itemName .= ' — Cicilan ke-' . $currentInstallment;
         }
 
         $billAmount = (int) ($bill->BILLAM ?? 0);
@@ -86,9 +117,15 @@ class PaymentEmailPayload
             $bill->FIDBANK !== null ? (string) $bill->FIDBANK : null,
             $bill->NOREFF !== null ? (string) $bill->NOREFF : null
         );
+        if ($isInstallable && $currentInstallment > 0) {
+            $paymentMethod .= ' (Cicilan ke-' . $currentInstallment . ')';
+        }
 
         $orderNumber = trim((string) ($bill->BILLCD ?? $aa));
         $subject = 'Konfirmasi pembayaran ananda ' . $nama;
+        if ($isInstallable && $currentInstallment > 0) {
+            $subject .= ' (Cicilan ke-' . $currentInstallment . ')';
+        }
         if ($itemName !== '') {
             $subject .= ' - ' . $itemName;
         }
@@ -100,6 +137,7 @@ class PaymentEmailPayload
             'nis' => $nis !== '' ? $nis : null,
             'kelas' => $kelasLabel !== '' ? $kelasLabel : null,
             'va' => $noVa !== '' ? $noVa : null,
+            'billType' => $isInstallable ? 'OPEN' : 'CLOSE',
             'orderNumber' => $orderNumber !== '' ? $orderNumber : $aa,
             'paymentAmount' => $paymentAmount,
             'billAmount' => $billAmount,
@@ -111,13 +149,14 @@ class PaymentEmailPayload
             'organizationName' => (string) (config('app.nama_instansi') ?: 'Raudlatul Jannah Sidoarjo'),
             'items' => [[
                 'name' => $itemName,
-                'amount' => $billAmount > 0 ? $billAmount : $paymentAmount,
+                'amount' => $paymentAmount,
             ]],
         ];
 
         return [
             'payload' => $payload,
-            'billpaid_snapshot' => $currentPaid,
+            'billpaid_snapshot' => max($currentPaid, $lastPaid),
+            'installment_snapshot' => max($currentInstallment, $lastInstallment),
             'payment_amount' => $paymentAmount,
             'aa' => $aa,
         ];
@@ -156,17 +195,20 @@ class PaymentEmailPayload
     }
 
     /**
-     * Antri email untuk 1 tagihan jika BILLPAID naik.
+     * Antri email untuk 1 tagihan jika BILLPAID / INSTALLMENT (cicilan) naik.
      *
      * @return array{queued:bool,skipped:bool,reason?:string}
      */
-    public static function dispatchForBill(string $billAa, ?int $expectedBillPaid = null): array
-    {
+    public static function dispatchForBill(
+        string $billAa,
+        ?int $expectedBillPaid = null,
+        ?int $expectedInstallment = null
+    ): array {
         if (!self::enabled()) {
             return ['queued' => false, 'skipped' => true, 'reason' => 'disabled'];
         }
 
-        $built = self::forBillIncrease($billAa, $expectedBillPaid);
+        $built = self::forBillIncrease($billAa, $expectedBillPaid, $expectedInstallment);
         if ($built === null) {
             return ['queued' => false, 'skipped' => true, 'reason' => 'no_delta_or_no_email'];
         }
@@ -200,6 +242,7 @@ class PaymentEmailPayload
                     'billpaid_snapshot' => $built['billpaid_snapshot'],
                 ],
                 [
+                    'installment_snapshot' => $built['installment_snapshot'],
                     'payment_amount' => $built['payment_amount'],
                     'queued_at' => now(),
                     'broadcaster_id' => $broadcasterId,
