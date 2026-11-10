@@ -100,7 +100,7 @@ class BillingController
 
         $meta = [
             'organizationName' => first_value($payload, ['organizationName', 'yayasan', 'organisasi'], Config::organizationName()),
-            'billType' => first_value($payload, ['billType', 'tipeTagihan', 'jenisTagihan'], 'CLOSE'),
+            'billType' => first_value($payload, ['billType', 'tipeTagihan', 'jenisTagihan'], 'Full Payment'),
             'invoiceDate' => first_value($payload, ['invoiceDate', 'tanggalDibuat', 'createdDate']),
             'activeDate' => first_value($payload, ['activeDate', 'tanggalAktif']),
             'expireDate' => first_value($payload, ['expireDate', 'tanggalBerakhir', 'kadaluarsa']),

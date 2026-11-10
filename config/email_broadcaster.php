@@ -12,6 +12,11 @@ return [
         env('EMAIL_PAYMENT_CONFIRMATION_ENABLED', true),
         FILTER_VALIDATE_BOOLEAN
     ),
+    // Notif email edit nominal/nama tagihan + ganti ExpDate.
+    'bill_notice_enabled' => filter_var(
+        env('EMAIL_BILL_NOTICE_ENABLED', true),
+        FILTER_VALIDATE_BOOLEAN
+    ),
     // Scan scctbill yang PAIDDT / PAIDDT_ACTUAL dalam N hari terakhir.
     'payment_lookback_days' => max(1, (int) env('EMAIL_PAYMENT_LOOKBACK_DAYS', 7)),
 ];

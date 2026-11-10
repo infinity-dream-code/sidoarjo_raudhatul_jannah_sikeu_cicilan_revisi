@@ -6,7 +6,13 @@ function render_billing_email(array $message): array
     $meta = $message['meta'] ?? parse_meta($message['metaJson'] ?? '{}');
 
     $org = (string) ($meta['organizationName'] ?? Config::organizationName());
-    $billType = (string) ($meta['billType'] ?? 'CLOSE');
+    $billType = (string) ($meta['billType'] ?? 'Full Payment');
+    $billTypeUpper = strtoupper(trim($billType));
+    if ($billTypeUpper === 'CLOSE') {
+        $billType = 'Full Payment';
+    } elseif ($billTypeUpper === 'OPEN') {
+        $billType = 'Open Payment';
+    }
     $invoiceDate = (string) ($meta['invoiceDate'] ?? '');
     $activeDate = (string) ($meta['activeDate'] ?? '');
     $expireDate = (string) ($meta['expireDate'] ?? '');
@@ -101,7 +107,7 @@ function render_billing_email(array $message): array
         ['Email', $message['recipientEmail'] ?? null],
         ['Tipe/Jenis Tagihan', $billType],
         ['Tanggal Aktif', $activeDate !== '' ? $activeDate : null],
-        ['Tanggal Berakhir', $expireDate !== '' ? $expireDate : null],
+        ['Tanggal Expired', $expireDate !== '' ? $expireDate : null],
     ];
 
     $detailHtml = '';
@@ -201,7 +207,7 @@ function render_billing_email(array $message): array
         $text .= 'Tanggal Aktif : ' . $activeDate . "\n";
     }
     if ($expireDate !== '') {
-        $text .= 'Tanggal Berakhir : ' . $expireDate . "\n";
+        $text .= 'Tanggal Expired : ' . $expireDate . "\n";
     }
     $text .= "\nRincian Pembayaran :\n" . implode("\n", $textItems) . "\n\n";
     $text .= 'Total Nominal : ' . $totalLabel . "\n";

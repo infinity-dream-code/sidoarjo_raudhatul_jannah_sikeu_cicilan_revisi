@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\mst_kelas;
 use App\Models\scctbill;
 use App\Models\scctcust;
+use App\Support\BillNoticeEmailPayload;
 use App\Support\PerpanjangTagihanExpiredProcedure;
 use App\Support\SchoolScope;
 use Illuminate\Http\Request;
@@ -240,20 +241,33 @@ class PerpanjangExpiredController extends Controller
             DB::connection('DATA_MYSQL')->beginTransaction();
 
             $updated = 0;
+            $noticeItems = [];
+            $newExpRaw = $newExp->format('Y-m-d H:i:s');
             foreach ($tagihans as $tagihan) {
-                $tagihan->ExpDate = $newExp->format('Y-m-d H:i:s');
+                $oldExp = $tagihan->ExpDate;
+                $tagihan->ExpDate = $newExpRaw;
                 $tagihan->save();
                 $updated++;
+                $noticeItems[] = [
+                    'aa' => (string) $tagihan->AA,
+                    'method' => 'exp_update',
+                    'changes' => [
+                        'oldExpireDate' => $oldExp,
+                        'newExpireDate' => $newExpRaw,
+                    ],
+                ];
             }
 
             Cache::increment(Str::slug($this->cacheKey) . '_cache_version');
             DB::connection('DATA_MYSQL')->commit();
 
+            BillNoticeEmailPayload::dispatchAfterResponse($noticeItems);
+
             $actionLabel = $isMassEdit ? 'mengubah Exp Date' : 'memperpanjang';
 
             return response()->json([
                 'message' => "Berhasil {$actionLabel} {$updated} tagihan menjadi {$newExp->translatedFormat('d F Y')}.",
-                'exp_date' => $newExp->format('Y-m-d H:i:s'),
+                'exp_date' => $newExpRaw,
                 'updated' => $updated,
             ]);
         } catch (\Throwable $e) {

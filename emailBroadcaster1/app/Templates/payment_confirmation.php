@@ -32,6 +32,24 @@ function render_payment_confirmation_email(array $message): array
         $pairs[] = ['Nomor VA', $message['vaNumber']];
     }
 
+    $meta = $message['meta'] ?? parse_meta($message['metaJson'] ?? '{}');
+
+    $billTypeMeta = trim((string) ($meta['billType'] ?? ''));
+    if ($billTypeMeta !== '') {
+        $billTypeUpper = strtoupper($billTypeMeta);
+        if ($billTypeUpper === 'CLOSE') {
+            $billTypeMeta = 'Full Payment';
+        } elseif ($billTypeUpper === 'OPEN') {
+            $billTypeMeta = 'Open Payment';
+        }
+        $pairs[] = ['Jenis Tagihan', $billTypeMeta];
+    }
+
+    $expireDateMeta = trim((string) ($meta['expireDate'] ?? ''));
+    if ($expireDateMeta !== '') {
+        $pairs[] = ['Tanggal Expired', $expireDateMeta];
+    }
+
     $rows = '';
     foreach ($pairs as [$label, $value]) {
         $rows .= '<tr>
@@ -41,7 +59,6 @@ function render_payment_confirmation_email(array $message): array
     }
 
     $name = $message['studentName'] ?? $message['recipientName'] ?? 'Wali Murid';
-    $meta = $message['meta'] ?? parse_meta($message['metaJson'] ?? '{}');
     $org = (string) ($meta['organizationName'] ?? Config::organizationName());
     $brandOrange = (string) Config::get('MAIL_BRAND_ORANGE', '#f59d42');
 
@@ -90,8 +107,14 @@ function render_payment_confirmation_email(array $message): array
         $text .= 'Outstanding Amount: ' . format_rupiah($message['outstandingAmount']) . "\n";
     }
     $text .= 'Reference Number: ' . ($message['referenceNumber'] ?? '-') . "\n";
-    $text .= 'Payment Method: ' . ($message['paymentMethod'] ?? '-') . "\n\n";
-    $text .= "Thank You.";
+    $text .= 'Payment Method: ' . ($message['paymentMethod'] ?? '-') . "\n";
+    if ($billTypeMeta !== '') {
+        $text .= 'Jenis Tagihan: ' . $billTypeMeta . "\n";
+    }
+    if ($expireDateMeta !== '') {
+        $text .= 'Tanggal Expired: ' . $expireDateMeta . "\n";
+    }
+    $text .= "\nThank You.";
 
     return ['html' => $html, 'text' => $text];
 }

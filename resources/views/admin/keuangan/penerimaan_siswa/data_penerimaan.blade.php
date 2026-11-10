@@ -1221,7 +1221,7 @@
                 }
 
                 const tableBody = [
-                    ['No', 'NIS', 'NAMA', 'Unit', 'Kelas', 'Nama Tagihan', 'Tagihan', 'Metode', 'Tanggal Bayar', 'Tahun AKA']
+                    ['No', 'NIS', 'NAMA', 'Unit', 'Kelas', 'Nama Tagihan', 'Tagihan', 'Metode', 'Tanggal Bayar', 'Periode']
                         .map(h => ({text: h, style: 'tableHeader'}))
                 ];
 
@@ -1251,7 +1251,7 @@
                         {text: formatRupiah(item.BILLAM ?? 0), alignment: 'right', border: [true, true, true, true]},
                         {text: formatMetodePembayaran(item.FIDBANK ?? '', item.BILL_NOREFF ?? ''), border: [true, true, true, true]},
                         {text: tanggalBayar, border: [true, true, true, true]},
-                        {text: item.BTA ?? '-', border: [true, true, true, true]},
+                        {text: item.BILLAC ?? '-', border: [true, true, true, true]},
                     ]);
                 });
 
@@ -1605,7 +1605,7 @@
                     });
 
                     const tableBody = [
-                        ['#', 'Tanggal Bayar', 'Tahun Akademik', 'Nama Tagihan', 'Tagihan', 'Status']
+                        ['#', 'Tanggal Bayar', 'Periode', 'Nama Tagihan', 'Tagihan', 'Status']
                             .map(h => ({text: h, style: 'tableHeader'}))
                     ];
 
@@ -1636,7 +1636,7 @@
                         tableBody.push([
                             {text: String(index + 1), alignment: 'center', border: [true, true, true, true]},
                             {text: tanggalBayar, border: [true, true, true, true]},
-                            {text: item.BTA || '-', border: [true, true, true, true]},
+                            {text: item.BILLAC || '-', border: [true, true, true, true]},
                             {text: item.BILLNM || '-', border: [true, true, true, true]},
                             {text: formatRupiah(item.BILLAM), alignment: 'right', border: [true, true, true, true]},
                             {text: 'LUNAS', alignment: 'center', border: [true, true, true, true]}

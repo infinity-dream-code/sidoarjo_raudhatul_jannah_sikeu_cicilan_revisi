@@ -12,6 +12,7 @@ use App\Models\scctcust;
 use App\Models\sccttran;
 use App\Models\User;
 use App\Models\ValidationMessage;
+use App\Support\BillNoticeEmailPayload;
 use App\Support\CacheHandler;
 use App\Support\FilterHandler;
 use App\Support\TagihanPaymentReversal;
@@ -480,18 +481,31 @@ class DataTagihanController extends Controller
             DB::connection('DATA_MYSQL')->beginTransaction();
 
             $updated = 0;
+            $noticeItems = [];
+            $newExpRaw = $newExp->format('Y-m-d H:i:s');
             foreach ($tagihans as $tagihan) {
-                $tagihan->ExpDate = $newExp->format('Y-m-d H:i:s');
+                $oldExp = $tagihan->ExpDate;
+                $tagihan->ExpDate = $newExpRaw;
                 $tagihan->save();
                 $updated++;
+                $noticeItems[] = [
+                    'aa' => (string) $tagihan->AA,
+                    'method' => 'exp_update',
+                    'changes' => [
+                        'oldExpireDate' => $oldExp,
+                        'newExpireDate' => $newExpRaw,
+                    ],
+                ];
             }
 
             Cache::increment(Str::slug($this->cacheKey) . '_cache_version');
             DB::connection('DATA_MYSQL')->commit();
 
+            BillNoticeEmailPayload::dispatchAfterResponse($noticeItems);
+
             return response()->json([
                 'message' => "Berhasil memperpanjang {$updated} tagihan sampai {$newExp->translatedFormat('d F Y')}.",
-                'exp_date' => $newExp->format('Y-m-d H:i:s'),
+                'exp_date' => $newExpRaw,
                 'updated' => $updated,
             ], 200);
         } catch (\Throwable $e) {

@@ -94,6 +94,8 @@ class PaymentController
             'payment_guide' => null,
             'meta_json' => json_encode([
                 'organizationName' => $org,
+                'billType' => first_value($payload, ['billType', 'tipeTagihan', 'jenisTagihan']),
+                'expireDate' => first_value($payload, ['expireDate', 'tanggalBerakhir', 'kadaluarsa']),
             ], JSON_UNESCAPED_UNICODE),
             'items_json' => json_encode($items, JSON_UNESCAPED_UNICODE),
             'total_amount' => $billAmount,

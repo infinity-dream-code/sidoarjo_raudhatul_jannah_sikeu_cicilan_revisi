@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/Templates/billing.php';
 require_once __DIR__ . '/Templates/payment_confirmation.php';
+require_once __DIR__ . '/Templates/bill_notice.php';
 
 class EmailService
 {
@@ -62,28 +63,27 @@ class EmailService
             ];
         }
 
-        $fetchLimit = 0;
-        foreach ($slots as $slot) {
-            $fetchLimit += $slot['remaining'];
-        }
+        $plan = $this->buildPriorityPlan($slots);
+        $pending = $plan['messages'];
+        $paymentSlotIndexes = $plan['paymentSlotIndexes'];
+        $otherSlotIndexes = $plan['otherSlotIndexes'];
 
-        // Saat antrian billing sibuk (upload excel / kirim tagihan), sisakan minimal
-        // N slot untuk PAYMENT_CONFIRMATION agar notif bayar tidak tertahan.
-        $pending = $this->buildBatchWithPaymentReserve($fetchLimit);
         $sent = 0;
         $failed = 0;
-        $slotIndex = 0;
-        $slotCount = count($slots);
         $delayUs = max(0, (int) Config::get('EMAIL_SEND_DELAY_US', 200000));
 
         foreach ($pending as $row) {
+            $type = strtoupper((string) ($row['type'] ?? ''));
             $picked = null;
-            for ($try = 0; $try < $slotCount; $try++) {
-                $idx = ($slotIndex + $try) % $slotCount;
-                if ($slots[$idx]['remaining'] > 0) {
-                    $picked = $idx;
-                    break;
-                }
+
+            if ($type === 'PAYMENT_CONFIRMATION') {
+                $picked = $this->pickSlot($slots, $paymentSlotIndexes);
+            }
+            if ($picked === null) {
+                $picked = $this->pickSlot($slots, $otherSlotIndexes);
+            }
+            if ($picked === null) {
+                $picked = $this->pickSlot($slots, array_keys($slots));
             }
             if ($picked === null) {
                 break;
@@ -91,7 +91,6 @@ class EmailService
 
             $account = $slots[$picked]['account'];
             $slots[$picked]['remaining']--;
-            $slotIndex = ($picked + 1) % $slotCount;
 
             $this->repo->markSending($row['id']);
             $message = message_to_array($row);
@@ -131,42 +130,132 @@ class EmailService
     }
 
     /**
-     * Susun batch kirim: reserve slot untuk PAYMENT_CONFIRMATION, sisa untuk antrian lain (FIFO).
+     * Prioritas:
+     * 1. BILLING
+     * 2. PAYMENT_CONFIRMATION — cadangan 1 akun SMTP saat tagihan sibuk
+     * 3. BILL_UPDATE — setelah tagihan selesai
+     * 4. EXP_UPDATE — setelah #3
      *
-     * @return list<array<string,mixed>>
+     * @param list<array{account:array,remaining:int}> $slots
+     * @return array{messages:list<array>,paymentSlotIndexes:list<int>,otherSlotIndexes:list<int>}
      */
-    private function buildBatchWithPaymentReserve(int $fetchLimit): array
+    private function buildPriorityPlan(array $slots): array
     {
-        $fetchLimit = max(1, $fetchLimit);
-        $reserve = max(0, (int) Config::get('PAYMENT_RESERVE_SLOTS', 1));
+        $slotCount = count($slots);
+        $allIndexes = range(0, $slotCount - 1);
+
+        $billingPending = $this->repo->countPendingByType('BILLING');
         $paymentPending = $this->repo->countPendingByType('PAYMENT_CONFIRMATION');
 
-        if ($reserve <= 0 || $paymentPending <= 0) {
-            return $this->repo->findPending($fetchLimit);
+        $reserveAccounts = max(0, (int) Config::get('PAYMENT_RESERVE_ACCOUNTS', 1));
+        $reserveSlotsSingle = max(0, (int) Config::get('PAYMENT_RESERVE_SLOTS', 1));
+
+        $paymentSlotIndexes = $allIndexes;
+        $otherSlotIndexes = $allIndexes;
+        $paymentCap = 0;
+        $otherCap = 0;
+
+        foreach ($slots as $slot) {
+            $otherCap += $slot['remaining'];
         }
 
-        $paymentSlots = min($reserve, $paymentPending, $fetchLimit);
-        $paymentRows = $paymentSlots > 0
-            ? $this->repo->findPendingByType('PAYMENT_CONFIRMATION', $paymentSlots)
-            : [];
+        // Tagihan sibuk + ada bayar → cadangkan 1 akun (atau sedikit slot jika cuma 1 akun).
+        if ($billingPending > 0 && $paymentPending > 0 && $reserveAccounts > 0) {
+            if ($slotCount >= 2) {
+                $payAcc = min($reserveAccounts, $slotCount - 1);
+                $paymentSlotIndexes = array_slice($allIndexes, -$payAcc);
+                $otherSlotIndexes = array_slice($allIndexes, 0, $slotCount - $payAcc);
 
-        $takenIds = array_map(static fn ($row) => (string) ($row['id'] ?? ''), $paymentRows);
-        $remainingSlots = $fetchLimit - count($paymentRows);
-        $otherRows = $remainingSlots > 0
-            ? $this->repo->findPendingExcluding($remainingSlots, $takenIds)
-            : [];
+                $paymentCap = 0;
+                foreach ($paymentSlotIndexes as $idx) {
+                    $paymentCap += $slots[$idx]['remaining'];
+                }
+                $otherCap = 0;
+                foreach ($otherSlotIndexes as $idx) {
+                    $otherCap += $slots[$idx]['remaining'];
+                }
+            } else {
+                $paymentCap = min($reserveSlotsSingle, $slots[0]['remaining'], $paymentPending);
+                $otherCap = max(0, $slots[0]['remaining'] - $paymentCap);
+                $paymentSlotIndexes = [0];
+                $otherSlotIndexes = [0];
+            }
+        } elseif ($paymentPending > 0 && $billingPending <= 0) {
+            // Tagihan selesai: semua kapasitas boleh untuk bayar dulu, lalu #3/#4.
+            $paymentCap = $otherCap;
+            $otherCap = $otherCap; // sisa setelah payment diisi dipakai notice
+        } else {
+            $paymentCap = 0;
+        }
 
-        // Payment dulu di batch ini, lalu billing/FIFO lain.
-        return array_merge($paymentRows, $otherRows);
+        $messages = [];
+        $taken = [];
+
+        $take = function (string $type, int $limit) use (&$messages, &$taken): int {
+            if ($limit <= 0) {
+                return 0;
+            }
+            $rows = $this->repo->findPendingByType($type, $limit);
+            $added = 0;
+            foreach ($rows as $row) {
+                $id = (string) ($row['id'] ?? '');
+                if ($id !== '' && isset($taken[$id])) {
+                    continue;
+                }
+                $messages[] = $row;
+                if ($id !== '') {
+                    $taken[$id] = true;
+                }
+                $added++;
+            }
+
+            return $added;
+        };
+
+        // Isi cadangan bayar.
+        $payTaken = $take('PAYMENT_CONFIRMATION', min($paymentCap, $paymentPending));
+
+        if ($billingPending > 0) {
+            // Prioritas 1: tagihan memakai kapasitas non-reserve.
+            $take('BILLING', $otherCap);
+        } else {
+            // Setelah tagihan habis: sisa kapasitas setelah bayar → #3 lalu #4.
+            $left = max(0, $otherCap - $payTaken);
+            if ($paymentPending > $payTaken) {
+                $morePay = $take('PAYMENT_CONFIRMATION', $left);
+                $left -= $morePay;
+            }
+            if ($left > 0) {
+                $left -= $take('BILL_UPDATE', $left);
+            }
+            if ($left > 0) {
+                $take('EXP_UPDATE', $left);
+            }
+        }
+
+        return [
+            'messages' => $messages,
+            'paymentSlotIndexes' => $paymentSlotIndexes,
+            'otherSlotIndexes' => $otherSlotIndexes,
+        ];
     }
 
     /**
-     * Aturan akun berdasarkan antrian PENDING:
-     * - ≤20  → 1 akun (SMTP1)
-     * - ≤40  → 2 akun
-     * - >40  → sampai 3 akun
-     * Kuota tiap akun: 20 pesan / 10 menit (FIFO).
-     *
+     * @param list<array{account:array,remaining:int}> $slots
+     * @param list<int> $indexes
+     */
+    private function pickSlot(array $slots, array $indexes): ?int
+    {
+        foreach ($indexes as $idx) {
+            if (isset($slots[$idx]) && $slots[$idx]['remaining'] > 0) {
+                return (int) $idx;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * @param list<array{id:string,host:string,port:int,secure:string,user:string,pass:string,from_email:string,from_name:string}> $accounts
      * @return list<array{id:string,host:string,port:int,secure:string,user:string,pass:string,from_email:string,from_name:string}>
      */
@@ -192,9 +281,14 @@ class EmailService
 
     private function render(array $message): array
     {
-        if (($message['type'] ?? '') === 'PAYMENT_CONFIRMATION') {
+        $type = strtoupper((string) ($message['type'] ?? ''));
+        if ($type === 'PAYMENT_CONFIRMATION') {
             return render_payment_confirmation_email($message);
         }
+        if ($type === 'BILL_UPDATE' || $type === 'EXP_UPDATE') {
+            return render_bill_notice_email($message);
+        }
+
         return render_billing_email($message);
     }
 }

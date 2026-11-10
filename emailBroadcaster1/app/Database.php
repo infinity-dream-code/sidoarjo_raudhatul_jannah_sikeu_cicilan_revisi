@@ -25,6 +25,7 @@ class Database
             ]);
             self::ensureMysqlSchema(self::$pdo, $rootPath);
             self::ensureMetaColumn(self::$pdo, 'mysql');
+            self::ensureNoticeTypes(self::$pdo, 'mysql');
             return self::$pdo;
         }
 
@@ -52,6 +53,7 @@ class Database
             self::ensureSqliteSchema(self::$pdo, $rootPath);
         }
         self::ensureMetaColumn(self::$pdo, 'sqlite');
+        self::ensureNoticeTypes(self::$pdo, 'sqlite');
 
         return self::$pdo;
     }
@@ -105,5 +107,61 @@ class Database
         }
         $sql = file_get_contents($path);
         $pdo->exec($sql);
+    }
+
+    /**
+     * Pastikan tipe BILL_UPDATE / EXP_UPDATE tersedia untuk prioritas antrian.
+     */
+    private static function ensureNoticeTypes(PDO $pdo, string $driver): void
+    {
+        try {
+            if ($driver === 'mysql') {
+                $pdo->exec(
+                    "ALTER TABLE email_messages
+                     MODIFY COLUMN type ENUM(
+                        'BILLING',
+                        'PAYMENT_CONFIRMATION',
+                        'BILL_UPDATE',
+                        'EXP_UPDATE'
+                     ) NOT NULL"
+                );
+                return;
+            }
+
+            $sql = (string) $pdo->query(
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='email_messages'"
+            )->fetchColumn();
+            if ($sql === '' || str_contains($sql, 'BILL_UPDATE')) {
+                return;
+            }
+
+            $pdo->exec('BEGIN');
+            $pdo->exec('ALTER TABLE email_messages RENAME TO email_messages_old');
+            self::runSqlFile(
+                $pdo,
+                dirname(__DIR__) . DIRECTORY_SEPARATOR . 'sql' . DIRECTORY_SEPARATOR . 'schema.sql'
+            );
+            $pdo->exec(
+                "INSERT INTO email_messages (
+                    id, type, status, recipient_email, recipient_name, student_name, student_nis, student_class,
+                    subject, va_number, payment_link, payment_guide, meta_json, items_json, total_amount,
+                    outstanding_amount, bill_amount, payment_amount, order_number, reference_number,
+                    payment_method, paid_at, error_message, attempts, sent_at, created_at, updated_at
+                 )
+                 SELECT
+                    id, type, status, recipient_email, recipient_name, student_name, student_nis, student_class,
+                    subject, va_number, payment_link, payment_guide, COALESCE(meta_json, '{}'), items_json, total_amount,
+                    outstanding_amount, bill_amount, payment_amount, order_number, reference_number,
+                    payment_method, paid_at, error_message, attempts, sent_at, created_at, updated_at
+                 FROM email_messages_old"
+            );
+            $pdo->exec('DROP TABLE email_messages_old');
+            $pdo->exec('COMMIT');
+        } catch (Throwable $e) {
+            try {
+                $pdo->exec('ROLLBACK');
+            } catch (Throwable) {
+            }
+        }
     }
 }

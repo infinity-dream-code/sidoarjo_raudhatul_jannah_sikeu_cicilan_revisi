@@ -10,6 +10,7 @@ use App\Models\scctbill;
 use App\Models\scctcust;
 use App\Models\sccttran;
 use App\Models\ValidationMessage;
+use App\Support\BillNoticeEmailPayload;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -186,6 +187,7 @@ class EditManualController extends Controller
             'siswa' => ['required', 'string'],
             'tagihan' => ['required', 'string'],
             'nominal' => ['required', 'numeric', 'min:1'],
+            'nama_tagihan' => ['nullable', 'string', 'max:191'],
         ], ValidationMessage::messages(),
             ValidationMessage::attributes());
 
@@ -227,15 +229,44 @@ class EditManualController extends Controller
             return response()->json(['message' => 'Nominal tagihan tidak valid!'], 422);
         }
 
+        $oldAmount = (int) ($tagihan->BILLAM ?? 0);
+        $oldBillName = trim((string) ($tagihan->BILLNM ?? ''));
+        $newBillName = trim((string) $request->input('nama_tagihan', $oldBillName));
+        if ($newBillName === '') {
+            $newBillName = $oldBillName;
+        }
+
+        $amountChanged = $oldAmount !== $totalTagihan;
+        $nameChanged = $oldBillName !== $newBillName;
+        if (!$amountChanged && !$nameChanged) {
+            return response()->json(['message' => 'Tidak ada perubahan data tagihan.'], 422);
+        }
+
         try {
             DB::beginTransaction();
 
-            $tagihan->update([
+            $update = [
                 'BILLAM' => $totalTagihan,
                 'PAYMENTLEFT' => $totalTagihan,
-            ]);
+            ];
+            if ($nameChanged) {
+                $update['BILLNM'] = $newBillName;
+            }
+            $tagihan->update($update);
 
             DB::commit();
+
+            BillNoticeEmailPayload::dispatchAfterResponse([[
+                'aa' => (string) $tagihan->AA,
+                'method' => 'bill_update',
+                'changes' => [
+                    'oldAmount' => $oldAmount,
+                    'newAmount' => $totalTagihan,
+                    'oldBillName' => $oldBillName,
+                    'newBillName' => $newBillName,
+                ],
+            ]]);
+
             return response()->json(['message' => 'Tagihan Berhasil Diedit!'], 200);
         } catch (\Exception $e) {
             DB::rollBack();

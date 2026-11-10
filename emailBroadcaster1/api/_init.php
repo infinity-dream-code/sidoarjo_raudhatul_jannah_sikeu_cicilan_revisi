@@ -19,6 +19,7 @@ return [
     'emailService' => $emailService,
     'billing' => new BillingController($repo),
     'payment' => new PaymentController($repo),
+    'billNotice' => new BillNoticeController($repo),
     'messages' => new MessageController($repo, $emailService),
     'health' => new HealthController(),
 ];

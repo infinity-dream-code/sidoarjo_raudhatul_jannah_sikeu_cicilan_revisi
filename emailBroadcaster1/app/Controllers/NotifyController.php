@@ -4,7 +4,8 @@ class NotifyController
 {
     public function __construct(
         private BillingController $billing,
-        private PaymentController $payment
+        private PaymentController $payment,
+        private BillNoticeController $billNotice
     ) {
     }
 
@@ -20,7 +21,7 @@ class NotifyController
         if ($method === '') {
             json_response([
                 'ok' => false,
-                'error' => 'Field wajib: method. Gunakan "billing" (kirim tagihan) atau "payment_confirmation" (konfirmasi pembayaran berhasil)',
+                'error' => 'Field wajib: method. Gunakan billing | payment_confirmation | bill_update | exp_update',
             ], 400);
         }
 
@@ -34,9 +35,14 @@ class NotifyController
             return;
         }
 
+        if ($this->isBillNoticeMethod($method)) {
+            $this->billNotice->store($body);
+            return;
+        }
+
         json_response([
             'ok' => false,
-            'error' => 'method tidak dikenali. Gunakan: billing | tagihan | payment_confirmation | konfirmasi',
+            'error' => 'method tidak dikenali. Gunakan: billing | payment_confirmation | bill_update | exp_update',
             'received' => $method,
         ], 400);
     }
@@ -61,6 +67,22 @@ class NotifyController
             'konfirmasi_pembayaran',
             'confirmation',
             'paid',
+        ], true);
+    }
+
+    private function isBillNoticeMethod(string $method): bool
+    {
+        return in_array($method, [
+            'bill_update',
+            'edit_tagihan',
+            'edit_nominal',
+            'nama_tagihan',
+            'exp_update',
+            'expire_update',
+            'expired_update',
+            'ganti_expired',
+            'tanggal_expired',
+            'exp',
         ], true);
     }
 }

@@ -11,7 +11,8 @@ class TagihanEmailPayload
 {
     public static function adminFee(): int
     {
-        return 2000;
+        // Biaya Admin VA dibebankan ke sekolah — tidak ditampilkan ke ortu di email.
+        return 0;
     }
 
     public static function adminFeeLabel(): string
@@ -23,9 +24,8 @@ class TagihanEmailPayload
     {
         return "PANDUAN/TATA CARA PEMBAYARAN:\n"
             . "1. Buka website/portal tagihan melalui link pada email\n"
-            . "2. Periksa nominal: total tagihan + Rp 2.000 biaya Admin VA\n"
-            . "   Contoh: tagihan Rp 500.000 → bayar Rp 502.000\n"
-            . "3. Transfer sesuai nominal total ke Virtual Account (VA) yang tertera\n"
+            . "2. Periksa nominal tagihan yang tertera\n"
+            . "3. Transfer sesuai nominal ke Virtual Account (VA) yang tertera\n"
             . "4. Simpan bukti pembayaran";
     }
 
@@ -89,7 +89,8 @@ class TagihanEmailPayload
         // isINSTALLABLE: 0 = Close (797789), 1 = Open/cicil (797790)
         $isInstallable = ((int) ($bill->isINSTALLABLE ?? 0) === 1) ? 1 : 0;
         $noVa = scctcust::showVA($nis, $isInstallable);
-        $billType = $isInstallable === 1 ? 'OPEN' : 'CLOSE';
+        $billType = $isInstallable === 1 ? 'Open Payment' : 'Full Payment';
+        $expireDate = self::formatExpDate($bill->ExpDate ?? null);
 
         $subject = 'Informasi tagihan ananda ' . $nama;
         if ($itemName !== '') {
@@ -107,6 +108,8 @@ class TagihanEmailPayload
             'va' => $noVa !== '' ? $noVa : null,
             'billType' => $billType,
             'tipeTagihan' => $billType,
+            'expireDate' => $expireDate,
+            'tanggalBerakhir' => $expireDate,
             'subject' => $subject,
             'organizationName' => (string) (config('app.nama_instansi') ?: 'Raudlatul Jannah Sidoarjo'),
             'paymentLink' => self::paymentLink(),
@@ -120,6 +123,23 @@ class TagihanEmailPayload
                 'amount' => $amounts['sisa'] > 0 ? $amounts['sisa'] : $amounts['total'],
             ]],
         ];
+    }
+
+    public static function formatExpDate(mixed $expDate): ?string
+    {
+        if ($expDate === null || $expDate === '') {
+            return null;
+        }
+
+        try {
+            return \Illuminate\Support\Carbon::parse((string) $expDate)
+                ->timezone(config('app.timezone', 'Asia/Jakarta'))
+                ->format('d-m-Y H:i');
+        } catch (\Throwable) {
+            $raw = trim((string) $expDate);
+
+            return $raw !== '' ? $raw : null;
+        }
     }
 
     /**

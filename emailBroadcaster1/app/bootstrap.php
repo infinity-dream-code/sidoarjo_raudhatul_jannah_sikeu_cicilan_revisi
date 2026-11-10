@@ -14,6 +14,7 @@ require_once __DIR__ . '/EmailService.php';
 require_once __DIR__ . '/MessageRepository.php';
 require_once __DIR__ . '/Controllers/BillingController.php';
 require_once __DIR__ . '/Controllers/PaymentController.php';
+require_once __DIR__ . '/Controllers/BillNoticeController.php';
 require_once __DIR__ . '/Controllers/NotifyController.php';
 require_once __DIR__ . '/Controllers/MessageController.php';
 require_once __DIR__ . '/Controllers/HealthController.php';

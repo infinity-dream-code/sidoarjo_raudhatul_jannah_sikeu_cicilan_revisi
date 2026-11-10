@@ -103,6 +103,8 @@ class KirimWaTagihanController extends Controller
             $email = trim((string) ($row->EMAIL_ORTU ?? ''));
             $hasEmail = $email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL);
 
+            $isLunas = ((int) ($row->PAIDST ?? 0) === 1) || ((int) ($amounts['sisa'] ?? 0) <= 0);
+
             return [
                 'AA' => $row->AA,
                 'CUSTID' => $row->CUSTID,
@@ -118,6 +120,8 @@ class KirimWaTagihanController extends Controller
                 'BILLAM' => $amounts['total'],
                 'BILLPAID' => $amounts['terbayar'],
                 'PAYMENTLEFT' => $amounts['sisa'],
+                'PAIDST' => (int) ($row->PAIDST ?? 0),
+                'status_bayar' => $isLunas ? 'Lunas' : 'Belum Lunas',
                 'has_email' => (bool) $hasEmail,
             ];
         })->values();
@@ -309,7 +313,6 @@ class KirimWaTagihanController extends Controller
             ->where('scctbill.FSTSBolehBayar', 1)
             ->whereRaw('CAST(COALESCE(scctcust.STCUST, 0) AS SIGNED) = 1');
 
-        $this->applyBelumLunasScope($query);
         SchoolScope::apply($query, 'scctcust', $this->sekolah);
 
         return $query;
@@ -326,8 +329,35 @@ class KirimWaTagihanController extends Controller
         });
     }
 
+    private function applyLunasScope($query, string $billTable = 'scctbill'): void
+    {
+        $sisaExpr = "CAST(COALESCE({$billTable}.PAYMENTLEFT, {$billTable}.BILLAM - COALESCE({$billTable}.BILLPAID, 0), 0) AS SIGNED)";
+
+        $query->where(function ($q) use ($billTable, $sisaExpr) {
+            $q->where("{$billTable}.PAIDST", 1)
+                ->orWhereRaw("{$sisaExpr} <= 0");
+        });
+    }
+
+    private function applyStatusBayarFilter($query, mixed $status): void
+    {
+        $status = strtolower(trim((string) ($status ?? 'belum')));
+        // Default: Belum Lunas (cocok untuk kirim tagihan).
+        if ($status === '' || $status === 'belum' || $status === '0') {
+            $this->applyBelumLunasScope($query);
+            return;
+        }
+        if ($status === 'lunas' || $status === '1') {
+            $this->applyLunasScope($query);
+            return;
+        }
+        // all / lainnya → tanpa filter status
+    }
+
     private function applyFilters($query, array $filter, string $search): void
     {
+        $this->applyStatusBayarFilter($query, $filter['status_bayar'] ?? 'belum');
+
         $siswa = trim((string) ($filter['siswa'] ?? ''));
         if ($siswa !== '') {
             $sanitize = str_replace(['\\', '%', '_'], ['\\\\', '\%', '\_'], $siswa);

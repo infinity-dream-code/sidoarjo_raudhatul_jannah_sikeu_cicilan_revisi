@@ -132,7 +132,7 @@ class DataPenerimaanController extends Controller
             ['data' => 'BILLAM', 'name' => 'Nominal Bayar', 'searchable' => true, 'orderable' => true, 'columnType' => 'currency', 'className' => 'text-end', 'exportable' => true],
             ['data' => 'FIDBANK', 'name' => 'Metode', 'columnType' => 'custom_code_tagihan', 'searchable' => true, 'orderable' => true, 'exportable' => true],
             ['data' => 'PAIDDT', 'name' => 'Tanggal Bayar', 'columnType' => 'timestamp', 'searchable' => true, 'orderable' => true, 'exportable' => true],
-            ['data' => 'BTA', 'name' => 'Tahun AKA', 'searchable' => true, 'orderable' => true, 'exportable' => true],
+            ['data' => 'BILLAC', 'name' => 'Periode', 'searchable' => true, 'orderable' => true, 'exportable' => true],
             [
                 'data' => 'delete',
                 'name' => '',
@@ -600,6 +600,7 @@ class DataPenerimaanController extends Controller
             'BILLAM' => 'sccttran.DEBET',
             'FIDBANK' => 'sccttran.FIDBANK',
             'PAIDDT' => 'sccttran.TRXDATE',
+            'BILLAC' => 'scctbill.BILLAC',
             'BTA' => 'scctbill.BTA',
             default => str_contains($column, '.') ? $column : 'sccttran.' . $column,
         };

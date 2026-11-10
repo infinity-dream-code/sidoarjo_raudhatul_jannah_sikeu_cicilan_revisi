@@ -117,11 +117,14 @@
                         <div data-i18n="Kirim Tagihan Email">Kirim Tagihan Email</div>
                     </a>
                 </li>
+                {{-- Manual Pembayaran disembunyikan dari menu --}}
+                {{--
                 <li class="menu-item {{ Request::is(['admin/keuangan/manual-pembayaran*']) ? 'active' : '' }}">
                     <a href="{{ route('admin.keuangan.manual-pembayaran.index') }}" class="menu-link">
                         <div data-i18n="Manual Pembayaran">Manual Pembayaran</div>
                     </a>
                 </li>
+                --}}
                 <li class="menu-item {{ Request::is(['admin/keuangan/penerimaan-siswa/data-penerimaan*']) ? 'active' : '' }}">
                     <a href="{{ route('admin.keuangan.penerimaan-siswa.data-penerimaan.index') }}" class="menu-link">
                         <div data-i18n="Data Tagihan Lunas">Data Tagihan Lunas</div>

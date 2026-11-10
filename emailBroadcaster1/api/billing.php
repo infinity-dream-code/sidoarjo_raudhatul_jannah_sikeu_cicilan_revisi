@@ -6,7 +6,7 @@ try {
     $app = require __DIR__ . '/_init.php';
     // Hormati field method di payload (mis. payment_confirmation).
     // Jika method kosong, default = billing.
-    $notify = new NotifyController($app['billing'], $app['payment']);
+    $notify = new NotifyController($app['billing'], $app['payment'], $app['billNotice']);
     $notify->store('billing');
 } catch (Throwable $e) {
     error_log($e->getMessage());

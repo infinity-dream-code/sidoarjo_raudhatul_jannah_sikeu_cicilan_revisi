@@ -149,6 +149,18 @@
             return parseRupiahInput(rowData?.BILLAM ?? 0);
         }
 
+        function getSelectedNamaTagihanFromRow(table, rowIndex) {
+            const node = table.row(rowIndex).node();
+            if (node) {
+                const input = node.querySelector('.nama-tagihan-input');
+                if (input) {
+                    return String(input.value ?? '').trim();
+                }
+            }
+            const rowData = table.row(rowIndex).data();
+            return String(rowData?.BILLNM ?? '').trim();
+        }
+
         function loadSiswaByCustId(custid) {
             if (!custid) {
                 warningAlert('Siswa tidak valid');
@@ -209,7 +221,10 @@
         }, true);
 
         document.getElementById('table-tagihan').addEventListener('click', function (e) {
-            if (e.target.classList.contains('nominal-tagihan-input')) {
+            if (
+                e.target.classList.contains('nominal-tagihan-input')
+                || e.target.classList.contains('nama-tagihan-input')
+            ) {
                 const row = e.target.closest('tr');
                 if (row) {
                     tableTagihan.row(row).select();
@@ -243,11 +258,17 @@
                 warningAlert('Nominal tagihan tidak valid!');
                 return;
             }
+            const namaTagihan = getSelectedNamaTagihanFromRow(tableTagihan, selectedIndexes[0]);
+            if (!namaTagihan) {
+                warningAlert('Nama tagihan tidak boleh kosong!');
+                return;
+            }
 
             const formData = new FormData();
             formData.append('siswa', selectedSiswa[0].CUSTID);
             formData.append('tagihan', selectedTagihan.data()[0].AA);
             formData.append('nominal', nominal);
+            formData.append('nama_tagihan', namaTagihan);
             formData.append('_method', 'PUT');
 
             loadingAlert('Mengedit data...');
@@ -540,7 +561,22 @@
             tableTagihan = $('#table-tagihan').DataTable({
                 columns: [
                     {data: 'AA'},
-                    {data: 'BILLNM', title: 'Nama Tagihan'},
+                    {
+                        data: 'BILLNM',
+                        title: 'Nama Tagihan',
+                        render: function (data, type) {
+                            const value = String(data ?? '');
+                            if (type === 'display') {
+                                const escaped = value
+                                    .replace(/&/g, '&amp;')
+                                    .replace(/"/g, '&quot;')
+                                    .replace(/</g, '&lt;')
+                                    .replace(/>/g, '&gt;');
+                                return `<input type="text" class="form-control form-control-sm nama-tagihan-input" value="${escaped}" autocomplete="off">`;
+                            }
+                            return value;
+                        }
+                    },
                     {data: 'BILLAC', title: 'Periode'},
                     {
                         data: 'CICIL_KE',

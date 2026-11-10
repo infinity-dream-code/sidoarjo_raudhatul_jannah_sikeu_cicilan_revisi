@@ -49,12 +49,12 @@
 
             <form id="filter-form">
                 <div class="row g-3">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label" for="filter_siswa">NIS / Nama</label>
                         <input type="text" class="form-control" id="filter_siswa" name="filter[siswa]"
                                placeholder="NIS / Nama / No VA">
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label" for="filter_kelas">Kelas</label>
                         <select class="form-select" id="filter_kelas" name="filter[kelas]" data-control="select2">
                             <option value="all">Semua</option>
@@ -65,7 +65,7 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-2">
                         <label class="form-label" for="filter_tahun">Tahun Akademik</label>
                         <select class="form-select" id="filter_tahun" name="filter[tahun_akademik]" data-control="select2">
                             <option value="all">Semua</option>
@@ -74,12 +74,22 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-md-2 d-flex align-items-end">
+                    <div class="col-md-2">
+                        <label class="form-label" for="filter_status_bayar">Status Bayar</label>
+                        <select class="form-select" id="filter_status_bayar" name="filter[status_bayar]"
+                                data-control="select2" data-placeholder="Status Bayar">
+                            <option value="all">Semua</option>
+                            {{-- value "belum" (bukan "0"): Select2 menganggap "0" kosong lalu jatuh ke Semua --}}
+                            <option value="belum" selected>Belum Lunas</option>
+                            <option value="lunas">Lunas</option>
+                        </select>
+                    </div>
+                    <div class="col-md-1 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary w-100">
                             <i class="ri-search-line me-1"></i> Cari
                         </button>
                     </div>
-                    <div class="col-md-2 d-flex align-items-end">
+                    <div class="col-md-1 d-flex align-items-end">
                         <button type="reset" class="btn btn-outline-secondary w-100" id="btn-reset-filter">
                             <i class="ri-reset-left-line me-1"></i> Reset
                         </button>
@@ -105,6 +115,7 @@
                         <th>Nama Tagihan</th>
                         <th class="text-end">Jumlah</th>
                         <th class="text-end">Sisa</th>
+                        <th>Status Bayar</th>
                         <th>Status Email</th>
                         <th></th>
                     </tr>
@@ -254,6 +265,7 @@
                             siswa: $('#filter_siswa').val(),
                             kelas: $('#filter_kelas').val(),
                             tahun_akademik: $('#filter_tahun').val(),
+                            status_bayar: $('#filter_status_bayar').val() || 'belum',
                         };
                     },
                 },
@@ -282,6 +294,17 @@
                         data: 'PAYMENTLEFT',
                         className: 'text-end',
                         render: (d) => formatRp(d),
+                    },
+                    {
+                        data: 'status_bayar',
+                        className: 'text-center',
+                        orderable: false,
+                        render: function (d) {
+                            const lunas = String(d || '').toLowerCase() === 'lunas';
+                            return lunas
+                                ? '<span class="badge bg-success">Lunas</span>'
+                                : '<span class="badge bg-warning text-dark">Belum Lunas</span>';
+                        },
                     },
                     {
                         data: 'has_email',
@@ -333,6 +356,7 @@
                 setTimeout(function () {
                     $('#filter_kelas').val('all').trigger('change');
                     $('#filter_tahun').val('all').trigger('change');
+                    $('#filter_status_bayar').val('belum').trigger('change');
                     table.ajax.reload();
                 }, 0);
             });

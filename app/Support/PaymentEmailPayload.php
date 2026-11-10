@@ -130,6 +130,8 @@ class PaymentEmailPayload
             $subject .= ' - ' . $itemName;
         }
 
+        $expireDate = TagihanEmailPayload::formatExpDate($bill->ExpDate ?? null);
+
         $payload = [
             'method' => 'payment_confirmation',
             'nama' => $nama,
@@ -137,7 +139,9 @@ class PaymentEmailPayload
             'nis' => $nis !== '' ? $nis : null,
             'kelas' => $kelasLabel !== '' ? $kelasLabel : null,
             'va' => $noVa !== '' ? $noVa : null,
-            'billType' => $isInstallable ? 'OPEN' : 'CLOSE',
+            'billType' => $isInstallable ? 'Open Payment' : 'Full Payment',
+            'expireDate' => $expireDate,
+            'tanggalBerakhir' => $expireDate,
             'orderNumber' => $orderNumber !== '' ? $orderNumber : $aa,
             'paymentAmount' => $paymentAmount,
             'billAmount' => $billAmount,

@@ -173,9 +173,8 @@ class Config
             'DEFAULT_PAYMENT_GUIDE',
             "PANDUAN/TATA CARA PEMBAYARAN:\n"
             . "1. Buka website/portal tagihan melalui link pada email\n"
-            . "2. Periksa nominal: total tagihan + Rp 2.000 biaya Admin VA\n"
-            . "   Contoh: tagihan Rp 500.000 → bayar Rp 502.000\n"
-            . "3. Transfer sesuai nominal total ke Virtual Account (VA) yang tertera\n"
+            . "2. Periksa nominal tagihan yang tertera\n"
+            . "3. Transfer sesuai nominal ke Virtual Account (VA) yang tertera\n"
             . "4. Simpan bukti pembayaran"
         );
     }

@@ -50,6 +50,8 @@
         <option value="">Semua tipe</option>
         <option value="BILLING">BILLING</option>
         <option value="PAYMENT_CONFIRMATION">PAYMENT_CONFIRMATION</option>
+        <option value="BILL_UPDATE">BILL_UPDATE</option>
+        <option value="EXP_UPDATE">EXP_UPDATE</option>
       </select>
     </section>
 
@@ -292,7 +294,7 @@
       tbody.innerHTML = json.data.map((m) => `
         <tr class="row-click" data-id="${escapeHtml(m.id)}" title="Klik untuk lihat detail">
           <td>${fmt(m.createdAt)}</td>
-          <td>${m.type === 'BILLING' ? 'Penagihan' : 'Konfirmasi'}</td>
+          <td>${m.type === 'BILLING' ? 'Penagihan' : (m.type === 'PAYMENT_CONFIRMATION' ? 'Konfirmasi' : (m.type === 'EXP_UPDATE' ? 'Ganti Expired' : (m.type === 'BILL_UPDATE' ? 'Edit Tagihan' : m.type)))}</td>
           <td>
             <div>${escapeHtml(m.studentName)}</div>
             <div class="muted small">${escapeHtml([m.studentClass, m.studentNis].filter(Boolean).join(' · ') || '-')}</div>
