@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\ValidationMessage;
 use App\Support\ManualPaymentBuilder;
 use App\Support\MetodeBayarHelper;
+use App\Support\PaymentEmailPayload;
 use App\Support\SchoolScope;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Exception;
@@ -527,6 +528,10 @@ class ManualPembayaranController extends Controller
                 'total_bayar' => $totalBayar,
                 'tagihan_terbayar' => count($tagihanForPrint),
             ]);
+
+            // Email konfirmasi pembayaran (tidak menggagalkan transaksi jika gagal).
+            PaymentEmailPayload::dispatchAfterResponse($tagihanForPrint);
+
             return response()->json(['message' => $message], 200);
         } catch (QueryException $e) {
             $this->rollbackManualPaymentTransactions();

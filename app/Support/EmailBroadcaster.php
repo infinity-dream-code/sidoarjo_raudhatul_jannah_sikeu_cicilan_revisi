@@ -95,6 +95,103 @@ class EmailBroadcaster
     }
 
     /**
+     * Antri satu atau banyak email konfirmasi pembayaran.
+     * API payment-confirmation menerima single payload, jadi dikirim satu-satu.
+     *
+     * @param  array<int, array<string, mixed>>  $messages
+     * @return array{queued:int,failed:int,data:array<int,mixed>,errors:array<int,mixed>}
+     */
+    public static function enqueuePaymentConfirmation(array $messages): array
+    {
+        $messages = array_values(array_filter($messages, static fn ($row) => is_array($row)));
+        if ($messages === []) {
+            return [
+                'queued' => 0,
+                'failed' => 0,
+                'data' => [],
+                'errors' => [],
+            ];
+        }
+
+        $base = rtrim((string) config('email_broadcaster.url', ''), '/');
+        if ($base === '') {
+            throw new RuntimeException('EMAIL_BROADCASTER_URL belum dikonfigurasi.');
+        }
+
+        $url = $base . '/api/payment-confirmation.php';
+        $timeout = max(5, (int) config('email_broadcaster.timeout', 30));
+        $token = trim((string) config('email_broadcaster.token', ''));
+
+        $headers = [
+            'Accept' => 'application/json',
+            'Content-Type' => 'application/json',
+        ];
+        if ($token !== '') {
+            $headers['Authorization'] = 'Bearer ' . $token;
+            $headers['X-Api-Token'] = $token;
+        }
+
+        $queued = 0;
+        $failed = 0;
+        $data = [];
+        $errors = [];
+
+        foreach ($messages as $i => $payload) {
+            $bodyPayload = array_merge(['method' => 'payment_confirmation'], $payload);
+
+            try {
+                $response = Http::withHeaders($headers)
+                    ->timeout($timeout)
+                    ->post($url, $bodyPayload);
+            } catch (Throwable $e) {
+                $failed++;
+                $errors[] = ['index' => $i, 'error' => $e->getMessage()];
+                Log::error('email broadcaster payment-confirmation request failed', [
+                    'url' => $url,
+                    'index' => $i,
+                    'error' => $e->getMessage(),
+                ]);
+                continue;
+            }
+
+            $body = $response->json();
+            if (!is_array($body)) {
+                $body = [];
+            }
+
+            if (!$response->successful()) {
+                $failed++;
+                $message = (string) ($body['error'] ?? $body['message'] ?? ('HTTP ' . $response->status()));
+                $errors[] = ['index' => $i, 'error' => $message];
+                Log::error('email broadcaster payment-confirmation rejected', [
+                    'url' => $url,
+                    'status' => $response->status(),
+                    'body' => $body,
+                ]);
+                continue;
+            }
+
+            $queued += (int) ($body['queued'] ?? 1);
+            if (isset($body['data']) && is_array($body['data'])) {
+                $data[] = $body['data'];
+            }
+        }
+
+        Log::info('email broadcaster payment-confirmation enqueue', [
+            'url' => $url,
+            'queued' => $queued,
+            'failed' => $failed,
+        ]);
+
+        return [
+            'queued' => $queued,
+            'failed' => $failed,
+            'data' => $data,
+            'errors' => $errors,
+        ];
+    }
+
+    /**
      * Proses antrian PENDING sekarang (tanpa tunggu cron).
      *
      * @return array<string, mixed>

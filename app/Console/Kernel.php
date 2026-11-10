@@ -12,7 +12,11 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        // Email konfirmasi pembayaran (manual + bank VA + Android).
+        // Server cron wajib: * * * * * php /path/to/artisan schedule:run
+        $schedule->command('payment-email:dispatch')
+            ->everyFiveMinutes()
+            ->withoutOverlapping(5);
     }
 
     /**

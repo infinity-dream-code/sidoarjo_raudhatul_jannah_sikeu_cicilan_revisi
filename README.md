@@ -61,3 +61,28 @@ Cara install
     php artisan backup:run --only-db --disable-notifications
     ```
   backup disimpan pada folder storage/app/{APP_NAME}
+
+## Email konfirmasi setelah bayar
+
+Notifikasi email ke `EMAIL_ORTU` memakai emailBroadcaster (`PAYMENT_CONFIRMATION`).
+
+Semua perintah di bawah dijalankan di **server SIKEU** (folder project Laravel, via SSH / terminal), **bukan** di PC lokal kecuali testing lokal.
+
+1. Migration tabel dedupe (sekali):
+   ```
+   cd /path/ke/sikeu
+   php artisan migrate
+   ```
+2. Go-live — tandai pembayaran lama supaya tidak spam email (sekali):
+   ```
+   php artisan payment-email:dispatch --baseline --days=30
+   ```
+3. Cron Laravel (wajib agar bayar bank/Android ikut terdeteksi). Edit crontab server:
+   ```
+   * * * * * php /path/ke/sikeu/artisan schedule:run >> /dev/null 2>&1
+   ```
+   Ini yang memanggil `payment-email:dispatch` tiap 5 menit (lihat `app/Console/Kernel.php`).
+
+4. Env SIKEU: `EMAIL_PAYMENT_CONFIRMATION_ENABLED`, `EMAIL_PAYMENT_LOOKBACK_DAYS`, `EMAIL_BROADCASTER_URL`
+
+5. Env emailBroadcaster: `PAYMENT_RESERVE_SLOTS=1` — tiap batch kirim menyisakan minimal 1 slot untuk email konfirmasi bayar meskipun antrian tagihan (Excel/kirim email) sedang sibuk.

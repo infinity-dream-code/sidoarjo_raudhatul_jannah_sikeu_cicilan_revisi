@@ -121,9 +121,69 @@ class MessageRepository
         return $stmt->fetchAll();
     }
 
+    /**
+     * PENDING berjenis tertentu (FIFO).
+     *
+     * @return list<array<string,mixed>>
+     */
+    public function findPendingByType(string $type, int $limit): array
+    {
+        $limit = max(1, min(200, $limit));
+        $stmt = $this->pdo->prepare(
+            "SELECT * FROM email_messages
+             WHERE status = 'PENDING' AND type = :type
+             ORDER BY created_at ASC
+             LIMIT {$limit}"
+        );
+        $stmt->execute([':type' => strtoupper(trim($type))]);
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * PENDING umum, opsional exclude id yang sudah diambil (untuk slot sisa setelah reserve payment).
+     *
+     * @param  list<string>  $excludeIds
+     * @return list<array<string,mixed>>
+     */
+    public function findPendingExcluding(int $limit, array $excludeIds = []): array
+    {
+        $limit = max(1, min(200, $limit));
+        $excludeIds = array_values(array_filter(array_map('strval', $excludeIds)));
+
+        if ($excludeIds === []) {
+            return $this->findPending($limit);
+        }
+
+        $placeholders = [];
+        $params = [];
+        foreach ($excludeIds as $i => $id) {
+            $key = ':ex' . $i;
+            $placeholders[] = $key;
+            $params[$key] = $id;
+        }
+
+        $sql = "SELECT * FROM email_messages
+                WHERE status = 'PENDING'
+                  AND id NOT IN (" . implode(',', $placeholders) . ")
+                ORDER BY created_at ASC
+                LIMIT {$limit}";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
     public function countPending(): int
     {
         $stmt = $this->pdo->query("SELECT COUNT(*) FROM email_messages WHERE status = 'PENDING'");
+        return (int) $stmt->fetchColumn();
+    }
+
+    public function countPendingByType(string $type): int
+    {
+        $stmt = $this->pdo->prepare(
+            "SELECT COUNT(*) FROM email_messages WHERE status = 'PENDING' AND type = :type"
+        );
+        $stmt->execute([':type' => strtoupper(trim($type))]);
         return (int) $stmt->fetchColumn();
     }
 

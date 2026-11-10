@@ -67,7 +67,9 @@ class EmailService
             $fetchLimit += $slot['remaining'];
         }
 
-        $pending = $this->repo->findPending($fetchLimit);
+        // Saat antrian billing sibuk (upload excel / kirim tagihan), sisakan minimal
+        // N slot untuk PAYMENT_CONFIRMATION agar notif bayar tidak tertahan.
+        $pending = $this->buildBatchWithPaymentReserve($fetchLimit);
         $sent = 0;
         $failed = 0;
         $slotIndex = 0;
@@ -126,6 +128,36 @@ class EmailService
             'accountsUsed' => array_column($activeAccounts, 'id'),
             'quota' => $quota->snapshot(),
         ];
+    }
+
+    /**
+     * Susun batch kirim: reserve slot untuk PAYMENT_CONFIRMATION, sisa untuk antrian lain (FIFO).
+     *
+     * @return list<array<string,mixed>>
+     */
+    private function buildBatchWithPaymentReserve(int $fetchLimit): array
+    {
+        $fetchLimit = max(1, $fetchLimit);
+        $reserve = max(0, (int) Config::get('PAYMENT_RESERVE_SLOTS', 1));
+        $paymentPending = $this->repo->countPendingByType('PAYMENT_CONFIRMATION');
+
+        if ($reserve <= 0 || $paymentPending <= 0) {
+            return $this->repo->findPending($fetchLimit);
+        }
+
+        $paymentSlots = min($reserve, $paymentPending, $fetchLimit);
+        $paymentRows = $paymentSlots > 0
+            ? $this->repo->findPendingByType('PAYMENT_CONFIRMATION', $paymentSlots)
+            : [];
+
+        $takenIds = array_map(static fn ($row) => (string) ($row['id'] ?? ''), $paymentRows);
+        $remainingSlots = $fetchLimit - count($paymentRows);
+        $otherRows = $remainingSlots > 0
+            ? $this->repo->findPendingExcluding($remainingSlots, $takenIds)
+            : [];
+
+        // Payment dulu di batch ini, lalu billing/FIFO lain.
+        return array_merge($paymentRows, $otherRows);
     }
 
     /**
