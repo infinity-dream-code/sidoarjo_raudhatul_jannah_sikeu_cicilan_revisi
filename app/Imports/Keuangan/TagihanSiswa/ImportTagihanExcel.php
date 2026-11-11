@@ -101,7 +101,7 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
         if ($uniqueNis !== []) {
             $existingByNis = scctcust::query()
                 ->whereIn('NOCUST', $uniqueNis)
-                ->get(['NOCUST', 'NMCUST'])
+                ->get(['NOCUST', 'NMCUST', 'EMAIL_ORTU'])
                 ->keyBy(fn ($row) => (string) ($row->NOCUST ?? $row->nocust ?? ''));
         }
 
@@ -170,7 +170,7 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
                 $rowData['cicil'] = $cicil;
             }
 
-            // Soft warning: NIS ada di sistem tapi nama beda → status 2 (boleh simpan → update scctcust).
+            // Soft warning: NIS ada di sistem tapi nama/email beda → status 2 (boleh simpan → update scctcust).
             if ((int) ($rowData['status'] ?? 0) !== 0) {
                 $existing = $existingByNis->get((string) $rowData['nis']);
                 if ($existing) {
@@ -183,6 +183,16 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
                         $status_ket = $this->appendKet(
                             $status_ket,
                             "NIS {$rowData['nis']} nama di sistem: {$sistemNama}, di Excel: {$excelNama}. Sesuaikan file sebelum upload ulang, atau lanjut simpan untuk memperbarui data sistem."
+                        );
+                    }
+
+                    $sistemEmail = mb_strtolower(trim((string) ($existing->EMAIL_ORTU ?? '')));
+                    $excelEmail = mb_strtolower(trim((string) ($rowData['email_ortu'] ?? '')));
+                    if ($sistemEmail !== '' && $excelEmail !== '' && $sistemEmail !== $excelEmail) {
+                        $rowData['status'] = 2;
+                        $status_ket = $this->appendKet(
+                            $status_ket,
+                            "NIS {$rowData['nis']} email ortu di sistem: {$sistemEmail}, di Excel: {$excelEmail}. Sesuaikan file sebelum upload ulang, atau lanjut simpan untuk memperbarui data sistem."
                         );
                     }
                 }

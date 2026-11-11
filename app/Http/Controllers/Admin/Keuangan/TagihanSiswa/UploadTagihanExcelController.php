@@ -105,7 +105,7 @@ class UploadTagihanExcelController extends Controller
                 'searchable' => true,
                 'orderable' => true,
                 'columnType' => 'importstatus',
-                'updateVal' => 'Update / beda nama',
+                'updateVal' => 'Update / beda data',
             ],
             ['data' => 'keterangan', 'name' => 'Keterangan', 'searchable' => true, 'orderable' => true],
             ['data' => 'unit', 'name' => 'Unit', 'searchable' => true, 'orderable' => true],
