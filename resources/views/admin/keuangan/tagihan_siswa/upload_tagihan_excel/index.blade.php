@@ -167,7 +167,8 @@
                             <li class="list-group-item list-group-timeline-danger">Kolom <span class="fw-bold">KETERANGAN</span> = nama tagihan (tidak boleh kosong).</li>
                             <li class="list-group-item list-group-timeline-danger">Kolom <span class="fw-bold">CICIL</span>: isi <span class="fw-bold">1</span> = Open/bisa dicicil, <span class="fw-bold">0</span> = Close/tidak dicicil.</li>
                             <li class="list-group-item list-group-timeline-danger"><span class="fw-bold">Template SPP</span> = CICIL <span class="fw-bold">0</span> (Close). <span class="fw-bold">Template DU</span> = CICIL <span class="fw-bold">1</span> (Open/cicil).</li>
-                            <li class="list-group-item list-group-timeline-danger">NIS sama boleh untuk beberapa baris tagihan (beda <span class="fw-bold">KETERANGAN / NOMINAL / CICIL</span>). Jika data siswa lain berbeda untuk NIS yang sama (mis. NAMA beda), pratinjau menampilkan pesan perbaiki data dan simpan ditolak.</li>
+                            <li class="list-group-item list-group-timeline-danger">NIS sama boleh untuk beberapa baris tagihan (beda <span class="fw-bold">KETERANGAN / NOMINAL / CICIL</span>). Jika data siswa lain berbeda untuk NIS yang sama <span class="fw-bold">dalam file</span>, status merah “Tidak Dapat Disimpan” dan simpan ditolak.</li>
+                            <li class="list-group-item list-group-timeline-danger">Jika NIS sudah ada di sistem tetapi <span class="fw-bold">NAMA beda</span>, pratinjau merah “Update / beda nama”. Disarankan sesuaikan Excel dulu; jika tetap Simpan, data siswa di sistem diperbarui sesuai Excel.</li>
                             <li class="list-group-item list-group-timeline-danger">Kolom <span class="fw-bold">ANGKATAN</span> default contoh: <span class="fw-bold">{{ date('Y') }}/{{ date('Y') + 1 }}</span>. Jika belum ada di master tahun akademik akan dibuat otomatis saat simpan.</li>
                             <li class="list-group-item list-group-timeline-danger">Satu upload mengisi data siswa (<span class="fw-bold">scctcust</span>) dan tagihan (<span class="fw-bold">scctbill</span>) sekaligus. Periode otomatis bulan berjalan.</li>
                             <li class="list-group-item list-group-timeline-danger">Hapus baris contoh (NIS <span class="fw-bold">99999999…</span>) sebelum import.</li>
@@ -232,7 +233,8 @@
                             <div class="">
                                 Data siswa akan di-upsert dan tagihan dibuat untuk periode
                                 <strong>{{ $periode_otomatis ?? date('Ym') }}</strong>.
-                                Pastikan tidak ada baris bermasalah di pratinjau.
+                                Baris merah “Tidak Dapat Disimpan” harus diperbaiki dulu.
+                                Baris “Update / beda nama” boleh dilanjutkan — data siswa di sistem akan diperbarui dari Excel.
                             </div>
                         </div>
                     </div>

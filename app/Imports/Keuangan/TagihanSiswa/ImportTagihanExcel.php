@@ -2,6 +2,7 @@
 
 namespace App\Imports\Keuangan\TagihanSiswa;
 
+use App\Models\scctcust;
 use App\Support\ExcelImportSheet;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -95,6 +96,15 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
             }
         }
 
+        $uniqueNis = array_values(array_unique(array_column($parsedRows, 'nis')));
+        $existingByNis = collect();
+        if ($uniqueNis !== []) {
+            $existingByNis = scctcust::query()
+                ->whereIn('NOCUST', $uniqueNis)
+                ->get(['NOCUST', 'NMCUST'])
+                ->keyBy(fn ($row) => (string) ($row->NOCUST ?? $row->nocust ?? ''));
+        }
+
         $processedData = [];
 
         foreach ($parsedRows as $rowData) {
@@ -158,6 +168,24 @@ class ImportTagihanExcel implements WithMultipleSheets, ToCollection, WithHeadin
                 $status_ket = $this->appendKet($status_ket, 'Kolom CICIL harus diisi 1 (bisa cicil) atau 0 (tidak bisa cicil)');
             } else {
                 $rowData['cicil'] = $cicil;
+            }
+
+            // Soft warning: NIS ada di sistem tapi nama beda → status 2 (boleh simpan → update scctcust).
+            if ((int) ($rowData['status'] ?? 0) !== 0) {
+                $existing = $existingByNis->get((string) $rowData['nis']);
+                if ($existing) {
+                    $sistemNama = trim((string) ($existing->NMCUST ?? $existing->nmcust ?? ''));
+                    $excelNama = trim((string) ($rowData['nama'] ?? ''));
+                    if ($sistemNama !== '' && $excelNama !== ''
+                        && mb_strtolower($sistemNama) !== mb_strtolower($excelNama)
+                    ) {
+                        $rowData['status'] = 2;
+                        $status_ket = $this->appendKet(
+                            $status_ket,
+                            "NIS {$rowData['nis']} nama di sistem: {$sistemNama}, di Excel: {$excelNama}. Sesuaikan file sebelum upload ulang, atau lanjut simpan untuk memperbarui data sistem."
+                        );
+                    }
+                }
             }
 
             $rowData['keterangan'] = $status_ket;

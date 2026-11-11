@@ -78,7 +78,10 @@ class KirimWaTagihanController extends Controller
             'BTA' => 'scctbill.BTA',
             'BILLNM' => 'scctbill.BILLNM',
             'BILLAM' => 'scctbill.BILLAM',
+            'BILLPAID' => 'scctbill.BILLPAID',
             'PAYMENTLEFT' => 'scctbill.PAYMENTLEFT',
+            'ExpDate' => 'scctbill.ExpDate',
+            'CICILAN' => 'scctbill.isINSTALLABLE',
         ];
         $order = $request->input('order.0', []);
         $requested = $request->input('columns.' . ($order['column'] ?? '') . '.data');
@@ -105,6 +108,15 @@ class KirimWaTagihanController extends Controller
             $hasEmail = $email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL);
 
             $isLunas = ((int) ($row->PAIDST ?? 0) === 1) || ((int) ($amounts['sisa'] ?? 0) <= 0);
+            $isInstallable = (int) ($row->isINSTALLABLE ?? 0) === 1;
+            $expDate = null;
+            if (!blank($row->ExpDate)) {
+                try {
+                    $expDate = Carbon::parse($row->ExpDate)->format('d-m-Y');
+                } catch (Throwable) {
+                    $expDate = null;
+                }
+            }
 
             return [
                 'AA' => $row->AA,
@@ -121,6 +133,9 @@ class KirimWaTagihanController extends Controller
                 'BILLAM' => $amounts['total'],
                 'BILLPAID' => $amounts['terbayar'],
                 'PAYMENTLEFT' => $amounts['sisa'],
+                'ExpDate' => $expDate,
+                'isINSTALLABLE' => $isInstallable ? 1 : 0,
+                'CICILAN' => $isInstallable ? 'Ya' : 'Tidak',
                 'PAIDST' => (int) ($row->PAIDST ?? 0),
                 'status_bayar' => $isLunas ? 'Lunas' : 'Belum Lunas',
                 'has_email' => (bool) $hasEmail,
@@ -304,6 +319,7 @@ class KirimWaTagihanController extends Controller
                 'scctbill.PAYMENTLEFT',
                 'scctbill.PAIDST',
                 'scctbill.ExpDate',
+                'scctbill.isINSTALLABLE',
                 'scctbill.FSTSBolehBayar',
                 'scctcust.nocust as NOCUST',
                 'scctcust.nmcust as NMCUST',

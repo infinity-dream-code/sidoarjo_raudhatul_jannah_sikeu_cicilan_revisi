@@ -114,7 +114,10 @@
                         <th>Tahun</th>
                         <th>Nama Tagihan</th>
                         <th class="text-end">Jumlah</th>
+                        <th class="text-end">Terbayar</th>
                         <th class="text-end">Sisa</th>
+                        <th>Expired</th>
+                        <th class="text-center">Cicilan</th>
                         <th>Status Bayar</th>
                         <th>Status Email</th>
                         <th></th>
@@ -291,9 +294,30 @@
                         render: (d) => formatRp(d),
                     },
                     {
+                        data: 'BILLPAID',
+                        className: 'text-end',
+                        render: (d) => formatRp(d),
+                    },
+                    {
                         data: 'PAYMENTLEFT',
                         className: 'text-end',
                         render: (d) => formatRp(d),
+                    },
+                    {
+                        data: 'ExpDate',
+                        defaultContent: '-',
+                        render: (d) => d || '-',
+                    },
+                    {
+                        data: 'CICILAN',
+                        className: 'text-center',
+                        defaultContent: 'Tidak',
+                        render: function (d, t, row) {
+                            const ya = d === 'Ya' || Number(row.isINSTALLABLE ?? 0) === 1;
+                            return ya
+                                ? '<span class="badge bg-info text-dark">Ya</span>'
+                                : '<span class="badge bg-secondary">Tidak</span>';
+                        },
                     },
                     {
                         data: 'status_bayar',

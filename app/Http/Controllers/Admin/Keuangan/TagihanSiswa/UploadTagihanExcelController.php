@@ -99,7 +99,14 @@ class UploadTagihanExcelController extends Controller
             ['data' => 'nis', 'name' => 'NIS', 'searchable' => true, 'orderable' => true],
             ['data' => 'name', 'name' => 'NAMA', 'searchable' => true, 'orderable' => true],
             ['data' => 'gender', 'name' => 'Gender', 'searchable' => true, 'orderable' => true],
-            ['data' => 'status', 'name' => 'Status', 'searchable' => true, 'orderable' => true, 'columnType' => 'importstatus'],
+            [
+                'data' => 'status',
+                'name' => 'Status',
+                'searchable' => true,
+                'orderable' => true,
+                'columnType' => 'importstatus',
+                'updateVal' => 'Update / beda nama',
+            ],
             ['data' => 'keterangan', 'name' => 'Keterangan', 'searchable' => true, 'orderable' => true],
             ['data' => 'unit', 'name' => 'Unit', 'searchable' => true, 'orderable' => true],
             ['data' => 'kelas', 'name' => 'Kelas', 'searchable' => true, 'orderable' => true],
@@ -255,10 +262,11 @@ class UploadTagihanExcelController extends Controller
             return response()->json(['message' => 'Silahkan import data tagihan terlebih dahulu'], 422);
         }
 
-        $invalidCount = collect($data)->where('status', '!=', 1)->count();
-        if ($invalidCount > 0) {
+        // Blokir hanya status 0. Status 2 (beda nama vs sistem) tetap boleh simpan → update scctcust.
+        $blockedCount = collect($data)->where('status', 0)->count();
+        if ($blockedCount > 0) {
             return response()->json([
-                'message' => "Ada {$invalidCount} baris bermasalah. Perbaiki data di kolom Keterangan terlebih dahulu, lalu upload ulang. Proses simpan ditolak.",
+                'message' => "Ada {$blockedCount} baris tidak dapat disimpan. Perbaiki data di kolom Keterangan terlebih dahulu, lalu upload ulang. Proses simpan ditolak.",
             ], 422);
         }
 
@@ -275,7 +283,8 @@ class UploadTagihanExcelController extends Controller
             $emailBillRefs = [];
 
             foreach ($data as $item) {
-                if (($item['status'] ?? null) != 1) {
+                $status = (int) ($item['status'] ?? 0);
+                if (!in_array($status, [1, 2], true)) {
                     continue;
                 }
 
