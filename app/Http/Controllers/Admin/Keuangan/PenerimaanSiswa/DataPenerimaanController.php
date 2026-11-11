@@ -1195,12 +1195,18 @@ class DataPenerimaanController extends Controller
             return response()->json(['message' => 'Siswa tidak ditemukan'], 422);
         }
 
+        // Kartu = invoice belum bayar saja. Yang sudah bayar pakai Cetak Kuitansi.
+        $sisaExpr = 'CAST(COALESCE(scctbill.PAYMENTLEFT, scctbill.BILLAM - COALESCE(scctbill.BILLPAID, 0), 0) AS SIGNED)';
+
         $tagihans = scctbill::query()
             ->leftJoin('scctcust', 'scctcust.CUSTID', '=', 'scctbill.CUSTID')
             ->where('scctbill.CUSTID', $custid)
-            ->where('scctbill.PAIDST', 1)
             ->where('scctbill.FSTSBolehBayar', 1)
-            ->whereNotNull('scctbill.PAIDDT')
+            ->where(function ($q) use ($sisaExpr) {
+                $q->whereRaw('CAST(COALESCE(scctbill.PAIDST, 0) AS SIGNED) <> 1')
+                    ->orWhereRaw("{$sisaExpr} > 0");
+            })
+            ->whereRaw("{$sisaExpr} > 0")
             ->when(!blank($request->input('filter.tahun_akademik')) && strtolower((string)$request->input('filter.tahun_akademik')) !== 'all', function ($q) use ($request) {
                 $q->where('scctbill.BTA', $request->input('filter.tahun_akademik'));
             })
@@ -1217,43 +1223,60 @@ class DataPenerimaanController extends Controller
                     $q->where('scctbill.BILLNM', $post);
                 }
             })
-            ->when(!blank($request->input('filter.bank')) && strtolower((string)$request->input('filter.bank')) !== 'all', function ($q) use ($request) {
-                $bank = trim((string) $request->input('filter.bank'));
-                if ($bank === MetodeBayarHelper::ANDROID_FIDBANK) {
-                    $q->where(function ($sub) {
-                        $sub->where('scctbill.FIDBANK', MetodeBayarHelper::ANDROID_FIDBANK)
-                            ->orWhereRaw('UPPER(TRIM(COALESCE(scctbill.NOREFF, ""))) = ?', ['MOBILE']);
-                    });
-                    return;
-                }
-                $q->where('scctbill.FIDBANK', $bank)
-                    ->whereRaw('UPPER(TRIM(COALESCE(scctbill.NOREFF, ""))) <> ?', ['MOBILE']);
-            })
-            ->when(!blank($request->input('filter.dari_tanggal')) && preg_match('/^\d{2}-\d{2}-\d{4}$/', (string)$request->input('filter.dari_tanggal')), function ($q) use ($request) {
-                $startDate = Carbon::createFromFormat('d-m-Y', (string)$request->input('filter.dari_tanggal'))->startOfDay();
-                $q->where('scctbill.PAIDDT', '>=', $startDate);
-            })
-            ->when(!blank($request->input('filter.sampai_tanggal')) && preg_match('/^\d{2}-\d{2}-\d{4}$/', (string)$request->input('filter.sampai_tanggal')), function ($q) use ($request) {
-                $endDate = Carbon::createFromFormat('d-m-Y', (string)$request->input('filter.sampai_tanggal'))->endOfDay();
-                $q->where('scctbill.PAIDDT', '<=', $endDate);
-            })
             ->select([
+                'scctbill.AA',
                 'scctbill.BILLNM',
                 'scctbill.BILLAC',
                 'scctbill.BILLAM',
+                'scctbill.BILLPAID',
+                'scctbill.PAYMENTLEFT',
                 'scctbill.BTA',
-                'scctbill.PAIDDT',
                 'scctbill.PAIDST',
-                'scctbill.FIDBANK',
+                'scctbill.ExpDate',
                 'scctbill.FUrutan',
             ])
             ->orderBy('scctbill.FUrutan', 'asc')
-            ->orderBy('scctbill.PAIDDT', 'desc')
+            ->orderBy('scctbill.ExpDate', 'asc')
             ->get()
+            ->map(function ($row) {
+                $billAm = (int) ($row->BILLAM ?? 0);
+                $billPaid = (int) ($row->BILLPAID ?? 0);
+                $sisa = $row->PAYMENTLEFT;
+                if ($sisa === null || $sisa === '') {
+                    $sisa = max(0, $billAm - $billPaid);
+                } else {
+                    $sisa = max(0, (int) $sisa);
+                }
+
+                $expRaw = $row->ExpDate;
+                $expDisplay = null;
+                if (!blank($expRaw)) {
+                    try {
+                        $expDisplay = Carbon::parse($expRaw)->format('d-m-Y');
+                    } catch (\Throwable) {
+                        $expDisplay = null;
+                    }
+                }
+
+                return [
+                    'AA' => $row->AA,
+                    'BILLNM' => $row->BILLNM,
+                    'BILLAC' => $row->BILLAC,
+                    'BILLAM' => $billAm,
+                    'BILLAM_TOTAL' => $billAm,
+                    'BILLPAID' => $billPaid,
+                    'PAYMENTLEFT' => $sisa,
+                    'BTA' => $row->BTA,
+                    'PAIDST' => (int) ($row->PAIDST ?? 0),
+                    'ExpDate' => $expDisplay,
+                    'ExpDate_raw' => $expRaw,
+                    'FUrutan' => $row->FUrutan,
+                ];
+            })
             ->values();
 
         if ($tagihans->isEmpty()) {
-            return response()->json(['message' => 'Data pembayaran tidak ditemukan'], 422);
+            return response()->json(['message' => 'Tidak ada tagihan belum bayar untuk dicetak di kartu'], 422);
         }
 
         return response()->json([

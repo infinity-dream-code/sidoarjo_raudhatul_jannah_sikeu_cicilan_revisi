@@ -305,9 +305,10 @@
                                     </a>
                                 </div>
                                 <div class="filter-actions__group">
-                                    <button type="button" class="btn btn-sm btn-facebook" id="cetak-kartu-siswa">
+                                    <button type="button" class="btn btn-sm btn-facebook" id="cetak-kartu-siswa"
+                                            title="Cetak kartu invoice tagihan belum bayar">
                                         <span class="ri-info-card-line me-1"></span>
-                                        Cetak Kartu
+                                        Cetak Kartu (Belum Bayar)
                                     </button>
                                     <button type="button" class="btn btn-sm btn-google-plus btn-print-rekap">
                                         <span class="ri-file-pdf-2-line me-1"></span>
@@ -1878,45 +1879,44 @@
 
             async function generateKartuSiswa(data) {
                 try {
-                    const parsePaidDate = (val) => {
-                        if (!val) return null;
-                        const iso = new Date(val);
-                        if (!Number.isNaN(iso.getTime())) return iso;
-                        const m = String(val).match(/^(\d{2})-(\d{2})-(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/);
-                        if (!m) return null;
-                        return new Date(+m[3], +m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
-                    };
-
                     const pad2 = (n) => String(n).padStart(2, '0');
-                    const formatPaidDate = (val) => {
-                        const dt = parsePaidDate(val);
-                        if (!dt) return '-';
-                        return `${pad2(dt.getDate())}-${pad2(dt.getMonth() + 1)}-${dt.getFullYear()} ${pad2(dt.getHours())}:${pad2(dt.getMinutes())}:${pad2(dt.getSeconds())}`;
+                    const formatExpDate = (val) => {
+                        if (!val) return '-';
+                        const s = String(val).trim();
+                        const dmy = s.match(/^(\d{2})-(\d{2})-(\d{4})/);
+                        if (dmy) return `${dmy[1]}-${dmy[2]}-${dmy[3]}`;
+                        const dt = new Date(s);
+                        if (Number.isNaN(dt.getTime())) return '-';
+                        return `${pad2(dt.getDate())}-${pad2(dt.getMonth() + 1)}-${dt.getFullYear()}`;
                     };
 
                     const bodyContent = [];
+                    const siswa = data.siswa;
+                    const nocust = siswa.NOCUST && siswa.NOCUST !== '-' ? siswa.NOCUST : false;
+                    const nisForVa = nocust || (siswa.NUM2ND && siswa.NUM2ND !== '-' ? siswa.NUM2ND : '');
+                    const noVa = (typeof showVA === 'function' && nisForVa)
+                        ? showVA(nisForVa)
+                        : (siswa.NOVA || '');
 
-                    let siswa = data.siswa;
-                    let nocust = siswa.NOCUST === null || siswa.NOCUST === '' || siswa.NOCUST === '-' || !siswa.NOCUST ? false : siswa.NOCUST;
-
+                    // Header tanpa NIS / No. Pendaftaran
                     const mainTable = [
-                        [(nocust ? 'NIS ' : 'No. Pendaftaran'), ': ' + (nocust ? nocust : siswa.NUM2ND), 'Unit', ': ' + siswa.CODE02].map(h => ({
+                        ['Nama ', ': ' + (siswa.NMCUST || '-'), 'Unit', ': ' + (siswa.CODE02 || '-')].map(h => ({
                             text: h,
                             border: [false, false, false, false]
                         })),
-                        [(nocust ? 'No. VA ' : '-'), ': ' + (nocust ? showVA(nocust) : ''), 'Kelas', ': ' + siswa.DESC02 + ' '+ siswa.DESC03].map(h => ({
+                        ['No. VA ', ': ' + (noVa || '-'), 'Kelas', ': ' + ((siswa.DESC02 || '') + ' ' + (siswa.DESC03 || '')).trim()].map(h => ({
                             text: h,
                             border: [false, false, false, false]
                         })),
-                        ['Nama ', ': ' + siswa.NMCUST,'Ayah', ': ' + (siswa.GENUS ?? '-')].map(h => ({
+                        ['Angkatan ', ': ' + (siswa.DESC04 || '-'), 'Ayah', ': ' + (siswa.GENUS ?? '-')].map(h => ({
                             text: h,
                             border: [false, false, false, false]
                         })),
-                        ['', ' ',  'Ibu', ': ' + (siswa.GENUS1 ?? '')].map(h => ({
+                        ['', ' ', 'Ibu', ': ' + (siswa.GENUS1 ?? '')].map(h => ({
                             text: h,
                             border: [false, false, false, false]
                         })),
-                    ]
+                    ];
 
                     bodyContent.push({
                         table: {
@@ -1932,40 +1932,49 @@
                         fontSize: 9
                     });
 
+                    // # | Periode | Nama Tagihan | Jumlah | Terbayar | Sisa | Expired | Status
                     const tableBody = [
-                        ['#', 'Tanggal Bayar', 'Periode', 'Nama Tagihan', 'Total Tagihan', 'Total Bayar', 'Sisa', 'Status']
+                        ['#', 'Periode', 'Nama Tagihan', 'Jumlah', 'Terbayar', 'Sisa', 'Expired', 'Status']
                             .map(h => ({text: h, style: 'tableHeader'}))
                     ];
 
                     let totalTagihan = 0;
                     let totalBayar = 0;
                     let totalSisa = 0;
-                    const sortedTagihans = [...(data.tagihans || [])].sort((a, b) => {
-                        const urutA = Number(a?.FUrutan ?? 0);
-                        const urutB = Number(b?.FUrutan ?? 0);
-                        if (urutA !== urutB) return urutA - urutB;
-                        return String(a?.BILLNM ?? '').localeCompare(String(b?.BILLNM ?? ''));
-                    });
+                    const sortedTagihans = [...(data.tagihans || [])]
+                        .filter((item) => {
+                            const jumlahTagihan = Number(item.BILLAM_TOTAL ?? item.BILLAM ?? 0);
+                            const sisaTagihan = Number(item.PAYMENTLEFT ?? item.BILLAM ?? Math.max(0, jumlahTagihan - Number(item.BILLPAID ?? 0)));
+                            const lunas = Number(item.PAIDST) === 1 || sisaTagihan <= 0;
+                            return !lunas;
+                        })
+                        .sort((a, b) => {
+                            const urutA = Number(a?.FUrutan ?? 0);
+                            const urutB = Number(b?.FUrutan ?? 0);
+                            if (urutA !== urutB) return urutA - urutB;
+                            return String(a?.BILLNM ?? '').localeCompare(String(b?.BILLNM ?? ''));
+                        });
+
+                    if (!sortedTagihans.length) {
+                        throw createError('Tidak ada tagihan belum bayar untuk dicetak di kartu', 422);
+                    }
 
                     sortedTagihans.forEach((item, index) => {
-                        const tanggalBayar = formatPaidDate(item.PAIDDT_ISO || item.PAIDDT);
-                        const jumlahTagihan = Number(item.BILLAM_TOTAL ?? 0);
-                        const jumlahBayar = Number(item.BILLPAID ?? 0);
-                        const sisaTagihan = Number(item.PAYMENTLEFT ?? item.BILLAM ?? 0);
+                        const jumlahTagihan = Number(item.BILLAM_TOTAL ?? item.BILLAM ?? 0);
+                        const sisaTagihan = Number(item.PAYMENTLEFT ?? item.BILLAM ?? Math.max(0, jumlahTagihan - Number(item.BILLPAID ?? 0)));
+                        const jumlahBayar = Math.max(0, jumlahTagihan - sisaTagihan);
+                        const periode = item.BILLAC || item.BTA || '-';
+                        const expired = formatExpDate(item.ExpDate_raw || item.ExpDate);
 
                         tableBody.push([
                             {text: String(index + 1), alignment: 'center', border: [true, true, true, true]},
-                            {text: tanggalBayar, border: [true, true, true, true]},
-                            {text: item.BILLAC || '-', border: [true, true, true, true]},
+                            {text: periode, border: [true, true, true, true]},
                             {text: item.BILLNM || '-', border: [true, true, true, true]},
                             {text: formatRupiah(jumlahTagihan), alignment: 'right', border: [true, true, true, true]},
                             {text: formatRupiah(jumlahBayar), alignment: 'right', border: [true, true, true, true]},
                             {text: formatRupiah(sisaTagihan), alignment: 'right', border: [true, true, true, true]},
-                            {
-                                text: Number(item.PAIDST) === 1 || sisaTagihan <= 0 ? 'LUNAS' : 'BELUM LUNAS',
-                                alignment: 'center',
-                                border: [true, true, true, true]
-                            }
+                            {text: expired, alignment: 'center', border: [true, true, true, true]},
+                            {text: 'BELUM LUNAS', alignment: 'center', border: [true, true, true, true]}
                         ]);
 
                         totalTagihan += jumlahTagihan;
@@ -1974,10 +1983,9 @@
                     });
 
                     tableBody.push([
-                        {text: 'Total', colSpan: 4, style: 'tableHeader', border: [true, true, true, true]},
-                        '',
-                        '',
-                        '',
+                        {text: 'Total', colSpan: 3, style: 'tableHeader', border: [true, true, true, true]},
+                        {},
+                        {},
                         {
                             text: formatRupiah(totalTagihan),
                             style: 'tableHeader',
@@ -1996,15 +2004,13 @@
                             alignment: 'right',
                             border: [true, true, true, true]
                         },
-                        {
-                            text: '',
-                            border: [true, true, true, true]
-                        }
-                    ])
+                        {text: '', border: [true, true, true, true]},
+                        {text: '', border: [true, true, true, true]}
+                    ]);
 
                     bodyContent.push({
                         table: {
-                            widths: ['6%', '13%', '11%', '18%', '13%', '13%', '13%', '13%'],
+                            widths: ['6%', '12%', '22%', '12%', '12%', '12%', '12%', '12%'],
                             body: tableBody
                         },
                         layout: {
@@ -2018,7 +2024,8 @@
 
                     return bodyContent;
                 } catch (e) {
-                    console.log(e)
+                    console.log(e);
+                    throw e;
                 }
             }
 
