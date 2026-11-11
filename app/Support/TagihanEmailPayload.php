@@ -62,7 +62,7 @@ class TagihanEmailPayload
         return "PANDUAN/TATA CARA PEMBAYARAN:\n"
             . "1. Buka website/portal tagihan melalui link pada email\n"
             . "2. Periksa nominal tagihan yang tertera\n"
-            . "3. Transfer sesuai nominal ke Virtual Account (VA) yang tertera\n"
+            . "3. Transfer sesuai nominal ke Virtual Account (VA) Bank Muamalat yang tertera (bisa via channel Bank Muamalat atau Bank lain)\n"
             . "4. Simpan bukti pembayaran";
     }
 
@@ -149,9 +149,11 @@ class TagihanEmailPayload
             'tanggalBerakhir' => $expireDate,
             'subject' => $subject,
             'organizationName' => (string) (config('app.nama_instansi') ?: 'Raudlatul Jannah Sidoarjo'),
+            'yayasanName' => (string) env('APP_YAYASAN_NAME', 'Yayasan Masjid Raudlatul Jannah'),
             'paymentLink' => self::paymentLink(),
             'totalAmount' => $amounts['total'],
-            'outstandingAmount' => $amounts['sisa'],
+            // Outstanding / sisa cicilan hanya relevan untuk DU (Open Payment).
+            'outstandingAmount' => $isInstallable === 1 ? $amounts['sisa'] : null,
             'adminFee' => self::adminFee(),
             'adminFeeLabel' => self::adminFeeLabel(),
             'paymentGuide' => self::paymentGuide(),

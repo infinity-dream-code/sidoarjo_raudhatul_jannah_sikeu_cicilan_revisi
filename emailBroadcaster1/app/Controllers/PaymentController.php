@@ -61,12 +61,12 @@ class PaymentController
 
         $orderNumber = first_value($payload, ['orderNumber', 'invoiceNumber']);
         $org = first_value($payload, ['organizationName', 'yayasan', 'organisasi'], Config::organizationName());
+        $vaNumber = first_value($payload, ['vaNumber', 'va']);
         $subject = first_value($payload, ['subject']);
         if (!$subject) {
-            $subject = 'Confirmation of Receipt at ' . $org;
-            if ($orderNumber) {
-                $subject .= ' #' . $orderNumber;
-            }
+            $subject = $vaNumber
+                ? ('Transaksi Nomor VA ' . $vaNumber)
+                : ('Confirmation of Receipt at ' . $org . ($orderNumber ? (' #' . $orderNumber) : ''));
         }
 
         $paidAt = first_value($payload, ['paidAt']);

@@ -122,13 +122,10 @@ class PaymentEmailPayload
         }
 
         $orderNumber = trim((string) ($bill->BILLCD ?? $aa));
-        $subject = 'Konfirmasi pembayaran ananda ' . $nama;
-        if ($isInstallable && $currentInstallment > 0) {
-            $subject .= ' (Cicilan ke-' . $currentInstallment . ')';
-        }
-        if ($itemName !== '') {
-            $subject .= ' - ' . $itemName;
-        }
+        // Subject mengikuti contoh redaksi bank: Transaksi Nomor VA …
+        $subject = $noVa !== ''
+            ? ('Transaksi Nomor VA ' . $noVa)
+            : ('Konfirmasi pembayaran ananda ' . $nama);
 
         $expireDate = TagihanEmailPayload::formatExpDate($bill->ExpDate ?? null);
 

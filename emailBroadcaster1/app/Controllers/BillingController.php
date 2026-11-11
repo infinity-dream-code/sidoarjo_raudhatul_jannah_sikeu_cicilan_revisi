@@ -91,15 +91,16 @@ class BillingController
             }
         }
 
-        $adminFee = null;
-        if (array_key_exists('adminFee', $payload) && $payload['adminFee'] !== null && $payload['adminFee'] !== '') {
-            $adminFee = (float) $payload['adminFee'];
-        } elseif (array_key_exists('biayaAdmin', $payload) && $payload['biayaAdmin'] !== null && $payload['biayaAdmin'] !== '') {
-            $adminFee = (float) $payload['biayaAdmin'];
-        }
+        // Admin VA tidak dikirim ke ortu (ditanggung sekolah) — selalu 0 di email.
+        $adminFee = 0;
 
         $meta = [
-            'organizationName' => first_value($payload, ['organizationName', 'yayasan', 'organisasi'], Config::organizationName()),
+            'organizationName' => first_value($payload, ['organizationName', 'organisasi'], Config::organizationName()),
+            'yayasanName' => first_value(
+                $payload,
+                ['yayasanName', 'yayasan'],
+                Config::get('YAYASAN_NAME', 'Yayasan Masjid Raudlatul Jannah')
+            ),
             'billType' => first_value($payload, ['billType', 'tipeTagihan', 'jenisTagihan'], 'Full Payment'),
             'invoiceDate' => first_value($payload, ['invoiceDate', 'tanggalDibuat', 'createdDate']),
             'activeDate' => first_value($payload, ['activeDate', 'tanggalAktif']),

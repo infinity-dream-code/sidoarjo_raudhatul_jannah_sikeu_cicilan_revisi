@@ -122,6 +122,7 @@
                         <th>Nama</th>
                         <th>Kelas</th>
                         <th>Nama Tagihan</th>
+                        <th class="text-center">Cicilan</th>
                         <th>Periode</th>
                         <th class="text-end">Sisa</th>
                         <th>Expired Date</th>
@@ -283,6 +284,17 @@
                         render: (d, t, row) => `${row.DESC02 || ''} ${row.DESC03 || ''}`.trim() || '-',
                     },
                     { data: 'BILLNM', defaultContent: '-' },
+                    {
+                        data: 'CICILAN',
+                        className: 'text-center',
+                        defaultContent: 'Tidak',
+                        render: function (d, t, row) {
+                            const ya = d === 'Ya' || Number(row.isINSTALLABLE ?? 0) === 1;
+                            return ya
+                                ? '<span class="badge bg-info text-dark">Ya</span>'
+                                : '<span class="badge bg-secondary">Tidak</span>';
+                        },
+                    },
                     { data: 'BILLAC', defaultContent: '-' },
                     {
                         data: 'PAYMENTLEFT',

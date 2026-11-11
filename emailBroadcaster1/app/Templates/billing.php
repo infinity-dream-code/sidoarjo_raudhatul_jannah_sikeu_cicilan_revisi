@@ -6,18 +6,23 @@ function render_billing_email(array $message): array
     $meta = $message['meta'] ?? parse_meta($message['metaJson'] ?? '{}');
 
     $org = (string) ($meta['organizationName'] ?? Config::organizationName());
+    $yayasan = (string) ($meta['yayasanName'] ?? Config::get(
+        'YAYASAN_NAME',
+        'Yayasan Masjid Raudlatul Jannah'
+    ));
     $billType = (string) ($meta['billType'] ?? 'Full Payment');
     $billTypeUpper = strtoupper(trim($billType));
     if ($billTypeUpper === 'CLOSE') {
         $billType = 'Full Payment';
+        $billTypeUpper = 'FULL PAYMENT';
     } elseif ($billTypeUpper === 'OPEN') {
         $billType = 'Open Payment';
+        $billTypeUpper = 'OPEN PAYMENT';
     }
+    $isOpenPayment = strpos($billTypeUpper, 'OPEN') !== false;
     $invoiceDate = (string) ($meta['invoiceDate'] ?? '');
     $activeDate = (string) ($meta['activeDate'] ?? '');
     $expireDate = (string) ($meta['expireDate'] ?? '');
-    $adminFee = $meta['adminFee'] ?? null;
-    $adminFeeLabel = (string) ($meta['adminFeeLabel'] ?? 'Admin VA');
 
     $rows = '';
     $textItems = [];
@@ -29,53 +34,49 @@ function render_billing_email(array $message): array
         $textItems[] = '- ' . ($item['name'] ?? '') . ': ' . format_rupiah($item['amount'] ?? 0);
     }
 
+    // Biaya Admin VA tidak ditampilkan ke ortu (ditanggung sekolah).
     $billTotal = (float) ($message['totalAmount'] ?? 0);
-    $adminFeeValue = ($adminFee !== null && $adminFee !== '') ? (float) $adminFee : 0.0;
-    $grandTotal = $billTotal + $adminFeeValue;
-
-    $adminRow = '';
-    if ($adminFeeValue > 0) {
-        $adminRow = '<tr>
-          <td style="padding:10px 12px;border-bottom:1px solid #eee;">Biaya ' . escape_html($adminFeeLabel) . '</td>
-          <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap;">' . format_rupiah($adminFeeValue) . '</td>
-        </tr>';
-        $textItems[] = '- Biaya ' . $adminFeeLabel . ': ' . format_rupiah($adminFeeValue);
-    }
-
-    $totalNote = '';
-    if ($adminFeeValue > 0) {
-        $totalNote = '<div style="margin-top:8px;font-size:12px;color:#6b7280;line-height:1.5;">
-          Keterangan: ' . format_rupiah($billTotal) . ' tagihan + ' . format_rupiah($adminFeeValue) . ' biaya ' . escape_html($adminFeeLabel) . '
-        </div>';
-    }
+    $totalLabel = format_rupiah($billTotal);
 
     $outstandingBlock = '';
-    if (isset($message['outstandingAmount']) && $message['outstandingAmount'] !== null && $message['outstandingAmount'] !== '') {
+    $hasOutstanding = $isOpenPayment
+        && isset($message['outstandingAmount'])
+        && $message['outstandingAmount'] !== null
+        && $message['outstandingAmount'] !== '';
+    if ($hasOutstanding) {
         $outstandingBlock = '<tr>
-          <td style="padding:10px 12px;font-weight:700;">Outstanding / Sisa Cicilan</td>
+          <td style="padding:10px 12px;font-weight:700;">Outstanding / Sisa Cicilan (untuk DU)</td>
           <td style="padding:10px 12px;text-align:right;font-weight:700;color:#c2410c;">' . format_rupiah($message['outstandingAmount']) . '</td>
         </tr>';
     }
-
-    $totalLabel = format_rupiah($grandTotal);
 
     $brandBg = (string) Config::get('MAIL_BRAND_COLOR', '#0a0a0a');
     $brandAccent = (string) Config::get('MAIL_BRAND_ACCENT', '#4fbef7');
     $brandOrange = (string) Config::get('MAIL_BRAND_ORANGE', '#f59d42');
 
     $portalPassword = (string) Config::get('DEFAULT_PORTAL_PASSWORD', '123');
-    $loginNis = (string) ($message['studentNis'] ?? '');
+    $loginUser = (string) ($message['studentNis'] ?? '');
+    $vaNumber = trim((string) ($message['vaNumber'] ?? ''));
 
     $loginBlock = '<div style="margin-top:20px;padding:14px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:13px;line-height:1.7;color:#1e3a8a;">
       <div style="font-weight:700;margin-bottom:6px;">Informasi Login Portal Tagihan</div>
-      <div>NIS / Username : <strong>' . escape_html($loginNis !== '' ? $loginNis : '-') . '</strong></div>
+      <div>Username : <strong>' . escape_html($loginUser !== '' ? $loginUser : '-') . '</strong></div>
       <div>Password : <strong>' . escape_html($portalPassword) . '</strong></div>
       <div style="margin-top:6px;color:#1d4ed8;font-size:12px;">Gunakan data di atas untuk masuk ke portal tagihan.</div>
     </div>';
 
+    $payInstruction = '';
+    if ($vaNumber !== '') {
+        $dueHint = $expireDate !== '' ? ' sebelum tanggal jatuh tempo di atas' : '';
+        $payInstruction = '<p style="margin:20px 0 0;line-height:1.6;font-size:14px;color:#111827;">
+          Silahkan lakukan pembayaran menggunakan Nomor VA <strong>' . escape_html($vaNumber) . '</strong>
+          melalui channel Bank Muamalat atau Bank lain' . escape_html($dueHint) . '.
+        </p>';
+    }
+
     $paymentButton = '';
     if (!empty($message['paymentLink'])) {
-        $paymentButton = '<p style="margin:28px 0 8px;text-align:center;">
+        $paymentButton = '<p style="margin:20px 0 8px;text-align:center;">
         <a href="' . escape_html($message['paymentLink']) . '" style="display:inline-block;background:' . escape_html($brandOrange) . ';color:#fff;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:700;">Buka Portal Tagihan</a>
       </p>
       <p style="margin:0 0 8px;text-align:center;font-size:12px;color:#6b7280;">
@@ -100,14 +101,14 @@ function render_billing_email(array $message): array
     $detailRows = [
         ['No. Invoice', $message['orderNumber'] ?? null],
         ['Tanggal Dibuat', $invoiceDate !== '' ? $invoiceDate : null],
-        ['No. Pembayaran (VA)', $message['vaNumber'] ?? null],
+        ['No. Pembayaran (VA Muamalat)', $vaNumber !== '' ? $vaNumber : null],
         ['Nama', $message['studentName'] ?? null],
         ['Kelas', $message['studentClass'] ?? null],
-        ['NIS', $message['studentNis'] ?? null],
+        ['Username', $message['studentNis'] ?? null],
         ['Email', $message['recipientEmail'] ?? null],
         ['Tipe/Jenis Tagihan', $billType],
         ['Tanggal Aktif', $activeDate !== '' ? $activeDate : null],
-        ['Tanggal Expired', $expireDate !== '' ? $expireDate : null],
+        ['Tanggal Jatuh Tempo', $expireDate !== '' ? $expireDate : null],
     ];
 
     $detailHtml = '';
@@ -116,10 +117,12 @@ function render_billing_email(array $message): array
             continue;
         }
         $detailHtml .= '<tr>
-          <td style="padding:6px 0;width:170px;color:#6b7280;vertical-align:top;">' . escape_html($label) . '</td>
+          <td style="padding:6px 0;width:200px;color:#6b7280;vertical-align:top;">' . escape_html($label) . '</td>
           <td style="padding:6px 0;">: ' . escape_html($value) . '</td>
         </tr>';
     }
+
+    $intro = 'Berikut kami sampaikan tagihan ananda pada ' . $yayasan . ' dengan rincian sebagai berikut:';
 
     $html = '<!DOCTYPE html>
 <html>
@@ -138,7 +141,7 @@ function render_billing_email(array $message): array
         <tr>
           <td style="padding:24px;">
             <p style="margin:0 0 16px;line-height:1.5;">
-              Berikut tagihan yang harus dibayarkan kepada <strong>' . escape_html($org) . '</strong> dengan rincian sebagai berikut:
+              ' . escape_html($intro) . '
             </p>
 
             <table role="presentation" width="100%" style="border-collapse:collapse;margin-bottom:18px;font-size:14px;">
@@ -155,7 +158,6 @@ function render_billing_email(array $message): array
               </thead>
               <tbody>
                 ' . ($rows !== '' ? $rows : '<tr><td colspan="2" style="padding:12px;color:#6b7280;">Tidak ada item</td></tr>') . '
-                ' . $adminRow . '
                 <tr>
                   <td style="padding:10px 12px;font-weight:700;background:#f9fafb;">Total Nominal</td>
                   <td style="padding:10px 12px;text-align:right;font-weight:700;background:#f9fafb;">' . escape_html($totalLabel) . '</td>
@@ -163,8 +165,8 @@ function render_billing_email(array $message): array
                 ' . $outstandingBlock . '
               </tbody>
             </table>
-            ' . $totalNote . '
 
+            ' . $payInstruction . '
             ' . $paymentButton . '
             ' . $loginBlock . '
             ' . $guideBlock . '
@@ -182,22 +184,22 @@ function render_billing_email(array $message): array
 </html>';
 
     $text = "Assalamu'alaikum Warrahmatullahi Wabarakatuh\n\n";
-    $text .= 'Berikut tagihan yang harus dibayarkan kepada ' . $org . " dengan rincian sebagai berikut:\n\n";
+    $text .= $intro . "\n\n";
     if (!empty($message['orderNumber'])) {
         $text .= 'No. Invoice : ' . $message['orderNumber'] . "\n";
     }
     if ($invoiceDate !== '') {
         $text .= 'Tanggal Dibuat : ' . $invoiceDate . "\n";
     }
-    if (!empty($message['vaNumber'])) {
-        $text .= 'No. Pembayaran (VA) : ' . $message['vaNumber'] . "\n";
+    if ($vaNumber !== '') {
+        $text .= 'No. Pembayaran (VA Muamalat) : ' . $vaNumber . "\n";
     }
     $text .= 'Nama : ' . ($message['studentName'] ?? '') . "\n";
     if (!empty($message['studentClass'])) {
         $text .= 'Kelas : ' . $message['studentClass'] . "\n";
     }
     if (!empty($message['studentNis'])) {
-        $text .= 'NIS : ' . $message['studentNis'] . "\n";
+        $text .= 'Username : ' . $message['studentNis'] . "\n";
     }
     if (!empty($message['recipientEmail'])) {
         $text .= 'Email : ' . $message['recipientEmail'] . "\n";
@@ -207,21 +209,23 @@ function render_billing_email(array $message): array
         $text .= 'Tanggal Aktif : ' . $activeDate . "\n";
     }
     if ($expireDate !== '') {
-        $text .= 'Tanggal Expired : ' . $expireDate . "\n";
+        $text .= 'Tanggal Jatuh Tempo : ' . $expireDate . "\n";
     }
     $text .= "\nRincian Pembayaran :\n" . implode("\n", $textItems) . "\n\n";
     $text .= 'Total Nominal : ' . $totalLabel . "\n";
-    if ($adminFeeValue > 0) {
-        $text .= 'Keterangan : ' . format_rupiah($billTotal) . ' tagihan + ' . format_rupiah($adminFeeValue) . ' biaya ' . $adminFeeLabel . "\n";
+    if ($hasOutstanding) {
+        $text .= 'Outstanding / Sisa Cicilan (untuk DU) : ' . format_rupiah($message['outstandingAmount']) . "\n";
     }
-    if (isset($message['outstandingAmount']) && $message['outstandingAmount'] !== null && $message['outstandingAmount'] !== '') {
-        $text .= 'Outstanding / Sisa Cicilan : ' . format_rupiah($message['outstandingAmount']) . "\n";
+    if ($vaNumber !== '') {
+        $dueHint = $expireDate !== '' ? ' sebelum tanggal jatuh tempo di atas' : '';
+        $text .= "\nSilahkan lakukan pembayaran menggunakan Nomor VA " . $vaNumber
+            . " melalui channel Bank Muamalat atau Bank lain" . $dueHint . ".\n";
     }
     if (!empty($message['paymentLink'])) {
         $text .= "\nPortal Tagihan : " . $message['paymentLink'] . "\n";
     }
     $text .= "\nInformasi Login Portal Tagihan:\n";
-    $text .= 'NIS / Username : ' . ($loginNis !== '' ? $loginNis : '-') . "\n";
+    $text .= 'Username : ' . ($loginUser !== '' ? $loginUser : '-') . "\n";
     $text .= 'Password : ' . $portalPassword . "\n";
     if (!empty($message['paymentGuide'])) {
         $text .= "\nPANDUAN/TATA CARA PEMBAYARAN:\n" . $message['paymentGuide'] . "\n";

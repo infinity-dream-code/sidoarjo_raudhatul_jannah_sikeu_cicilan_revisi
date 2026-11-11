@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin\Keuangan\TagihanSiswa;
 
+use App\Exports\UploadTagihanExcelTemplateExport;
 use App\Http\Controllers\Controller;
 use App\Imports\Keuangan\TagihanSiswa\ImportTagihanExcel;
 use App\Models\mst_kelas;
@@ -22,6 +23,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Validators\ValidationException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class UploadTagihanExcelController extends Controller
 {
@@ -70,6 +72,24 @@ class UploadTagihanExcelController extends Controller
         Cache::forget($this->resolvedCacheKey());
 
         return response()->json(['message' => 'Data pratinjau dibersihkan. Silahkan import ulang file Excel.'], 200);
+    }
+
+    /**
+     * Download template Excel:
+     * - spp → CICIL = 0 (Close / tidak dicicil)
+     * - du  → CICIL = 1 (Open / bisa dicicil)
+     */
+    public function downloadTemplate(Request $request): BinaryFileResponse|\Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $jenis = strtolower(trim((string) $request->query('jenis', 'spp')));
+        if (!in_array($jenis, ['spp', 'du'], true)) {
+            abort(422, 'Jenis template tidak valid. Gunakan spp atau du.');
+        }
+
+        $label = $jenis === 'du' ? 'DU' : 'SPP';
+        $filename = 'TEMPLATE_' . $label . '_UPLOAD_TAGIHAN_EXCEL_SIDOARJO_RAUDLATUL_JANNAH.xlsx';
+
+        return Excel::download(new UploadTagihanExcelTemplateExport($jenis), $filename);
     }
 
     public function getColumn()

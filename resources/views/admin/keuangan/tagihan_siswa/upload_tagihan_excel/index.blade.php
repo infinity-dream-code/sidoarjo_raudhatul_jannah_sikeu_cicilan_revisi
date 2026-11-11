@@ -78,7 +78,19 @@
             <div class="card-title">
                 <h5 class="mb-0">{{ $dataTitle ?? $mainTitle }}</h5>
             </div>
-            <div class="card-header-elements ms-auto">
+            <div class="card-header-elements ms-auto d-flex flex-wrap gap-2">
+                <a class="btn btn-outline-success"
+                   href="{{ route('admin.keuangan.tagihan-siswa.upload-tagihan-excel.download-template', ['jenis' => 'spp']) }}"
+                   title="Template SPP — CICIL 0 (Close)">
+                    <span class="ri-download-2-line me-1"></span>
+                    Template SPP
+                </a>
+                <a class="btn btn-outline-primary"
+                   href="{{ route('admin.keuangan.tagihan-siswa.upload-tagihan-excel.download-template', ['jenis' => 'du']) }}"
+                   title="Template DU — CICIL 1 (Open/cicil)">
+                    <span class="ri-download-2-line me-1"></span>
+                    Template DU
+                </a>
                 <button type="button" class="btn btn-whatsapp" data-bs-toggle="modal"
                         data-bs-target="#modal-import" title="Import Excel">
                     <span class="ri-file-excel-2-line me-2"></span>
@@ -153,16 +165,24 @@
                             <li class="list-group-item list-group-timeline-danger">Kolom: <span class="fw-bold">NIS, NAMA, GENDER, UNIT, KELAS, KELOMPOK, ANGKATAN, NO_WA, EMAIL_ORTU, KETERANGAN, NOMINAL, CICIL</span>.</li>
                             <li class="list-group-item list-group-timeline-danger">Kolom <span class="fw-bold">GENDER</span>: isi <span class="fw-bold">L</span> (Laki-Laki) atau <span class="fw-bold">P</span> (Perempuan).</li>
                             <li class="list-group-item list-group-timeline-danger">Kolom <span class="fw-bold">KETERANGAN</span> = nama tagihan (tidak boleh kosong).</li>
-                            <li class="list-group-item list-group-timeline-danger">Kolom <span class="fw-bold">CICIL</span>: isi <span class="fw-bold">1</span> = bisa dicicil, <span class="fw-bold">0</span> = tidak bisa dicicil. Default contoh: <span class="fw-bold">0</span>.</li>
+                            <li class="list-group-item list-group-timeline-danger">Kolom <span class="fw-bold">CICIL</span>: isi <span class="fw-bold">1</span> = Open/bisa dicicil, <span class="fw-bold">0</span> = Close/tidak dicicil.</li>
+                            <li class="list-group-item list-group-timeline-danger"><span class="fw-bold">Template SPP</span> = CICIL <span class="fw-bold">0</span> (Close). <span class="fw-bold">Template DU</span> = CICIL <span class="fw-bold">1</span> (Open/cicil).</li>
                             <li class="list-group-item list-group-timeline-danger">NIS sama boleh untuk beberapa baris tagihan (beda <span class="fw-bold">KETERANGAN / NOMINAL / CICIL</span>). Jika data siswa lain berbeda untuk NIS yang sama (mis. NAMA beda), pratinjau menampilkan pesan perbaiki data dan simpan ditolak.</li>
-                            <li class="list-group-item list-group-timeline-danger">Kolom <span class="fw-bold">ANGKATAN</span> default contoh: <span class="fw-bold">2026/2027</span>. Jika belum ada di master tahun akademik akan dibuat otomatis saat simpan.</li>
+                            <li class="list-group-item list-group-timeline-danger">Kolom <span class="fw-bold">ANGKATAN</span> default contoh: <span class="fw-bold">{{ date('Y') }}/{{ date('Y') + 1 }}</span>. Jika belum ada di master tahun akademik akan dibuat otomatis saat simpan.</li>
                             <li class="list-group-item list-group-timeline-danger">Satu upload mengisi data siswa (<span class="fw-bold">scctcust</span>) dan tagihan (<span class="fw-bold">scctbill</span>) sekaligus. Periode otomatis bulan berjalan.</li>
                             <li class="list-group-item list-group-timeline-danger">Hapus baris contoh (NIS <span class="fw-bold">99999999…</span>) sebelum import.</li>
-                            <li class="list-group-item list-group-timeline-danger">Contoh file:
-                                <a class="btn btn-sm btn-outline-primary fw-bolder"
-                                   href="{{asset('contoh_excel/TEMPLATE MENU UPLOAD TAGIHAN EXCEL SIDOARJO RAUDLATUL JANNAH.xlsx')}}?v=20261104-filename-school">
-                                    <i class="ri ri-file-excel-line me-2"></i>Contoh File
-                                </a>
+                            <li class="list-group-item list-group-timeline-danger">
+                                Download template:
+                                <div class="d-flex flex-wrap gap-2 mt-2">
+                                    <a class="btn btn-sm btn-success fw-bolder"
+                                       href="{{ route('admin.keuangan.tagihan-siswa.upload-tagihan-excel.download-template', ['jenis' => 'spp']) }}">
+                                        <i class="ri ri-file-excel-line me-1"></i>Template SPP (Cicil 0)
+                                    </a>
+                                    <a class="btn btn-sm btn-primary fw-bolder"
+                                       href="{{ route('admin.keuangan.tagihan-siswa.upload-tagihan-excel.download-template', ['jenis' => 'du']) }}">
+                                        <i class="ri ri-file-excel-line me-1"></i>Template DU (Cicil 1)
+                                    </a>
+                                </div>
                             </li>
                         </ul>
 
