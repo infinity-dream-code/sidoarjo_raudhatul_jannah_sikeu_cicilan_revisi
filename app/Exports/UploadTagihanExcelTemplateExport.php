@@ -28,7 +28,8 @@ class UploadTagihanExcelTemplateExport implements FromArray, WithEvents, WithTit
     public function array(): array
     {
         $isDu = $this->jenis === 'du';
-        $cicil = $isDu ? 1 : 0;
+        // String '0'/'1' agar tidak hilang saat export (integer 0 sering kosong di Excel).
+        $cicil = $isDu ? '1' : '0';
         $keterangan = $isDu ? 'DAFTAR ULANG' : 'SPP';
         $tahun = (int) date('Y');
         $angkatan = $tahun . '/' . ($tahun + 1);
@@ -93,6 +94,10 @@ class UploadTagihanExcelTemplateExport implements FromArray, WithEvents, WithTit
                 $sheet->setCellValueExplicit('A2', '999999991', DataType::TYPE_STRING);
                 $sheet->getStyle('H2')->getNumberFormat()->setFormatCode('@');
                 $sheet->setCellValueExplicit('H2', '081234567890', DataType::TYPE_STRING);
+                // Paksa CICIL tampil (0 sering hilang di Excel bila digolongkan kosong/falsy).
+                $cicilValue = $this->jenis === 'du' ? '1' : '0';
+                $sheet->getStyle('L2')->getNumberFormat()->setFormatCode('0');
+                $sheet->setCellValueExplicit('L2', $cicilValue, DataType::TYPE_STRING);
                 $sheet->getRowDimension(1)->setRowHeight(22);
             },
         ];
