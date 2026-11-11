@@ -324,14 +324,14 @@
                         </div>
                         <div class="col">
                             <button type="button" class="btn btn-facebook w-100 text-nowrap mb-3" id="cetak-kartu-siswa"
-                                    title="Cetak kartu invoice tagihan belum bayar">
+                                    title="Cetak kartu tagihan yang sudah lunas">
                                 <span class="ri-info-card-line me-2"></span>
-                                Cetak Kartu (Belum Bayar)
+                                Cetak Kartu (Lunas)
                             </button>
                             <button type="button" class="btn btn-facebook w-100 text-nowrap mb-3" id="cetak-kuitansi"
                                     title="Cetak kuitansi untuk tagihan yang sudah bayar">
                                 <span class="ri-info-card-line me-2"></span>
-                                Cetak Kuitansi (Sudah Bayar)
+                                Cetak Kuitansi
                             </button>
                             {{-- Cetak Kuitansi Dengan 2000 disembunyikan --}}
                             <button type="button" class="btn btn-google-plus w-100 text-nowrap download-pdf-new  mb-3"
@@ -904,6 +904,7 @@
                 }
             };
             const headerLogo = "{{ base64_encode(file_get_contents(public_path(config('app.logo')))) }}";
+            const muamalatLogo = @json(is_file(public_path('muamalat.png')) ? ('data:image/png;base64,' . base64_encode(file_get_contents(public_path('muamalat.png')))) : '');
             const tandaTangan = @json($tanda_tangan);
             const userName = "{{ Auth::user()->name }}";
             const domisili = "{{ config('app.domisili') }}";
@@ -937,13 +938,14 @@
                     const headerTable = {
                         alignment: 'center',
                         table: {
-                            widths: [60, '*'],
+                            widths: [70, '*', 70],
                             body: [[
                                 logo ? {
                                     image: logo,
-                                    width: 60,
-                                    alignment: 'center'
-                                } : '',
+                                    fit: [64, 64],
+                                    alignment: 'center',
+                                    margin: [0, 2, 0, 2]
+                                } : {text: '', width: 70},
                                 {
                                     stack: [
                                         instansi.nama_sub_1 ? {
@@ -962,8 +964,15 @@
                                             style: 'headerSmall'
                                         }
                                     ],
-                                    alignment: 'center'
-                                }
+                                    alignment: 'center',
+                                    margin: [4, 0, 4, 0]
+                                },
+                                muamalatLogo ? {
+                                    image: muamalatLogo,
+                                    fit: [72, 48],
+                                    alignment: 'center',
+                                    margin: [0, 8, 0, 2]
+                                } : {text: '', width: 70}
                             ]]
                         },
                         layout: 'noBorders'
@@ -1534,7 +1543,7 @@
                         throw createError("Data Tagihan Kosong", 422);
                     }
                     const data = await generateKartuSiswa(result);
-                    const pdf = await generatePdf('Kartu Tagihan Siswa', data, unit, 'data tagihan lunas - kartu belum bayar')
+                    const pdf = await generatePdf('Kartu Tagihan Siswa', data, unit, 'data tagihan lunas - kartu lunas')
                     // if (!result['tagihans'] || result['tagihans'].length === 0) {
                     //     console.log('kosong');
                     //     const error = new Error("Data Tagihan Kosong");
@@ -1628,12 +1637,12 @@
                     let totalTagihan = 0;
                     let totalBayar = 0;
                     let totalSisa = 0;
+                    // Tagihan Lunas: kartu hanya baris yang sudah lunas.
                     const sortedTagihans = [...(data.tagihans || [])]
                         .filter((item) => {
                             const jumlahTagihan = Number(item.BILLAM_TOTAL ?? item.BILLAM ?? 0);
                             const sisaTagihan = Number(item.PAYMENTLEFT ?? Math.max(0, jumlahTagihan - Number(item.BILLPAID ?? 0)));
-                            const lunas = Number(item.PAIDST) === 1 || sisaTagihan <= 0;
-                            return !lunas;
+                            return Number(item.PAIDST) === 1 || sisaTagihan <= 0;
                         })
                         .sort((a, b) => {
                             const urutA = Number(a?.FUrutan ?? 0);
@@ -1643,13 +1652,13 @@
                         });
 
                     if (!sortedTagihans.length) {
-                        throw createError('Tidak ada tagihan belum bayar untuk dicetak di kartu', 422);
+                        throw createError('Tidak ada tagihan lunas untuk dicetak di kartu', 422);
                     }
 
                     sortedTagihans.forEach((item, index) => {
                         const jumlahTagihan = Number(item.BILLAM_TOTAL ?? item.BILLAM ?? 0);
-                        const sisaTagihan = Number(item.PAYMENTLEFT ?? Math.max(0, jumlahTagihan - Number(item.BILLPAID ?? 0)));
-                        const jumlahBayar = Math.max(0, jumlahTagihan - sisaTagihan);
+                        const sisaTagihan = 0;
+                        const jumlahBayar = Number(item.BILLPAID ?? jumlahTagihan) || jumlahTagihan;
                         const periode = item.BILLAC || item.BTA || '-';
                         const expired = formatExpDate(item.ExpDate_raw || item.ExpDate);
 
@@ -1661,7 +1670,7 @@
                             {text: formatRupiah(jumlahBayar), alignment: 'right', border: [true, true, true, true]},
                             {text: formatRupiah(sisaTagihan), alignment: 'right', border: [true, true, true, true]},
                             {text: expired, alignment: 'center', border: [true, true, true, true]},
-                            {text: 'BELUM LUNAS', alignment: 'center', border: [true, true, true, true]}
+                            {text: 'LUNAS', alignment: 'center', border: [true, true, true, true]}
                         ]);
 
                         totalTagihan += jumlahTagihan;

@@ -7,17 +7,26 @@ use Carbon\Carbon;
 use Throwable;
 
 /**
- * Baris kartu tagihan siswa (invoice belum bayar): 1 baris per tagihan (scctbill.AA)
- * dengan jumlah, terbayar, sisa, tanggal expired, dan status — tanpa baris yang sudah lunas.
+ * Baris kartu tagihan siswa — filter status bergantung menu pemanggil:
+ * - unpaid: Data Tagihan (belum lunas saja)
+ * - paid: Tagihan Lunas (lunas saja)
+ * - all: Data Pembayaran / tagihan bayar (campur lunas + belum)
  */
 class KartuSiswaRows
 {
+    public const MODE_ALL = 'all';
+    public const MODE_UNPAID = 'unpaid';
+    public const MODE_PAID = 'paid';
+
     /**
      * @param  array<int, array<string, mixed>>  $tagihans
+     * @param  self::MODE_*|string  $mode
      * @return array<int, array{bta: string, periode: string, nama: string, total: int, terbayar: int, sisa: int, expdate: string, lunas: bool}>
      */
-    public static function build(array $tagihans): array
+    public static function build(array $tagihans, string $mode = self::MODE_ALL): array
     {
+        $mode = self::normalizeMode($mode);
+
         $billIds = [];
         foreach ($tagihans as $row) {
             $aa = $row['AA'] ?? null;
@@ -76,8 +85,7 @@ class KartuSiswaRows
                 );
             }
 
-            // Kartu = invoice belum bayar saja (bukan kuitansi).
-            if ($built['lunas'] || $built['sisa'] <= 0) {
+            if (!self::matchesMode($built, $mode)) {
                 continue;
             }
 
@@ -85,6 +93,31 @@ class KartuSiswaRows
         }
 
         return $rows;
+    }
+
+    public static function normalizeMode(string $mode): string
+    {
+        $mode = strtolower(trim($mode));
+
+        return match ($mode) {
+            self::MODE_UNPAID, 'belum', 'belum_lunas', 'unpaid_only' => self::MODE_UNPAID,
+            self::MODE_PAID, 'lunas', 'sudah', 'sudah_bayar', 'paid_only' => self::MODE_PAID,
+            default => self::MODE_ALL,
+        };
+    }
+
+    /**
+     * @param  array{lunas: bool, sisa: int}  $built
+     */
+    private static function matchesMode(array $built, string $mode): bool
+    {
+        $lunas = !empty($built['lunas']) || (int) ($built['sisa'] ?? 0) <= 0;
+
+        return match ($mode) {
+            self::MODE_UNPAID => !$lunas,
+            self::MODE_PAID => $lunas,
+            default => true,
+        };
     }
 
     /**
@@ -124,7 +157,6 @@ class KartuSiswaRows
             return '-';
         }
 
-        // Sudah display d-m-Y dari API.
         if (is_string($value) && preg_match('/^\d{2}-\d{2}-\d{4}/', $value)) {
             return substr($value, 0, 10);
         }

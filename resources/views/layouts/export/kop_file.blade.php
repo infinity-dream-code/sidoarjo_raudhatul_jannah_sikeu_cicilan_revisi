@@ -106,16 +106,28 @@
 </head>
 <body>
 
+@php
+    $logoPath = public_path(config('app.logo'));
+    $logoExt = strtolower(pathinfo($logoPath, PATHINFO_EXTENSION));
+    $logoMime = match ($logoExt) {
+        'png' => 'image/png',
+        'gif' => 'image/gif',
+        'webp' => 'image/webp',
+        'svg' => 'image/svg+xml',
+        default => 'image/jpeg',
+    };
+    $muamalatPath = public_path('muamalat.png');
+    $hasMuamalat = is_file($muamalatPath);
+@endphp
 <table width="100%" class="">
-    <tr class="">
-        <td style="text-align: center; vertical-align: middle;">
-            @php
-                $logoPath = public_path(config('app.logo'));
-                $logoMime = 'image/jpeg';
-            @endphp
-            <img src="data:{{ $logoMime }};base64,{{ base64_encode(file_get_contents($logoPath)) }}" style="max-height: 5rem; display: block; margin: auto;" alt="logo"/>
+    <tr>
+        <td width="18%" style="text-align: center; vertical-align: middle;">
+            @if(is_file($logoPath))
+                <img src="data:{{ $logoMime }};base64,{{ base64_encode(file_get_contents($logoPath)) }}"
+                     style="max-height: 4.75rem; max-width: 4.75rem; display: block; margin: 0 auto;" alt="logo sekolah"/>
+            @endif
         </td>
-        <td>
+        <td width="64%" style="vertical-align: middle;">
             <table style="width: 100%;">
                 <tr>
                     <td align="center">
@@ -167,6 +179,12 @@
                     </tr>
                 @endif
             </table>
+        </td>
+        <td width="18%" style="text-align: center; vertical-align: middle;">
+            @if($hasMuamalat)
+                <img src="data:image/png;base64,{{ base64_encode(file_get_contents($muamalatPath)) }}"
+                     style="max-height: 4.25rem; max-width: 5.5rem; display: block; margin: 0 auto;" alt="Bank Muamalat"/>
+            @endif
         </td>
     </tr>
 </table>

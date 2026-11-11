@@ -2,11 +2,21 @@
 @php use Carbon\Carbon; @endphp
 @section('title', $pdfTitle ?? ('Kartu Tagihan Siswa - ' . ($siswa->NMCUST ?? '')))
 @section('content')
+    @php
+        $kartuMode = \App\Support\KartuSiswaRows::normalizeMode($kartuMode ?? 'all');
+        $modeLabel = match ($kartuMode) {
+            'unpaid' => '(Belum Bayar)',
+            'paid' => '(Sudah Bayar / Lunas)',
+            default => '',
+        };
+    @endphp
     <table width="100%">
         <tr>
             <td colspan="2" align="center">
                 <h4>KARTU TAGIHAN SISWA</h4>
-                <div style="font-size:12px;color:#666;">(Belum Bayar)</div>
+                @if($modeLabel !== '')
+                    <div style="font-size:12px;color:#666;">{{ $modeLabel }}</div>
+                @endif
             </td>
         </tr>
     </table>
@@ -55,7 +65,7 @@
         </thead>
         <tbody>
         @php
-            $kartuRows = \App\Support\KartuSiswaRows::build($tagihans);
+            $kartuRows = \App\Support\KartuSiswaRows::build($tagihans, $kartuMode);
             $sumTotal = array_sum(array_column($kartuRows, 'total'));
             $sumPaid = array_sum(array_column($kartuRows, 'terbayar'));
             $sumSisa = array_sum(array_column($kartuRows, 'sisa'));
@@ -69,11 +79,25 @@
                 <td align="right">@rupiah($row['terbayar'])</td>
                 <td align="right">@rupiah($row['sisa'])</td>
                 <td align="center">{{$row['expdate']}}</td>
-                <td align="center"><span style="color:red;">BELUM LUNAS</span></td>
+                <td align="center">
+                    @if($row['lunas'])
+                        <span style="color:green;">LUNAS</span>
+                    @else
+                        <span style="color:red;">BELUM LUNAS</span>
+                    @endif
+                </td>
             </tr>
         @empty
             <tr>
-                <td colspan="8" align="center">Tidak ada tagihan belum bayar</td>
+                <td colspan="8" align="center">
+                    @if($kartuMode === 'unpaid')
+                        Tidak ada tagihan belum bayar
+                    @elseif($kartuMode === 'paid')
+                        Tidak ada tagihan lunas
+                    @else
+                        Tidak ada data tagihan
+                    @endif
+                </td>
             </tr>
         @endforelse
         </tbody>

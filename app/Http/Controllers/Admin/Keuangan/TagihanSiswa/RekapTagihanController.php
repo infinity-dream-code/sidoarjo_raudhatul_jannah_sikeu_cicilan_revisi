@@ -608,10 +608,12 @@ class RekapTagihanController extends Controller
             $nova = ($siswa->NOCUST && $siswa->NOCUST != '-')
                 ? scctcust::showVA($siswa->NOCUST)
                 : null;
+            // Rekap tagihan (tagihan bayar): kartu boleh campur lunas + belum.
             $pdf = Pdf::loadView('cetak.kartu-siswa', [
                 'tagihans' => $tagihans,
                 'siswa' => $siswa,
                 'nova' => $nova,
+                'kartuMode' => 'all',
             ]);
             return $pdf->download('kartu-siswa.pdf');
         } catch (\Throwable $e) {
