@@ -649,7 +649,7 @@
                 data['tagihans'] = selectedRows;
 
                 const generatedBody = await generatePDFTagihan(data);
-                const pdf = await generatePdf('Tagihan Siswa', generatedBody, selectedSiswa.CODE02 || false, 'pratinjau teller - ' + resolveSiswaNis(selectedSiswa));
+                const pdf = await generatePdf('KARTU SISWA', generatedBody, selectedSiswa.CODE02 || false, 'pratinjau teller - kartu siswa - ' + resolveSiswaNis(selectedSiswa));
 
                 if (pdf) { successAlert('Sukses, Rekap telah dicetak'); } else { Swal.close(); }
             }
@@ -863,7 +863,7 @@
                         }).replace(/^([^,]+),\s+/, '$1 ');
                     const availableWidth = getContentWidth('A4', orientation, pageMargins);
                     const titleUpper = String(title || '').toUpperCase();
-                    const compactHeader = ['KUITANSI', 'TAGIHAN SISWA'].includes(titleUpper);
+                    const compactHeader = ['KUITANSI', 'DATA TAGIHAN SISWA', 'KARTU BAYAR', 'KARTU SISWA', 'TAGIHAN SISWA'].includes(titleUpper);
                     const skipFooter = titleUpper === 'KUITANSI';
 
                     const centerCell = compactHeader
@@ -1060,11 +1060,16 @@
                         columns: [
                             {
                                 width: '*',
-                                table: {
-                                    widths: ['*'],
-                                    body: [[{ text: terbilangRupiah(totalBayar), italics: true, bold: true, margin: [8, 6, 8, 6] }]]
-                                },
-                                layout: { hLineWidth: function () { return 1; }, vLineWidth: function () { return 1; } }
+                                stack: [
+                                    { text: 'Terbilang :', margin: [0, 0, 0, 4] },
+                                    {
+                                        table: {
+                                            widths: ['*'],
+                                            body: [[{ text: terbilangRupiah(totalBayar), italics: true, bold: true, margin: [8, 6, 8, 6] }]]
+                                        },
+                                        layout: { hLineWidth: function () { return 1; }, vLineWidth: function () { return 1; } }
+                                    }
+                                ]
                             },
                             {
                                 width: 140,

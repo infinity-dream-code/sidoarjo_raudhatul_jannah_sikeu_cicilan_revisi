@@ -1,8 +1,15 @@
 @extends('layouts.export.kop_file')
 @php
     use Carbon\Carbon;
-    $documentTitle = 'TAGIHAN SISWA';
     $kartuMode = \App\Support\KartuSiswaRows::normalizeMode($kartuMode ?? 'all');
+    // unpaid = Data Tagihan, paid = Data Tagihan Lunas, all = campur (Data Pembayaran/rekap)
+    $documentTitle = trim((string) ($documentTitle ?? '')) !== ''
+        ? $documentTitle
+        : match ($kartuMode) {
+            'unpaid' => 'DATA TAGIHAN SISWA',
+            'paid' => 'KARTU BAYAR',
+            default => 'KARTU SISWA',
+        };
     $kartuRows = \App\Support\KartuSiswaRows::build($tagihans ?? [], $kartuMode);
     $sumTotal = array_sum(array_column($kartuRows, 'total'));
     $sumPaid = array_sum(array_column($kartuRows, 'terbayar'));

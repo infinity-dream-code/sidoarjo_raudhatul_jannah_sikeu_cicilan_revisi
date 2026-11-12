@@ -91,6 +91,7 @@
     <table width="100%" class="main-table" style="margin-top:18px;">
         <tr>
             <td style="vertical-align:top;width:65%;">
+                <div style="margin-bottom:4px;">Terbilang :</div>
                 <div class="terbilang-box">{{ $terbilang }}</div>
             </td>
             <td align="center" style="vertical-align:top;">

@@ -324,9 +324,9 @@
                         </div>
                         <div class="col">
                             <button type="button" class="btn btn-facebook w-100 text-nowrap mb-3" id="cetak-kartu-siswa"
-                                    title="Cetak kartu tagihan yang sudah lunas">
+                                    title="Cetak Kartu Bayar (tagihan lunas)">
                                 <span class="ri-info-card-line me-2"></span>
-                                Cetak Kartu (Lunas)
+                                Cetak Kartu Bayar
                             </button>
                             <button type="button" class="btn btn-facebook w-100 text-nowrap mb-3" id="cetak-kuitansi"
                                     title="Cetak kuitansi untuk tagihan yang sudah bayar">
@@ -960,7 +960,7 @@
                         }).replace(/^([^,]+),\s+/, '$1 ');
                     const availableWidth = getContentWidth('A4', orientation, pageMargins);
                     const titleUpper = String(title || '').toUpperCase();
-                    const compactHeader = ['KUITANSI', 'TAGIHAN SISWA'].includes(titleUpper);
+                    const compactHeader = ['KUITANSI', 'DATA TAGIHAN SISWA', 'KARTU BAYAR', 'KARTU SISWA', 'TAGIHAN SISWA'].includes(titleUpper);
                     const skipFooter = titleUpper === 'KUITANSI';
 
                     const centerCell = compactHeader
@@ -1434,19 +1434,24 @@
                     columns: [
                         {
                             width: '*',
-                            table: {
-                                widths: ['*'],
-                                body: [[{
-                                    text: terbilangRupiah(totalBayar),
-                                    italics: true,
-                                    bold: true,
-                                    margin: [8, 6, 8, 6],
-                                }]]
-                            },
-                            layout: {
-                                hLineWidth: () => 1,
-                                vLineWidth: () => 1,
-                            }
+                            stack: [
+                                {text: 'Terbilang :', margin: [0, 0, 0, 4]},
+                                {
+                                    table: {
+                                        widths: ['*'],
+                                        body: [[{
+                                            text: terbilangRupiah(totalBayar),
+                                            italics: true,
+                                            bold: true,
+                                            margin: [8, 6, 8, 6],
+                                        }]]
+                                    },
+                                    layout: {
+                                        hLineWidth: () => 1,
+                                        vLineWidth: () => 1,
+                                    }
+                                }
+                            ]
                         },
                         {
                             width: 140,
@@ -1470,7 +1475,7 @@
 
             document.getElementById('cetak-kartu-siswa').addEventListener('click', async function (e) {
                 e.preventDefault();
-                loadingAlert('Membuat Kartu Siswa');
+                loadingAlert('Membuat Kartu Bayar');
                 let url = '{{route('admin.keuangan.penerimaan-siswa.data-penerimaan.cetak-kartu-siswa')}}';
                 const form = new FormData(document.getElementById('filter-form'));
                 const params = new URLSearchParams();
@@ -1507,7 +1512,7 @@
                         throw createError("Data Tagihan Kosong", 422);
                     }
                     const data = await generateKartuSiswa(result);
-                    const pdf = await generatePdf('TAGIHAN SISWA', data, unit, 'data tagihan lunas - kartu lunas')
+                    const pdf = await generatePdf('KARTU BAYAR', data, unit, 'data tagihan lunas - kartu bayar')
                     // if (!result['tagihans'] || result['tagihans'].length === 0) {
                     //     console.log('kosong');
                     //     const error = new Error("Data Tagihan Kosong");

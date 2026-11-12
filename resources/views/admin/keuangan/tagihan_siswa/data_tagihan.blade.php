@@ -306,9 +306,9 @@
                                 </div>
                                 <div class="filter-actions__group">
                                     <button type="button" class="btn btn-sm btn-facebook" id="cetak-kartu-siswa"
-                                            title="Cetak kartu invoice tagihan belum bayar">
+                                            title="Cetak Data Tagihan Siswa (belum lunas)">
                                         <span class="ri-info-card-line me-1"></span>
-                                        Cetak Kartu (Belum Bayar)
+                                        Cetak Data Tagihan Siswa
                                     </button>
                                     <button type="button" class="btn btn-sm btn-google-plus btn-print-rekap">
                                         <span class="ri-file-pdf-2-line me-1"></span>
@@ -1661,7 +1661,7 @@
                     const pageMargins = [24, 24, 24, 24];
                     const availableWidth = getContentWidth('A4', orientation, pageMargins);
                     const titleUpper = String(title || '').toUpperCase();
-                    const compactHeader = ['KUITANSI', 'TAGIHAN SISWA'].includes(titleUpper);
+                    const compactHeader = ['KUITANSI', 'DATA TAGIHAN SISWA', 'KARTU BAYAR', 'KARTU SISWA', 'TAGIHAN SISWA'].includes(titleUpper);
 
                     const centerCell = compactHeader
                         ? {text: titleUpper, fontSize: 18, bold: true, alignment: 'center', margin: [0, 18, 0, 18]}
@@ -1751,7 +1751,7 @@
 
             document.getElementById('cetak-kartu-siswa').addEventListener('click', async function (e) {
                 e.preventDefault();
-                loadingAlert('Membuat Kartu Siswa');
+                loadingAlert('Membuat Data Tagihan Siswa');
                 let url = '{{route('admin.keuangan.tagihan-siswa.data-tagihan.cetak-kartu-siswa')}}';
                 const form = new FormData(document.getElementById('filter-form'));
                 const params = new URLSearchParams();
@@ -1788,7 +1788,7 @@
                         throw createError("Data Tagihan Kosong", 422);
                     }
                     const data = await generateKartuSiswa(result);
-                    const pdf = await generatePdf('TAGIHAN SISWA', data, unit, 'Cetak Kartu Siswa - Data Tagihan')
+                    const pdf = await generatePdf('DATA TAGIHAN SISWA', data, unit, 'data tagihan - data tagihan siswa')
                     // if (!result['tagihans'] || result['tagihans'].length === 0) {
                     //     console.log('kosong');
                     //     const error = new Error("Data Tagihan Kosong");

@@ -8,9 +8,9 @@ use Throwable;
 
 /**
  * Baris kartu tagihan siswa — filter status bergantung menu pemanggil:
- * - unpaid: Data Tagihan (belum lunas saja)
- * - paid: Tagihan Lunas (lunas saja)
- * - all: Data Pembayaran / tagihan bayar (campur lunas + belum)
+ * - unpaid: Data Tagihan → judul "DATA TAGIHAN SISWA" (belum lunas saja)
+ * - paid: Data Tagihan Lunas → judul "KARTU BAYAR" (lunas saja)
+ * - all: Data Pembayaran / rekap → judul "KARTU SISWA" (campur lunas + belum)
  */
 class KartuSiswaRows
 {
