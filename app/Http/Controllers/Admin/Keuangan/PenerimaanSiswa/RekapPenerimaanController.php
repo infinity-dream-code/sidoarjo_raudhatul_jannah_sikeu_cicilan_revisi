@@ -273,7 +273,7 @@ class RekapPenerimaanController extends Controller
             $nisForVa = $siswa->rawNis();
             $nova = $nisForVa !== '' ? scctcust::showVA($nisForVa) : '';
 
-            // Data Pembayaran / tagihan bayar: kartu boleh campur lunas + belum.
+            // Data Pembayaran: Kartu Siswa (campur lunas + belum).
             $pdf = Pdf::loadView('cetak.kartu-siswa', [
                 'tagihans' => $tagihans,
                 'siswa' => $siswa,
@@ -282,7 +282,7 @@ class RekapPenerimaanController extends Controller
                 'pdfTitle' => 'data pembayaran - kartu siswa',
             ]);
 
-            return $pdf->stream('data pembayaran - kartu siswa.pdf');
+            return $pdf->stream('kartu-siswa.pdf');
         } catch (\Throwable $e) {
             return response()->json(['message' => 'Tagihan Tidak Ditemukan', 'error' => $e], 422);
         }
