@@ -1303,15 +1303,29 @@
                 return tanggal;
             }
 
+            function paidDateKey(item) {
+                const raw = resolvePaidDate(item);
+                if (!raw) return '';
+                const s = String(raw).trim();
+                const dmy = s.match(/^(\d{2})-(\d{2})-(\d{4})/);
+                if (dmy) return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
+                const ymd = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                if (ymd) return `${ymd[1]}-${ymd[2]}-${ymd[3]}`;
+                const dt = new Date(s);
+                if (Number.isNaN(dt.getTime())) return s.slice(0, 10);
+                const dd = String(dt.getDate()).padStart(2, '0');
+                const mm = String(dt.getMonth() + 1).padStart(2, '0');
+                return `${dt.getFullYear()}-${mm}-${dd}`;
+            }
+
             async function generateKuitansiAsync(biayaLayanan = false) {
                 const selected = DT[`${dtOptions.tableId}`].rows({selected: true}).data().toArray();
                 if (!selected.length) {
-                    warningAlert('Silahkan pilih data pembayaran terlebih dahulu!');
+                    warningAlert('Silahkan pilih satu siswa saja & di tanggal yang sama untuk cetak kuitansi');
                     return;
                 }
 
                 // Menu Data Tagihan Lunas sudah exclude reversal di query server.
-                // Cek di sini hanya nominal valid — bukan "belum reversal".
                 let data = selected.filter((item) => {
                     const rev = item.isreversal ?? item.ISREVERSAL;
                     if (rev === 1 || rev === '1' || rev === true) return false;
@@ -1323,10 +1337,10 @@
                     return;
                 }
 
-                const firstCust = String(data[0]?.CUSTID ?? data[0]?.custid ?? '');
-                const allSame = firstCust !== '' && data.every((row) => String(row.CUSTID ?? row.custid ?? '') === firstCust);
-                if (!allSame) {
-                    warningAlert('Silahkan pilih data siswa yang sama!');
+                const uniqueCust = [...new Set(data.map((row) => String(row.CUSTID ?? row.custid ?? '')).filter(Boolean))];
+                const uniqueDates = [...new Set(data.map((row) => paidDateKey(row)).filter(Boolean))];
+                if (uniqueCust.length !== 1 || uniqueDates.length !== 1) {
+                    warningAlert('Silahkan pilih satu siswa saja & di tanggal yang sama untuk cetak kuitansi');
                     return;
                 }
 
@@ -1576,19 +1590,6 @@
 
             async function generateKartuSiswa(data) {
                 try {
-                    const formatExpLong = (val) => {
-                        if (!val) return '-';
-                        const s = String(val).trim();
-                        const dmy = s.match(/^(\d{2})-(\d{2})-(\d{4})/);
-                        let dt = null;
-                        if (dmy) dt = new Date(+dmy[3], +dmy[2] - 1, +dmy[1]);
-                        else {
-                            dt = new Date(s);
-                            if (Number.isNaN(dt.getTime())) return s;
-                        }
-                        return dt.toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'});
-                    };
-
                     const siswa = data.siswa;
                     const nocust = siswa.NOCUST && siswa.NOCUST !== '-' ? siswa.NOCUST : false;
                     const nisForVa = nocust || (siswa.NUM2ND && siswa.NUM2ND !== '-' ? siswa.NUM2ND : '');
@@ -1612,13 +1613,18 @@
                         throw createError('Tidak ada tagihan lunas untuk dicetak di kartu', 422);
                     }
 
-                    const formatExpShort = (val) => {
-                        if (!val) return '-';
+                    const formatDateShort = (val) => {
+                        if (!val || val === '0000-00-00' || val === '0000-00-00 00:00:00') return '-';
                         const s = String(val).trim();
                         const dmy = s.match(/^(\d{2})-(\d{2})-(\d{4})/);
                         if (dmy) return `${dmy[1]}-${dmy[2]}-${dmy[3]}`;
-                        const long = formatExpLong(val);
-                        return long || '-';
+                        const ymd = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                        if (ymd) return `${ymd[3]}-${ymd[2]}-${ymd[1]}`;
+                        const dt = new Date(s);
+                        if (Number.isNaN(dt.getTime())) return '-';
+                        const dd = String(dt.getDate()).padStart(2, '0');
+                        const mm = String(dt.getMonth() + 1).padStart(2, '0');
+                        return `${dd}-${mm}-${dt.getFullYear()}`;
                     };
 
                     const infoRows = [
@@ -1642,25 +1648,11 @@
                         ],
                     ];
 
-                    const formatPaidShort = (val) => {
-                        if (!val || val === '0000-00-00 00:00:00') return '-';
-                        const s = String(val).trim();
-                        const dmy = s.match(/^(\d{2})-(\d{2})-(\d{4})/);
-                        if (dmy) return `${dmy[1]}-${dmy[2]}-${dmy[3]}`;
-                        const ymd = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-                        if (ymd) return `${ymd[3]}-${ymd[2]}-${ymd[1]}`;
-                        const dt = new Date(s);
-                        if (Number.isNaN(dt.getTime())) return '-';
-                        const dd = String(dt.getDate()).padStart(2, '0');
-                        const mm = String(dt.getMonth() + 1).padStart(2, '0');
-                        return `${dd}-${mm}-${dt.getFullYear()}`;
-                    };
-
                     const tableBody = [
                         [
                             {text: 'No.', style: 'tableHeader', alignment: 'center'},
                             {text: 'Nama Tagihan', style: 'tableHeader'},
-                            {text: 'Jatuh Tempo', style: 'tableHeader', alignment: 'center'},
+                            {text: 'Tgl Expired', style: 'tableHeader', alignment: 'center'},
                             {text: 'Tanggal Bayar', style: 'tableHeader', alignment: 'center'},
                             {text: 'Nominal', style: 'tableHeader', alignment: 'right'},
                         ],
@@ -1676,8 +1668,8 @@
                         tableBody.push([
                             {text: String(index + 1), alignment: 'center'},
                             {text: item.BILLNM || '-', alignment: 'left'},
-                            {text: formatExpShort(item.ExpDate_raw || item.ExpDate), alignment: 'center'},
-                            {text: formatPaidShort(item.PAIDDT || item.paiddt), alignment: 'center'},
+                            {text: formatDateShort(item.ExpDate || item.ExpDate_raw || item.expdate), alignment: 'center'},
+                            {text: formatDateShort(item.PAIDDT || item.paiddt), alignment: 'center'},
                             {text: formatRupiah(jumlahTagihan), alignment: 'right'},
                         ]);
                     });

@@ -16,7 +16,9 @@
     $sumSisa = array_sum(array_column($kartuRows, 'sisa'));
     $isKartuSiswa = $kartuMode === 'all';
     $isKartuLunas = $kartuMode === 'paid';
-    $colCount = $isKartuSiswa ? 5 : ($isKartuLunas ? 5 : 4);
+    $isDataTagihan = $kartuMode === 'unpaid';
+    $showStatus = $isKartuSiswa || $isDataTagihan;
+    $colCount = ($isKartuSiswa || $isKartuLunas || $isDataTagihan) ? 5 : 4;
 
     $nisForVa = (!empty($siswa->NOCUST) && $siswa->NOCUST !== '-' && is_numeric($siswa->NOCUST))
         ? $siswa->NOCUST
@@ -59,10 +61,10 @@
         <tr>
             <th style="width:7%;">No.</th>
             <th>Nama Tagihan</th>
-            @if($isKartuSiswa)
+            @if($showStatus)
                 <th style="width:14%;">Status</th>
             @endif
-            <th style="width:16%;">Jatuh Tempo</th>
+            <th style="width:16%;">Tgl Expired</th>
             @if($isKartuLunas)
                 <th style="width:16%;">Tanggal Bayar</th>
             @endif
@@ -74,7 +76,7 @@
             <tr>
                 <td align="center">{{ $loop->iteration }}</td>
                 <td>{{ $row['nama'] }}</td>
-                @if($isKartuSiswa)
+                @if($showStatus)
                     <td align="center">{{ !empty($row['lunas']) ? 'Lunas' : 'Belum Lunas' }}</td>
                 @endif
                 <td align="center">{{ ($row['expdate'] ?? '-') !== '-' ? $row['expdate'] : '-' }}</td>

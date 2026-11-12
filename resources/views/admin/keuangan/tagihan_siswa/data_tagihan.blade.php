@@ -1866,19 +1866,6 @@
 
             async function generateKartuSiswa(data) {
                 try {
-                    const formatExpLong = (val) => {
-                        if (!val) return '-';
-                        const s = String(val).trim();
-                        const dmy = s.match(/^(\d{2})-(\d{2})-(\d{4})/);
-                        let dt = null;
-                        if (dmy) dt = new Date(+dmy[3], +dmy[2] - 1, +dmy[1]);
-                        else {
-                            dt = new Date(s);
-                            if (Number.isNaN(dt.getTime())) return s;
-                        }
-                        return dt.toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'});
-                    };
-
                     const siswa = data.siswa;
                     const nocust = siswa.NOCUST && siswa.NOCUST !== '-' ? siswa.NOCUST : false;
                     const nisForVa = nocust || (siswa.NUM2ND && siswa.NUM2ND !== '-' ? siswa.NUM2ND : '');
@@ -1903,13 +1890,18 @@
                         throw createError('Tidak ada tagihan belum bayar untuk dicetak di kartu', 422);
                     }
 
-                    const formatExpShort = (val) => {
-                        if (!val) return '-';
+                    const formatDateShort = (val) => {
+                        if (!val || val === '0000-00-00' || val === '0000-00-00 00:00:00') return '-';
                         const s = String(val).trim();
                         const dmy = s.match(/^(\d{2})-(\d{2})-(\d{4})/);
                         if (dmy) return `${dmy[1]}-${dmy[2]}-${dmy[3]}`;
-                        const long = formatExpLong(val);
-                        return long || '-';
+                        const ymd = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                        if (ymd) return `${ymd[3]}-${ymd[2]}-${ymd[1]}`;
+                        const dt = new Date(s);
+                        if (Number.isNaN(dt.getTime())) return '-';
+                        const dd = String(dt.getDate()).padStart(2, '0');
+                        const mm = String(dt.getMonth() + 1).padStart(2, '0');
+                        return `${dd}-${mm}-${dt.getFullYear()}`;
                     };
 
                     const infoRows = [
@@ -1937,7 +1929,8 @@
                         [
                             {text: 'No.', style: 'tableHeader', alignment: 'center'},
                             {text: 'Nama Tagihan', style: 'tableHeader'},
-                            {text: 'Jatuh Tempo', style: 'tableHeader', alignment: 'center'},
+                            {text: 'Status', style: 'tableHeader', alignment: 'center'},
+                            {text: 'Tgl Expired', style: 'tableHeader', alignment: 'center'},
                             {text: 'Nominal', style: 'tableHeader', alignment: 'right'},
                         ],
                     ];
@@ -1948,13 +1941,15 @@
                         const jumlahTagihan = Number(item.BILLAM_TOTAL ?? item.BILLAM ?? 0);
                         const sisaTagihan = Number(item.PAYMENTLEFT ?? item.BILLAM ?? Math.max(0, jumlahTagihan - Number(item.BILLPAID ?? 0)));
                         const jumlahBayar = Math.max(0, jumlahTagihan - sisaTagihan);
+                        const lunas = Number(item.PAIDST) === 1 || sisaTagihan <= 0;
                         totalTagihan += jumlahTagihan;
                         totalBayar += jumlahBayar;
                         totalSisa += sisaTagihan;
                         tableBody.push([
                             {text: String(index + 1), alignment: 'center'},
                             {text: item.BILLNM || '-', alignment: 'left'},
-                            {text: formatExpShort(item.ExpDate_raw || item.ExpDate), alignment: 'center'},
+                            {text: lunas ? 'Lunas' : 'Belum Lunas', alignment: 'center'},
+                            {text: formatDateShort(item.ExpDate || item.ExpDate_raw || item.expdate), alignment: 'center'},
                             {text: formatRupiah(jumlahTagihan), alignment: 'right'},
                         ]);
                     });
@@ -1963,19 +1958,22 @@
                     // Total menyatu di dalam tabel (sesuai contoh mockup).
                     tableBody.push(
                         [
-                            {text: 'Total Tagihan', colSpan: 3, alignment: 'right', bold: true},
+                            {text: 'Total Tagihan', colSpan: 4, alignment: 'right', bold: true},
+                            {},
                             {},
                             {},
                             {text: formatRupiah(totalTagihan), alignment: 'right', bold: true},
                         ],
                         [
-                            {text: 'Tagihan Terbayar', colSpan: 3, alignment: 'right', bold: true},
+                            {text: 'Tagihan Terbayar', colSpan: 4, alignment: 'right', bold: true},
+                            {},
                             {},
                             {},
                             {text: fmtPaid(totalBayar), alignment: 'right', bold: true},
                         ],
                         [
-                            {text: 'Sisa Tagihan', colSpan: 3, alignment: 'right', bold: true},
+                            {text: 'Sisa Tagihan', colSpan: 4, alignment: 'right', bold: true},
+                            {},
                             {},
                             {},
                             {text: formatRupiah(totalSisa), alignment: 'right', bold: true},
@@ -1990,14 +1988,14 @@
                             fontSize: 10,
                         },
                         {
-                            table: {widths: ['8%', '*', '18%', '24%'], body: tableBody},
+                            table: {widths: ['7%', '*', '16%', '16%', '20%'], body: tableBody},
                             layout: {
                                 fillColor: (i) => i === 0 ? '#ededed' : null,
                                 hLineWidth: () => 0.7,
                                 vLineWidth: () => 0.7,
                             },
                             margin: [0, 0, 0, 0],
-                            fontSize: 11,
+                            fontSize: 10,
                         },
                     ];
                 } catch (e) {
