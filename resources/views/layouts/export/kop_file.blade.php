@@ -69,20 +69,20 @@
         }
 
         .line.bold {
-            height: 4px; /* Bolder line */
+            height: 4px;
             margin-bottom: 2px;
         }
 
         .line.thin {
-            height: 1px; /* Thinner line */
+            height: 1px;
             background: gray;
         }
 
         .breakable {
             display: inline-block;
-            max-width: 70ch; /* Limit to 20 characters */
-            overflow-wrap: break-word; /* Break long words */
-            word-break: break-word; /* Ensure text wraps nicely */
+            max-width: 70ch;
+            overflow-wrap: break-word;
+            word-break: break-word;
             white-space: normal;
         }
 
@@ -101,6 +101,26 @@
         .text-end {
             text-align: right !important;
         }
+
+        .doc-title {
+            font-size: 20pt;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+
+        .info-label {
+            width: 140px;
+            color: #333;
+        }
+
+        .terbilang-box {
+            border: 1px solid #222;
+            padding: 8px 12px;
+            font-style: italic;
+            font-weight: 700;
+            display: inline-block;
+            min-width: 55%;
+        }
     </style>
     @yield('style')
 </head>
@@ -118,81 +138,79 @@
     };
     $muamalatPath = public_path('muamalat.png');
     $hasMuamalat = is_file($muamalatPath);
+    $documentTitle = trim((string) ($documentTitle ?? ''));
 @endphp
-<table width="100%" class="">
-    <tr>
-        <td width="18%" style="text-align: center; vertical-align: middle;">
-            @if(is_file($logoPath))
-                <img src="data:{{ $logoMime }};base64,{{ base64_encode(file_get_contents($logoPath)) }}"
-                     style="max-height: 4.75rem; max-width: 4.75rem; display: block; margin: 0 auto;" alt="logo sekolah"/>
-            @endif
-        </td>
-        <td width="64%" style="vertical-align: middle;">
-            <table style="width: 100%;">
-                <tr>
-                    <td align="center">
-                        @if(config('app.nama_sub_instansi_1'))<h3>{{config('app.nama_sub_instansi_1')}}</h3>@endif
-                        @if(config('app.nama_sub_instansi_2'))<h3>{{config('app.nama_sub_instansi_2')}}</h3>@endif
-                        <h2>{{config('app.nama_instansi')}}</h2>
-                    </td>
-                </tr>
-                @if(config('app.akreditasi'))
+
+@if($documentTitle !== '')
+    {{-- Header ringkas: Logo RJ | JUDUL | Logo Muamalat --}}
+    <table width="100%">
+        <tr>
+            <td width="18%" style="text-align:center;vertical-align:middle;">
+                @if(is_file($logoPath))
+                    <img src="data:{{ $logoMime }};base64,{{ base64_encode(file_get_contents($logoPath)) }}"
+                         style="max-height:4.5rem;max-width:4.5rem;display:block;margin:0 auto;" alt="logo sekolah"/>
+                @endif
+            </td>
+            <td width="64%" style="text-align:center;vertical-align:middle;">
+                <div class="doc-title">{{ strtoupper($documentTitle) }}</div>
+            </td>
+            <td width="18%" style="text-align:center;vertical-align:middle;">
+                @if($hasMuamalat)
+                    <img src="data:image/png;base64,{{ base64_encode(file_get_contents($muamalatPath)) }}"
+                         style="max-height:3.8rem;max-width:5.5rem;display:block;margin:0 auto;" alt="Bank Muamalat"/>
+                @endif
+            </td>
+        </tr>
+    </table>
+@else
+    <table width="100%" class="">
+        <tr>
+            <td width="18%" style="text-align: center; vertical-align: middle;">
+                @if(is_file($logoPath))
+                    <img src="data:{{ $logoMime }};base64,{{ base64_encode(file_get_contents($logoPath)) }}"
+                         style="max-height: 4.75rem; max-width: 4.75rem; display: block; margin: 0 auto;" alt="logo sekolah"/>
+                @endif
+            </td>
+            <td width="64%" style="vertical-align: middle;">
+                <table style="width: 100%;">
                     <tr>
                         <td align="center">
-                            <h3> {{config('app.akreditasi')}} </h3>
+                            @if(config('app.nama_sub_instansi_1'))<h3>{{config('app.nama_sub_instansi_1')}}</h3>@endif
+                            @if(config('app.nama_sub_instansi_2'))<h3>{{config('app.nama_sub_instansi_2')}}</h3>@endif
+                            <h2>{{config('app.nama_instansi')}}</h2>
                         </td>
                     </tr>
-                @endif
-                @if(config('app.NDS') || config('app.NPSN') || config('app.NSS'))
+                    @if(config('app.akreditasi'))
+                        <tr>
+                            <td align="center">
+                                <h3> {{config('app.akreditasi')}} </h3>
+                            </td>
+                        </tr>
+                    @endif
                     <tr style="font-size: 10pt;">
                         <td align="center">
-                            @if(config('app.NDS'))
-                                NDS: {{config('app.NDS')}}@if(config('app.NPSN') || config('app.NSS')),@endif
-                            @endif
-                            @if(config('app.NPSN'))
-                                NPSN: {{config('app.NPSN')}}@if(config('app.NSS')),@endif
-                            @endif
-                            @if(config('app.NSS'))
-                                NSS: {{config('app.NSS') }}
-                            @endif
+                            {{config('app.alamat')}}
                         </td>
                     </tr>
+                </table>
+            </td>
+            <td width="18%" style="text-align: center; vertical-align: middle;">
+                @if($hasMuamalat)
+                    <img src="data:image/png;base64,{{ base64_encode(file_get_contents($muamalatPath)) }}"
+                         style="max-height: 4.25rem; max-width: 5.5rem; display: block; margin: 0 auto;" alt="Bank Muamalat"/>
                 @endif
-                <tr style="font-size: 10pt;">
-                    <td align="center">
-                        {{config('app.alamat')}}
-                    </td>
-                </tr>
-                @if(config('app.telepon') || config('app.email') || config('app.website'))
-                    <tr style="font-size: 10pt;">
-                        <td align="center">
-                            @if(config('app.telepon'))
-                                No. Telp: {{config('app.telepon')}}@if(config('app.email') || config('app.website')),@endif
-                            @endif
-                            @if(config('app.email'))
-                                E-mail: {{config('app.email')}}@if(config('app.website')),@endif
-                            @endif
-                            @if(config('app.website'))
-                                Website: {{config('app.website') }}
-                            @endif
-                        </td>
-                    </tr>
-                @endif
-            </table>
-        </td>
-        <td width="18%" style="text-align: center; vertical-align: middle;">
-            @if($hasMuamalat)
-                <img src="data:image/png;base64,{{ base64_encode(file_get_contents($muamalatPath)) }}"
-                     style="max-height: 4.25rem; max-width: 5.5rem; display: block; margin: 0 auto;" alt="Bank Muamalat"/>
-            @endif
-        </td>
-    </tr>
-</table>
+            </td>
+        </tr>
+    </table>
+@endif
+
 <div class="double-hr-alt">
     <div class="line bold"></div>
     <div class="line thin"></div>
 </div>
 @yield('content')
+
+@unless(!empty($hideDefaultFooter))
 <table class="main-table" style="width: 100%; padding-top: 0.425rem">
     <tfoot>
     <tr>
@@ -207,6 +225,7 @@
     </tr>
     </tfoot>
 </table>
+@endunless
 
 </body>
 </html>

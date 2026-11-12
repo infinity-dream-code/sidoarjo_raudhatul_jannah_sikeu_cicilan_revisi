@@ -1642,6 +1642,13 @@
                     return APP_VA_PREFIX + digits.padStart(padLen, '0');
                 })();
 
+            function formatKelasLabel(desc02, desc03) {
+                const a = String(desc02 || '').trim();
+                const b = String(desc03 || '').trim();
+                if (a && b) return `${a}-${b}`;
+                return (a + ' ' + b).trim() || '-';
+            }
+
             async function generatePdf(title, bodyContent, unit_logo = false, fileTitle = null) {
                 try {
                     let logo = 'data:image/jpeg;base64,' + headerLogo;
@@ -1651,95 +1658,60 @@
                     }
 
                     const orientation = 'portrait';
-                    const pageMargins = [20, 20, 20, 20];
+                    const pageMargins = [24, 24, 24, 24];
                     const availableWidth = getContentWidth('A4', orientation, pageMargins);
+                    const titleUpper = String(title || '').toUpperCase();
+                    const compactHeader = ['KUITANSI', 'TAGIHAN SISWA'].includes(titleUpper);
 
-                    // Header: logo sekolah kiri | nama tengah | logo Muamalat kanan
+                    const centerCell = compactHeader
+                        ? {text: titleUpper, fontSize: 18, bold: true, alignment: 'center', margin: [0, 18, 0, 18]}
+                        : {
+                            stack: [
+                                instansi.nama_sub_1 ? {text: instansi.nama_sub_1.toUpperCase(), style: 'headerSmall'} : '',
+                                instansi.nama_sub_2 ? {text: instansi.nama_sub_2.toUpperCase(), style: 'headerSmall'} : '',
+                                {text: instansi.nama_instansi.toUpperCase(), style: 'headerBig'},
+                                instansi.alamat ? {text: instansi.alamat, style: 'headerSmall'} : '',
+                            ],
+                            alignment: 'center',
+                            margin: [4, 0, 4, 0]
+                        };
+
                     const headerTable = {
-                        alignment: 'center',
                         table: {
                             widths: [70, '*', 70],
                             body: [[
-                                logo ? {
-                                    image: logo,
-                                    fit: [64, 64],
-                                    alignment: 'center',
-                                    margin: [0, 2, 0, 2]
-                                } : {text: '', width: 70},
-                                {
-                                    stack: [
-                                        instansi.nama_sub_1 ? {
-                                            text: instansi.nama_sub_1.toUpperCase(),
-                                            style: 'headerSmall'
-                                        } : '',
-                                        instansi.nama_sub_2 ? {
-                                            text: instansi.nama_sub_2.toUpperCase(),
-                                            style: 'headerSmall'
-                                        } : '',
-                                        {text: instansi.nama_instansi.toUpperCase(), style: 'headerBig'},
-                                        instansi.akreditasi ? {text: instansi.akreditasi, style: 'headerSmall'} : '',
-                                        instansi.alamat ? {text: instansi.alamat, style: 'headerSmall'} : '',
-                                        {
-                                            text: `Telp: ${instansi.kontak.telepon || '-'} | Email: ${instansi.kontak.email || '-'} | Web: ${instansi.kontak.website || '-'}`,
-                                            style: 'headerSmall'
-                                        }
-                                    ],
-                                    alignment: 'center',
-                                    margin: [4, 0, 4, 0]
-                                },
-                                muamalatLogo ? {
-                                    image: muamalatLogo,
-                                    fit: [72, 48],
-                                    alignment: 'center',
-                                    margin: [0, 8, 0, 2]
-                                } : {text: '', width: 70}
+                                logo ? {image: logo, fit: [64, 64], alignment: 'center', margin: [0, 2, 0, 2]} : {text: ''},
+                                centerCell,
+                                muamalatLogo ? {image: muamalatLogo, fit: [72, 48], alignment: 'center', margin: [0, 10, 0, 2]} : {text: ''}
                             ]]
                         },
                         layout: 'noBorders'
                     };
 
-                    // Footer (shared)
                     const footer = {
                         columns: [
                             {text: '', width: '*'},
                             {
                                 stack: [
-                                    {
-                                        text: `${domisili}, ${tanggalSekarang}`,
-                                        margin: [0, 10, 0, 0],
-                                        alignment: 'center'
-                                    },
-                                    tandaTangan ? {
-                                        image: tandaTangan,
-                                        width: 100,
-                                        alignment: 'center'
-                                    } : {},
-                                    {text: userName, alignment: 'center'}
+                                    {text: `${domisili}, ${tanggalSekarang}`, margin: [0, 10, 0, 0], alignment: 'center'},
+                                    tandaTangan ? {image: tandaTangan, width: 100, alignment: 'center'} : {},
+                                    {text: userName || 'ADMIN', alignment: 'center'}
                                 ],
                                 width: 'auto'
                             }
                         ]
                     };
 
-                    // Combine all content
                     const content = [
                         headerTable,
                         {
-                            margin: [0, 5, 0, 5],
+                            margin: [0, 6, 0, 10],
                             canvas: [
                                 {type: 'line', x1: 0, y1: 0, x2: availableWidth, y2: 0, lineWidth: 2},
-                                {
-                                    type: 'line',
-                                    x1: 0,
-                                    y1: 3,
-                                    x2: availableWidth,
-                                    y2: 3,
-                                    lineWidth: 0.5,
-                                    lineColor: '#888'
-                                }
+                                {type: 'line', x1: 0, y1: 3, x2: availableWidth, y2: 3, lineWidth: 0.5, lineColor: '#888'}
                             ]
                         },
-                        {text: title.toUpperCase(), style: 'title', margin: [0, 5, 0, 5]},
+                        ...(!compactHeader ? [{text: titleUpper, style: 'title', margin: [0, 5, 0, 5]}] : []),
                         ...bodyContent,
                         footer
                     ];
@@ -1816,7 +1788,7 @@
                         throw createError("Data Tagihan Kosong", 422);
                     }
                     const data = await generateKartuSiswa(result);
-                    const pdf = await generatePdf('Kartu Tagihan Siswa', data, unit, 'Cetak Kartu Siswa - Data Tagihan')
+                    const pdf = await generatePdf('TAGIHAN SISWA', data, unit, 'Cetak Kartu Siswa - Data Tagihan')
                     // if (!result['tagihans'] || result['tagihans'].length === 0) {
                     //     console.log('kosong');
                     //     const error = new Error("Data Tagihan Kosong");
@@ -1888,68 +1860,25 @@
 
             async function generateKartuSiswa(data) {
                 try {
-                    const pad2 = (n) => String(n).padStart(2, '0');
-                    const formatExpDate = (val) => {
+                    const formatExpLong = (val) => {
                         if (!val) return '-';
                         const s = String(val).trim();
                         const dmy = s.match(/^(\d{2})-(\d{2})-(\d{4})/);
-                        if (dmy) return `${dmy[1]}-${dmy[2]}-${dmy[3]}`;
-                        const dt = new Date(s);
-                        if (Number.isNaN(dt.getTime())) return '-';
-                        return `${pad2(dt.getDate())}-${pad2(dt.getMonth() + 1)}-${dt.getFullYear()}`;
+                        let dt = null;
+                        if (dmy) dt = new Date(+dmy[3], +dmy[2] - 1, +dmy[1]);
+                        else {
+                            dt = new Date(s);
+                            if (Number.isNaN(dt.getTime())) return s;
+                        }
+                        return dt.toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'});
                     };
 
-                    const bodyContent = [];
                     const siswa = data.siswa;
                     const nocust = siswa.NOCUST && siswa.NOCUST !== '-' ? siswa.NOCUST : false;
                     const nisForVa = nocust || (siswa.NUM2ND && siswa.NUM2ND !== '-' ? siswa.NUM2ND : '');
-                    const noVa = (typeof showVA === 'function' && nisForVa)
-                        ? showVA(nisForVa)
-                        : (siswa.NOVA || '');
+                    const noVa = (typeof showVA === 'function' && nisForVa) ? showVA(nisForVa) : (siswa.NOVA || '-');
+                    const kelasLabel = formatKelasLabel(siswa.DESC02, siswa.DESC03);
 
-                    // Header tanpa NIS / No. Pendaftaran
-                    const mainTable = [
-                        ['Nama ', ': ' + (siswa.NMCUST || '-'), 'Unit', ': ' + (siswa.CODE02 || '-')].map(h => ({
-                            text: h,
-                            border: [false, false, false, false]
-                        })),
-                        ['No. VA ', ': ' + (noVa || '-'), 'Kelas', ': ' + ((siswa.DESC02 || '') + ' ' + (siswa.DESC03 || '')).trim()].map(h => ({
-                            text: h,
-                            border: [false, false, false, false]
-                        })),
-                        ['Angkatan ', ': ' + (siswa.DESC04 || '-'), 'Ayah', ': ' + (siswa.GENUS ?? '-')].map(h => ({
-                            text: h,
-                            border: [false, false, false, false]
-                        })),
-                        ['', ' ', 'Ibu', ': ' + (siswa.GENUS1 ?? '')].map(h => ({
-                            text: h,
-                            border: [false, false, false, false]
-                        })),
-                    ];
-
-                    bodyContent.push({
-                        table: {
-                            widths: ['15%', '35%', '15%', '35%'],
-                            body: mainTable
-                        },
-                        layout: {
-                            fillColor: null,
-                            hLineWidth: () => 0.5,
-                            vLineWidth: () => 0.5
-                        },
-                        margin: [0, 0, 0, 5],
-                        fontSize: 9
-                    });
-
-                    // # | Periode | Nama Tagihan | Jumlah | Terbayar | Sisa | Expired | Status
-                    const tableBody = [
-                        ['#', 'Periode', 'Nama Tagihan', 'Jumlah', 'Terbayar', 'Sisa', 'Expired', 'Status']
-                            .map(h => ({text: h, style: 'tableHeader'}))
-                    ];
-
-                    let totalTagihan = 0;
-                    let totalBayar = 0;
-                    let totalSisa = 0;
                     const sortedTagihans = [...(data.tagihans || [])]
                         .filter((item) => {
                             const jumlahTagihan = Number(item.BILLAM_TOTAL ?? item.BILLAM ?? 0);
@@ -1968,70 +1897,78 @@
                         throw createError('Tidak ada tagihan belum bayar untuk dicetak di kartu', 422);
                     }
 
+                    const dueLabel = formatExpLong(sortedTagihans[0]?.ExpDate_raw || sortedTagihans[0]?.ExpDate);
+                    const infoRows = [
+                        [
+                            {text: 'No. VA', border: [false, false, false, false]},
+                            {text: ': ' + (noVa || '-'), border: [false, false, false, false]},
+                            {text: 'Kelas', border: [false, false, false, false]},
+                            {text: ': ' + kelasLabel, border: [false, false, false, false]},
+                        ],
+                        [
+                            {text: 'Nama Siswa', border: [false, false, false, false]},
+                            {text: ': ' + (siswa.NMCUST || '-'), border: [false, false, false, false]},
+                            {text: 'Jenjang', border: [false, false, false, false]},
+                            {text: ': ' + (siswa.CODE02 || '-'), border: [false, false, false, false]},
+                        ],
+                        [
+                            {text: 'Email', border: [false, false, false, false]},
+                            {text: ': ' + (siswa.EMAIL_ORTU || '-'), border: [false, false, false, false]},
+                            {text: 'Tanggal Jatuh Tempo', border: [false, false, false, false]},
+                            {text: ': ' + dueLabel, border: [false, false, false, false]},
+                        ],
+                    ];
+
+                    const tableBody = [
+                        ['No.', 'Nama Tagihan', 'Nominal'].map(h => ({text: h, style: 'tableHeader'})),
+                    ];
+                    let totalTagihan = 0;
+                    let totalBayar = 0;
+                    let totalSisa = 0;
                     sortedTagihans.forEach((item, index) => {
                         const jumlahTagihan = Number(item.BILLAM_TOTAL ?? item.BILLAM ?? 0);
                         const sisaTagihan = Number(item.PAYMENTLEFT ?? item.BILLAM ?? Math.max(0, jumlahTagihan - Number(item.BILLPAID ?? 0)));
                         const jumlahBayar = Math.max(0, jumlahTagihan - sisaTagihan);
-                        const periode = item.BILLAC || item.BTA || '-';
-                        const expired = formatExpDate(item.ExpDate_raw || item.ExpDate);
-
-                        tableBody.push([
-                            {text: String(index + 1), alignment: 'center', border: [true, true, true, true]},
-                            {text: periode, border: [true, true, true, true]},
-                            {text: item.BILLNM || '-', border: [true, true, true, true]},
-                            {text: formatRupiah(jumlahTagihan), alignment: 'right', border: [true, true, true, true]},
-                            {text: formatRupiah(jumlahBayar), alignment: 'right', border: [true, true, true, true]},
-                            {text: formatRupiah(sisaTagihan), alignment: 'right', border: [true, true, true, true]},
-                            {text: expired, alignment: 'center', border: [true, true, true, true]},
-                            {text: 'BELUM LUNAS', alignment: 'center', border: [true, true, true, true]}
-                        ]);
-
                         totalTagihan += jumlahTagihan;
                         totalBayar += jumlahBayar;
                         totalSisa += sisaTagihan;
+                        tableBody.push([
+                            {text: String(index + 1), alignment: 'center'},
+                            {text: item.BILLNM || '-', alignment: 'left'},
+                            {text: formatRupiah(jumlahTagihan), alignment: 'right'},
+                        ]);
                     });
 
-                    tableBody.push([
-                        {text: 'Total', colSpan: 3, style: 'tableHeader', border: [true, true, true, true]},
-                        {},
-                        {},
+                    return [
                         {
-                            text: formatRupiah(totalTagihan),
-                            style: 'tableHeader',
-                            alignment: 'right',
-                            border: [true, true, true, true]
+                            table: {widths: ['20%', '30%', '22%', '28%'], body: infoRows},
+                            layout: 'noBorders',
+                            margin: [0, 0, 0, 10],
+                            fontSize: 10,
                         },
                         {
-                            text: formatRupiah(totalBayar),
-                            style: 'tableHeader',
-                            alignment: 'right',
-                            border: [true, true, true, true]
+                            table: {widths: ['10%', '*', '28%'], body: tableBody},
+                            layout: {
+                                fillColor: (i) => i === 0 ? '#ededed' : null,
+                                hLineWidth: () => 0.6,
+                                vLineWidth: () => 0.6,
+                            },
+                            margin: [0, 0, 0, 6],
+                            fontSize: 11,
                         },
                         {
-                            text: formatRupiah(totalSisa),
-                            style: 'tableHeader',
-                            alignment: 'right',
-                            border: [true, true, true, true]
-                        },
-                        {text: '', border: [true, true, true, true]},
-                        {text: '', border: [true, true, true, true]}
-                    ]);
-
-                    bodyContent.push({
-                        table: {
-                            widths: ['6%', '12%', '22%', '12%', '12%', '12%', '12%', '12%'],
-                            body: tableBody
-                        },
-                        layout: {
-                            fillColor: rowIndex => rowIndex === 0 ? '#ededed' : null,
-                            hLineWidth: () => 0.5,
-                            vLineWidth: () => 0.5
-                        },
-                        margin: [0, 0, 0, 0],
-                        fontSize: 9
-                    });
-
-                    return bodyContent;
+                            table: {
+                                widths: ['*', '28%'],
+                                body: [
+                                    [{text: 'Total Tagihan', alignment: 'right', bold: true}, {text: formatRupiah(totalTagihan), alignment: 'right', bold: true}],
+                                    [{text: 'Tagihan Terbayar', alignment: 'right', bold: true}, {text: formatRupiah(totalBayar), alignment: 'right', bold: true}],
+                                    [{text: 'Sisa Tagihan', alignment: 'right', bold: true}, {text: formatRupiah(totalSisa), alignment: 'right', bold: true}],
+                                ]
+                            },
+                            layout: 'noBorders',
+                            fontSize: 11,
+                        }
+                    ];
                 } catch (e) {
                     console.log(e);
                     throw e;

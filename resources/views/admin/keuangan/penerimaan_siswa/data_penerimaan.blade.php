@@ -918,6 +918,31 @@
                     return APP_VA_PREFIX + digits.padStart(16 - APP_VA_PREFIX.length, '0');
                 })();
 
+            function terbilangRupiah(amount) {
+                const satuan = ['', 'Satu', 'Dua', 'Tiga', 'Empat', 'Lima', 'Enam', 'Tujuh', 'Delapan', 'Sembilan', 'Sepuluh', 'Sebelas'];
+                const spell = (n) => {
+                    n = Math.floor(Math.abs(Number(n) || 0));
+                    if (n < 12) return satuan[n];
+                    if (n < 20) return satuan[n - 10] + ' Belas';
+                    if (n < 100) return (satuan[Math.floor(n / 10)] + ' Puluh ' + spell(n % 10)).trim();
+                    if (n < 200) return ('Seratus ' + spell(n - 100)).trim();
+                    if (n < 1000) return (satuan[Math.floor(n / 100)] + ' Ratus ' + spell(n % 100)).trim();
+                    if (n < 2000) return ('Seribu ' + spell(n - 1000)).trim();
+                    if (n < 1000000) return (spell(Math.floor(n / 1000)) + ' Ribu ' + spell(n % 1000)).trim();
+                    if (n < 1000000000) return (spell(Math.floor(n / 1000000)) + ' Juta ' + spell(n % 1000000)).trim();
+                    return (spell(Math.floor(n / 1000000000)) + ' Miliar ' + spell(n % 1000000000)).trim();
+                };
+                const n = Math.round(Math.abs(Number(amount) || 0));
+                return (n === 0 ? 'Nol' : spell(n)) + ' Rupiah';
+            }
+
+            function formatKelasLabel(desc02, desc03) {
+                const a = String(desc02 || '').trim();
+                const b = String(desc03 || '').trim();
+                if (a && b) return `${a}-${b}`;
+                return (a + ' ' + b).trim() || '-';
+            }
+
             async function generatePdf(title, bodyContent, unit_logo = false, fileTitle = null) {
                 try {
                     let logo = 'data:image/jpeg;base64,' + headerLogo;
@@ -927,102 +952,75 @@
                     }
 
                     const orientation = 'portrait';
-                    const pageMargins = [20, 20, 20, 20];
+                    const pageMargins = [24, 24, 24, 24];
                     const tanggalSekarang = typeof formatDateId === 'function'
                         ? formatDateId(new Date())
                         : new Date().toLocaleDateString('id-ID', {
                             weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
                         }).replace(/^([^,]+),\s+/, '$1 ');
                     const availableWidth = getContentWidth('A4', orientation, pageMargins);
+                    const titleUpper = String(title || '').toUpperCase();
+                    const compactHeader = ['KUITANSI', 'TAGIHAN SISWA'].includes(titleUpper);
+                    const skipFooter = titleUpper === 'KUITANSI';
+
+                    const centerCell = compactHeader
+                        ? {
+                            text: titleUpper,
+                            fontSize: 18,
+                            bold: true,
+                            alignment: 'center',
+                            margin: [0, 18, 0, 18]
+                        }
+                        : {
+                            stack: [
+                                instansi.nama_sub_1 ? {text: instansi.nama_sub_1.toUpperCase(), style: 'headerSmall'} : '',
+                                instansi.nama_sub_2 ? {text: instansi.nama_sub_2.toUpperCase(), style: 'headerSmall'} : '',
+                                {text: instansi.nama_instansi.toUpperCase(), style: 'headerBig'},
+                                instansi.alamat ? {text: instansi.alamat, style: 'headerSmall'} : '',
+                            ],
+                            alignment: 'center',
+                            margin: [4, 0, 4, 0]
+                        };
 
                     const headerTable = {
-                        alignment: 'center',
                         table: {
                             widths: [70, '*', 70],
                             body: [[
-                                logo ? {
-                                    image: logo,
-                                    fit: [64, 64],
-                                    alignment: 'center',
-                                    margin: [0, 2, 0, 2]
-                                } : {text: '', width: 70},
-                                {
-                                    stack: [
-                                        instansi.nama_sub_1 ? {
-                                            text: instansi.nama_sub_1.toUpperCase(),
-                                            style: 'headerSmall'
-                                        } : '',
-                                        instansi.nama_sub_2 ? {
-                                            text: instansi.nama_sub_2.toUpperCase(),
-                                            style: 'headerSmall'
-                                        } : '',
-                                        {text: instansi.nama_instansi.toUpperCase(), style: 'headerBig'},
-                                        instansi.akreditasi ? {text: instansi.akreditasi, style: 'headerSmall'} : '',
-                                        instansi.alamat ? {text: instansi.alamat, style: 'headerSmall'} : '',
-                                        {
-                                            text: `Telp: ${instansi.kontak.telepon || '-'} | Email: ${instansi.kontak.email || '-'} | Web: ${instansi.kontak.website || '-'}`,
-                                            style: 'headerSmall'
-                                        }
-                                    ],
-                                    alignment: 'center',
-                                    margin: [4, 0, 4, 0]
-                                },
-                                muamalatLogo ? {
-                                    image: muamalatLogo,
-                                    fit: [72, 48],
-                                    alignment: 'center',
-                                    margin: [0, 8, 0, 2]
-                                } : {text: '', width: 70}
+                                logo ? {image: logo, fit: [64, 64], alignment: 'center', margin: [0, 2, 0, 2]} : {text: ''},
+                                centerCell,
+                                muamalatLogo ? {image: muamalatLogo, fit: [72, 48], alignment: 'center', margin: [0, 10, 0, 2]} : {text: ''}
                             ]]
                         },
                         layout: 'noBorders'
                     };
 
-                    // Footer (shared)
-                    const footer = {
+                    const footer = skipFooter ? null : {
                         columns: [
                             {text: '', width: '*'},
                             {
                                 stack: [
-                                    {
-                                        text: `${domisili}, ${tanggalSekarang}`,
-                                        margin: [0, 10, 0, 0],
-                                        alignment: 'center'
-                                    },
-                                    tandaTangan ? {
-                                        image: tandaTangan,
-                                        width: 100,
-                                        alignment: 'center'
-                                    } : {},
-                                    {text: userName, alignment: 'center'}
+                                    {text: `${domisili}, ${tanggalSekarang}`, margin: [0, 10, 0, 0], alignment: 'center'},
+                                    tandaTangan ? {image: tandaTangan, width: 100, alignment: 'center'} : {},
+                                    {text: userName || 'ADMIN', alignment: 'center'}
                                 ],
                                 width: 'auto'
                             }
                         ]
                     };
 
-                    // Combine all content
                     const content = [
                         headerTable,
                         {
-                            margin: [0, 5, 0, 5],
+                            margin: [0, 6, 0, 10],
                             canvas: [
                                 {type: 'line', x1: 0, y1: 0, x2: availableWidth, y2: 0, lineWidth: 2},
-                                {
-                                    type: 'line',
-                                    x1: 0,
-                                    y1: 3,
-                                    x2: availableWidth,
-                                    y2: 3,
-                                    lineWidth: 0.5,
-                                    lineColor: '#888'
-                                }
+                                {type: 'line', x1: 0, y1: 3, x2: availableWidth, y2: 3, lineWidth: 0.5, lineColor: '#888'}
                             ]
                         },
-                        {text: String(title || '').toUpperCase(), style: 'title', margin: [0, 5, 0, 5]},
+                        ...(!compactHeader ? [{text: titleUpper, style: 'title', margin: [0, 5, 0, 5]}] : []),
                         ...bodyContent,
-                        footer
                     ];
+                    if (footer) content.push(footer);
 
                     // PDF definition
                     const docTitle = String(fileTitle || title || 'Kartu Pembayaran Siswa');
@@ -1343,157 +1341,123 @@
                 const metodeLabel = uniqueMetode.length > 1
                     ? 'Beragam'
                     : formatMetodePembayaran(siswa.FIDBANK ?? '', siswa.BILL_NOREFF ?? '');
-
-                const mainTable = [
-                    [(nocust ? 'NIS ' : 'No. Pendaftaran'), ': ' + (nocust ? nocust : siswa.NUM2ND), 'Unit', ': ' + siswa.CODE02],
-                    [(nocust ? 'No. VA ' : '-'), ': ' + (nocust ? showVA(nocust) : ''), 'Kelas', ': ' + (siswa.DESC02 ?? '') + ' ' + (siswa.DESC03 ?? '')],
-                    ['Nama ', ': ' + siswa.nmcust, 'Ayah', ': ' + (siswa.GENUS ?? '-')],
-                    ['Metode Bayar', ': ' + metodeLabel, 'Ibu', ': ' + (siswa.GENUS1 ?? '')],
-                ]
-
-                let content = [];
-                const headerContent = [
-                    {
-                        table: {
-                            widths: ['15%', '35%', '15%', '35%'],
-                            body: mainTable
-                        },
-                        layout: 'noBorders'
-                    },
-                    {
-                        text: '',
-                        margin: [0, 5, 0, 5]
-                    },
-                ]
-
-                content.push(headerContent);
-
-                const tableBody = [];
-                tableBody.push(
-                    ['#', 'Nama Tagihan', 'Periode', 'Tagihan', 'Bayar', 'Metode', 'Tanggal Bayar']
-                        .map(h => ({text: h, style: 'tableHeader'})),
-                );
-
-                let totalTagihan = 0;
-                let totalBayar = 0;
-
-                data.forEach((item, index) => {
-                    let tanggalBayar = item.PAIDDT ?? item.TRXDATE;
-                    if (tanggalBayar && tanggalBayar !== '' && tanggalBayar !== '0000-00-00 00:00:00') {
-                        tanggalBayar = typeof formatDateId === 'function'
-                            ? formatDateId(tanggalBayar)
-                            : new Date(tanggalBayar).toLocaleDateString('id-ID', {
-                                weekday: 'long',
-                                day: 'numeric',
-                                month: 'long',
-                                year: 'numeric'
-                            }).replace(/^([^,]+),\s+/, '$1 ');
-                    }
-
-                    const billAm = Number(item.BILLAM_TOTAL ?? item.BILLAM ?? 0);
-                    const billPaid = Number(item.BILLAM ?? item.DEBET ?? 0);
-                    totalTagihan += billAm;
-                    totalBayar += billPaid;
-
-                    tableBody.push([
-                        {text: index + 1, alignment: 'center'},
-                        {text: item.BILLNM, alignment: 'left'},
-                        {text: item.BILLAC ?? item.BTA ?? '-', alignment: 'left'},
-                        {text: formatRupiah(billAm), alignment: 'right'},
-                        {text: formatRupiah(billPaid), alignment: 'right'},
-                        {text: formatMetodePembayaran(item.FIDBANK ?? '', item.BILL_NOREFF ?? ''), alignment: 'left'},
-                        {text: tanggalBayar, alignment: 'left'},
-                    ]);
-                })
-
-                if (biayaLayanan) {
-                    tableBody.push([
-                        {colSpan: 4, text: 'Biaya Layanan', alignment: 'right', style: 'tableHeader'},
-                        {}, {}, {},
-                        {text: formatRupiah(2000), alignment: 'right'},
-                        {}, {}
-                    ])
+                const noVa = nocust ? showVA(nocust) : '-';
+                const kelasLabel = formatKelasLabel(siswa.DESC02, siswa.DESC03);
+                let paidRaw = data.map(i => i.PAIDDT || i.TRXDATE).find(Boolean);
+                let paidLabel = '-';
+                if (paidRaw && paidRaw !== '0000-00-00 00:00:00') {
+                    paidLabel = typeof formatDateId === 'function'
+                        ? formatDateId(paidRaw)
+                        : new Date(paidRaw).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'});
                 }
 
-                tableBody.push([
-                    {colSpan: 4, text: 'Total', alignment: 'right', style: 'tableHeader'},
-                    {}, {}, {},
-                    {text: formatRupiah(totalBayar + (biayaLayanan ? 2000 : 0)), alignment: 'right'},
-                    {}, {}
-                ])
+                const infoRows = [
+                    [
+                        {text: 'Nama Siswa', border: [false, false, false, false]},
+                        {text: ': ' + (siswa.nmcust || '-'), border: [false, false, false, false]},
+                        {text: 'No. VA', border: [false, false, false, false]},
+                        {text: ': ' + noVa, border: [false, false, false, false]},
+                    ],
+                    [
+                        {text: 'Kelas', border: [false, false, false, false]},
+                        {text: ': ' + kelasLabel, border: [false, false, false, false]},
+                        {text: 'Metode Pembayaran', border: [false, false, false, false]},
+                        {text: ': ' + metodeLabel, border: [false, false, false, false]},
+                    ],
+                    [
+                        {text: 'Jenjang', border: [false, false, false, false]},
+                        {text: ': ' + (siswa.CODE02 || '-'), border: [false, false, false, false]},
+                        {text: 'Tanggal Pembayaran', border: [false, false, false, false]},
+                        {text: ': ' + paidLabel, border: [false, false, false, false]},
+                    ],
+                ];
+
+                let content = [{
+                    table: {widths: ['18%', '32%', '22%', '28%'], body: infoRows},
+                    layout: 'noBorders',
+                    margin: [0, 0, 0, 10],
+                    fontSize: 10,
+                }];
+
+                const tableBody = [
+                    ['No.', 'Uraian', 'Nominal'].map(h => ({text: h, style: 'tableHeader'})),
+                ];
+                let totalBayar = 0;
+                data.forEach((item, index) => {
+                    const billPaid = Number(item.BILLAM ?? item.DEBET ?? item.BILLAM_TOTAL ?? 0);
+                    totalBayar += billPaid;
+                    tableBody.push([
+                        {text: String(index + 1), alignment: 'center'},
+                        {text: item.BILLNM || '-', alignment: 'left'},
+                        {text: formatRupiah(billPaid), alignment: 'right'},
+                    ]);
+                });
+                if (biayaLayanan) {
+                    totalBayar += 2000;
+                    tableBody.push([
+                        {text: '', alignment: 'center'},
+                        {text: 'Biaya Layanan', alignment: 'left'},
+                        {text: formatRupiah(2000), alignment: 'right'},
+                    ]);
+                }
 
                 content.push({
-                    table: {
-                        widths: ['3%', '22%', '11%', '14%', '14%', '16%', '20%'],
-                        body: tableBody,
-                    },
+                    table: {widths: ['10%', '*', '28%'], body: tableBody},
                     layout: {
                         fillColor: (rowIndex) => rowIndex === 0 ? '#ededed' : null,
-                        hLineWidth: () => 0.5,
-                        vLineWidth: () => 0.5
+                        hLineWidth: () => 0.6,
+                        vLineWidth: () => 0.6,
                     },
                     margin: [0, 0, 0, 10],
-                    fontSize: 12
+                    fontSize: 11,
                 });
 
-                if (paymentLogs.length) {
-                    content.push({
-                        text: 'Rincian Pembayaran',
-                        bold: true,
-                        fontSize: 12,
-                        margin: [0, 8, 0, 4],
-                    });
+                content.push({
+                    columns: [
+                        {text: '', width: '*'},
+                        {
+                            width: 'auto',
+                            stack: [
+                                {
+                                    columns: [
+                                        {text: 'Total Pembayaran', bold: true, width: 'auto', margin: [0, 0, 12, 0]},
+                                        {text: formatRupiah(totalBayar), bold: true, decoration: 'underline', width: 'auto'},
+                                    ]
+                                }
+                            ]
+                        }
+                    ],
+                    margin: [0, 4, 0, 16],
+                });
 
-                    const rincianBody = [];
-                    rincianBody.push(
-                        ['#', 'Nama Tagihan', 'Tanggal', 'Metode', 'Debet', 'Kredit', 'Bank', 'No Ref', 'Trans No']
-                            .map(h => ({text: h, style: 'tableHeader'})),
-                    );
-
-                    let totalDebet = 0;
-                    let totalKredit = 0;
-
-                    paymentLogs.forEach((log, index) => {
-                        const debet = Number(log.debet ?? 0);
-                        const kredit = Number(log.kredit ?? 0);
-                        totalDebet += debet;
-                        totalKredit += kredit;
-
-                        rincianBody.push([
-                            {text: index + 1, alignment: 'center'},
-                            {text: log.billnm ?? '-', alignment: 'left'},
-                            {text: log.trxdate ?? '-', alignment: 'left'},
-                            {text: log.metode ?? '-', alignment: 'left'},
-                            {text: debet > 0 ? formatRupiah(debet) : '-', alignment: 'right'},
-                            {text: kredit > 0 ? formatRupiah(kredit) : '-', alignment: 'right'},
-                            {text: formatMetodePembayaran(log.fidbank ?? '', log.noreff ?? ''), alignment: 'left'},
-                            {text: log.noreff ?? '-', alignment: 'left'},
-                            {text: log.transno ?? '-', alignment: 'left'},
-                        ]);
-                    });
-
-                    rincianBody.push([
-                        {colSpan: 4, text: 'Total Rincian', alignment: 'right', style: 'tableHeader'},
-                        {}, {}, {},
-                        {text: formatRupiah(totalDebet), alignment: 'right'},
-                        {text: formatRupiah(totalKredit), alignment: 'right'},
-                        {}, {}, {},
-                    ]);
-
-                    content.push({
-                        table: {
-                            widths: ['3%', '16%', '14%', '12%', '10%', '10%', '12%', '10%', '13%'],
-                            body: rincianBody,
+                content.push({
+                    columns: [
+                        {
+                            width: '*',
+                            table: {
+                                widths: ['*'],
+                                body: [[{
+                                    text: terbilangRupiah(totalBayar),
+                                    italics: true,
+                                    bold: true,
+                                    margin: [8, 6, 8, 6],
+                                }]]
+                            },
+                            layout: {
+                                hLineWidth: () => 1,
+                                vLineWidth: () => 1,
+                            }
                         },
-                        layout: {
-                            fillColor: (rowIndex) => rowIndex === 0 ? '#ededed' : null,
-                            hLineWidth: () => 0.5,
-                            vLineWidth: () => 0.5
-                        },
-                        margin: [0, 0, 0, 10],
-                        fontSize: 9
-                    });
-                }
+                        {
+                            width: 140,
+                            alignment: 'center',
+                            stack: [
+                                {text: 'Diterima Oleh,', margin: [0, 0, 0, 36]},
+                                {text: 'ADMIN', bold: true},
+                            ]
+                        }
+                    ]
+                });
 
                 Swal.close();
                 generatePdf('KUITANSI', content, siswa.CODE02, 'data tagihan lunas - cetak kuitansi');
@@ -1543,7 +1507,7 @@
                         throw createError("Data Tagihan Kosong", 422);
                     }
                     const data = await generateKartuSiswa(result);
-                    const pdf = await generatePdf('Kartu Tagihan Siswa', data, unit, 'data tagihan lunas - kartu lunas')
+                    const pdf = await generatePdf('TAGIHAN SISWA', data, unit, 'data tagihan lunas - kartu lunas')
                     // if (!result['tagihans'] || result['tagihans'].length === 0) {
                     //     console.log('kosong');
                     //     const error = new Error("Data Tagihan Kosong");
@@ -1577,67 +1541,25 @@
 
             async function generateKartuSiswa(data) {
                 try {
-                    const pad2 = (n) => String(n).padStart(2, '0');
-                    const formatExpDate = (val) => {
+                    const formatExpLong = (val) => {
                         if (!val) return '-';
                         const s = String(val).trim();
                         const dmy = s.match(/^(\d{2})-(\d{2})-(\d{4})/);
-                        if (dmy) return `${dmy[1]}-${dmy[2]}-${dmy[3]}`;
-                        const dt = new Date(s);
-                        if (Number.isNaN(dt.getTime())) return '-';
-                        return `${pad2(dt.getDate())}-${pad2(dt.getMonth() + 1)}-${dt.getFullYear()}`;
+                        let dt = null;
+                        if (dmy) dt = new Date(+dmy[3], +dmy[2] - 1, +dmy[1]);
+                        else {
+                            dt = new Date(s);
+                            if (Number.isNaN(dt.getTime())) return s;
+                        }
+                        return dt.toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'});
                     };
 
-                    const bodyContent = [];
                     const siswa = data.siswa;
                     const nocust = siswa.NOCUST && siswa.NOCUST !== '-' ? siswa.NOCUST : false;
                     const nisForVa = nocust || (siswa.NUM2ND && siswa.NUM2ND !== '-' ? siswa.NUM2ND : '');
-                    const noVa = (typeof showVA === 'function' && nisForVa)
-                        ? showVA(nisForVa)
-                        : (siswa.NOVA || '');
+                    const noVa = (typeof showVA === 'function' && nisForVa) ? showVA(nisForVa) : (siswa.NOVA || '-');
+                    const kelasLabel = formatKelasLabel(siswa.DESC02, siswa.DESC03);
 
-                    const mainTable = [
-                        ['Nama ', ': ' + (siswa.NMCUST || '-'), 'Unit', ': ' + (siswa.CODE02 || '-')].map(h => ({
-                            text: h,
-                            border: [false, false, false, false]
-                        })),
-                        ['No. VA ', ': ' + (noVa || '-'), 'Kelas', ': ' + ((siswa.DESC02 || '') + ' ' + (siswa.DESC03 || '')).trim()].map(h => ({
-                            text: h,
-                            border: [false, false, false, false]
-                        })),
-                        ['Angkatan ', ': ' + (siswa.DESC04 || '-'), 'Ayah', ': ' + (siswa.GENUS ?? '-')].map(h => ({
-                            text: h,
-                            border: [false, false, false, false]
-                        })),
-                        ['', ' ', 'Ibu', ': ' + (siswa.GENUS1 ?? '')].map(h => ({
-                            text: h,
-                            border: [false, false, false, false]
-                        })),
-                    ];
-
-                    bodyContent.push({
-                        table: {
-                            widths: ['15%', '35%', '15%', '35%'],
-                            body: mainTable
-                        },
-                        layout: {
-                            fillColor: null,
-                            hLineWidth: () => 0.5,
-                            vLineWidth: () => 0.5
-                        },
-                        margin: [0, 0, 0, 5],
-                        fontSize: 9
-                    });
-
-                    const tableBody = [
-                        ['#', 'Periode', 'Nama Tagihan', 'Jumlah', 'Terbayar', 'Sisa', 'Expired', 'Status']
-                            .map(h => ({text: h, style: 'tableHeader'}))
-                    ];
-
-                    let totalTagihan = 0;
-                    let totalBayar = 0;
-                    let totalSisa = 0;
-                    // Tagihan Lunas: kartu hanya baris yang sudah lunas.
                     const sortedTagihans = [...(data.tagihans || [])]
                         .filter((item) => {
                             const jumlahTagihan = Number(item.BILLAM_TOTAL ?? item.BILLAM ?? 0);
@@ -1655,70 +1577,77 @@
                         throw createError('Tidak ada tagihan lunas untuk dicetak di kartu', 422);
                     }
 
+                    const dueLabel = formatExpLong(sortedTagihans[0]?.ExpDate_raw || sortedTagihans[0]?.ExpDate);
+                    const infoRows = [
+                        [
+                            {text: 'No. VA', border: [false, false, false, false]},
+                            {text: ': ' + (noVa || '-'), border: [false, false, false, false]},
+                            {text: 'Kelas', border: [false, false, false, false]},
+                            {text: ': ' + kelasLabel, border: [false, false, false, false]},
+                        ],
+                        [
+                            {text: 'Nama Siswa', border: [false, false, false, false]},
+                            {text: ': ' + (siswa.NMCUST || '-'), border: [false, false, false, false]},
+                            {text: 'Jenjang', border: [false, false, false, false]},
+                            {text: ': ' + (siswa.CODE02 || '-'), border: [false, false, false, false]},
+                        ],
+                        [
+                            {text: 'Email', border: [false, false, false, false]},
+                            {text: ': ' + (siswa.EMAIL_ORTU || '-'), border: [false, false, false, false]},
+                            {text: 'Tanggal Jatuh Tempo', border: [false, false, false, false]},
+                            {text: ': ' + dueLabel, border: [false, false, false, false]},
+                        ],
+                    ];
+
+                    const tableBody = [
+                        ['No.', 'Nama Tagihan', 'Nominal'].map(h => ({text: h, style: 'tableHeader'})),
+                    ];
+                    let totalTagihan = 0;
+                    let totalBayar = 0;
+                    let totalSisa = 0;
                     sortedTagihans.forEach((item, index) => {
                         const jumlahTagihan = Number(item.BILLAM_TOTAL ?? item.BILLAM ?? 0);
-                        const sisaTagihan = 0;
                         const jumlahBayar = Number(item.BILLPAID ?? jumlahTagihan) || jumlahTagihan;
-                        const periode = item.BILLAC || item.BTA || '-';
-                        const expired = formatExpDate(item.ExpDate_raw || item.ExpDate);
-
-                        tableBody.push([
-                            {text: String(index + 1), alignment: 'center', border: [true, true, true, true]},
-                            {text: periode, border: [true, true, true, true]},
-                            {text: item.BILLNM || '-', border: [true, true, true, true]},
-                            {text: formatRupiah(jumlahTagihan), alignment: 'right', border: [true, true, true, true]},
-                            {text: formatRupiah(jumlahBayar), alignment: 'right', border: [true, true, true, true]},
-                            {text: formatRupiah(sisaTagihan), alignment: 'right', border: [true, true, true, true]},
-                            {text: expired, alignment: 'center', border: [true, true, true, true]},
-                            {text: 'LUNAS', alignment: 'center', border: [true, true, true, true]}
-                        ]);
-
                         totalTagihan += jumlahTagihan;
                         totalBayar += jumlahBayar;
-                        totalSisa += sisaTagihan;
+                        tableBody.push([
+                            {text: String(index + 1), alignment: 'center'},
+                            {text: item.BILLNM || '-', alignment: 'left'},
+                            {text: formatRupiah(jumlahTagihan), alignment: 'right'},
+                        ]);
                     });
+                    totalSisa = Math.max(0, totalTagihan - totalBayar);
 
-                    tableBody.push([
-                        {text: 'Total', colSpan: 3, style: 'tableHeader', border: [true, true, true, true]},
-                        {},
-                        {},
+                    return [
                         {
-                            text: formatRupiah(totalTagihan),
-                            style: 'tableHeader',
-                            alignment: 'right',
-                            border: [true, true, true, true]
+                            table: {widths: ['20%', '30%', '22%', '28%'], body: infoRows},
+                            layout: 'noBorders',
+                            margin: [0, 0, 0, 10],
+                            fontSize: 10,
                         },
                         {
-                            text: formatRupiah(totalBayar),
-                            style: 'tableHeader',
-                            alignment: 'right',
-                            border: [true, true, true, true]
+                            table: {widths: ['10%', '*', '28%'], body: tableBody},
+                            layout: {
+                                fillColor: (i) => i === 0 ? '#ededed' : null,
+                                hLineWidth: () => 0.6,
+                                vLineWidth: () => 0.6,
+                            },
+                            margin: [0, 0, 0, 6],
+                            fontSize: 11,
                         },
                         {
-                            text: formatRupiah(totalSisa),
-                            style: 'tableHeader',
-                            alignment: 'right',
-                            border: [true, true, true, true]
-                        },
-                        {text: '', border: [true, true, true, true]},
-                        {text: '', border: [true, true, true, true]}
-                    ]);
-
-                    bodyContent.push({
-                        table: {
-                            widths: ['6%', '12%', '22%', '12%', '12%', '12%', '12%', '12%'],
-                            body: tableBody
-                        },
-                        layout: {
-                            fillColor: rowIndex => rowIndex === 0 ? '#ededed' : null,
-                            hLineWidth: () => 0.5,
-                            vLineWidth: () => 0.5
-                        },
-                        margin: [0, 0, 0, 0],
-                        fontSize: 9
-                    });
-
-                    return bodyContent;
+                            table: {
+                                widths: ['*', '28%'],
+                                body: [
+                                    [{text: 'Total Tagihan', alignment: 'right', bold: true}, {text: formatRupiah(totalTagihan), alignment: 'right', bold: true}],
+                                    [{text: 'Tagihan Terbayar', alignment: 'right', bold: true}, {text: formatRupiah(totalBayar), alignment: 'right', bold: true}],
+                                    [{text: 'Sisa Tagihan', alignment: 'right', bold: true}, {text: formatRupiah(totalSisa), alignment: 'right', bold: true}],
+                                ]
+                            },
+                            layout: 'noBorders',
+                            fontSize: 11,
+                        }
+                    ];
                 } catch (e) {
                     console.log(e);
                     throw e;

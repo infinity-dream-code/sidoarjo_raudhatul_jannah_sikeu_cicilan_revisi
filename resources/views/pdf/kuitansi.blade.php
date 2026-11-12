@@ -1,62 +1,103 @@
 @extends('layouts.export.kop_file')
+@php
+    use Carbon\Carbon;
+    $documentTitle = 'KUITANSI';
+    $hideDefaultFooter = true;
+
+    $nis = $siswa->NOCUST ?? null;
+    $hasNis = $nis && $nis !== '-';
+    $nova = $hasNis ? \App\Models\scctcust::showVA($nis) : null;
+    $total = (int) collect($tagihans ?? [])->sum(fn ($t) => (int) ($t->BILLAM ?? $t->BILLPAID ?? 0));
+    $terbilang = \App\Support\Terbilang::rupiah($total);
+
+    $kelas = trim((string) ($siswa->DESC02 ?? ''));
+    $kelompok = trim((string) ($siswa->DESC03 ?? ''));
+    $kelasLabel = $kelas !== '' && $kelompok !== ''
+        ? ($kelas . '-' . $kelompok)
+        : trim($kelas . ' ' . $kelompok);
+
+    $paidAt = null;
+    foreach ($tagihans ?? [] as $t) {
+        if (!empty($t->PAIDDT)) {
+            $paidAt = $t->PAIDDT;
+            break;
+        }
+    }
+    $paidLabel = $paidAt
+        ? Carbon::parse($paidAt)->translatedFormat('d F Y')
+        : Carbon::now()->translatedFormat('d F Y');
+
+    $metode = '-';
+    if (!empty($tagihans[0]->FIDBANK ?? null) || !empty($tagihans[0]->NOREFF ?? null)) {
+        $metode = \App\Support\PaymentEmailPayload::resolvePaymentMethodLabel(
+            isset($tagihans[0]->FIDBANK) ? (string) $tagihans[0]->FIDBANK : null,
+            isset($tagihans[0]->NOREFF) ? (string) $tagihans[0]->NOREFF : null,
+        );
+    }
+@endphp
 @section('title', 'Kuitansi Pembayaran')
 @section('content')
-    @php
-        $nis = $siswa->NOCUST ?? null;
-        $hasNis = $nis && $nis !== '-';
-        $nova = $hasNis ? \App\Models\scctcust::showVA($nis) : null;
-        $ortu = $siswa->GENUS ?? '-';
-        $total = collect($tagihans ?? [])->sum('BILLAM');
-    @endphp
-    <table width="100%">
+    <table width="100%" class="main-table" style="margin-bottom:12px;">
         <tr>
-            <td colspan="4" align="center"><h4>KUITANSI PEMBAYARAN</h4></td>
+            <td class="info-label">Nama Siswa</td>
+            <td>: <strong>{{ $siswa->NMCUST ?? '-' }}</strong></td>
+            <td class="info-label">No. VA</td>
+            <td>: <strong>{{ $nova ?? '-' }}</strong></td>
+        </tr>
+        <tr>
+            <td class="info-label">Kelas</td>
+            <td>: <strong>{{ $kelasLabel !== '' ? $kelasLabel : '-' }}</strong></td>
+            <td class="info-label">Metode Pembayaran</td>
+            <td>: <strong>{{ $metode }}</strong></td>
+        </tr>
+        <tr>
+            <td class="info-label">Jenjang</td>
+            <td>: <strong>{{ $siswa->CODE02 ?? '-' }}</strong></td>
+            <td class="info-label">Tanggal Pembayaran</td>
+            <td>: <strong>{{ $paidLabel }}</strong></td>
         </tr>
     </table>
-    <table width="100%" class="main-table">
+
+    <table width="100%" class="table-border main-table">
+        <thead style="background-color:#ededed;">
         <tr>
-            <td class="border-right-0">{{ $hasNis ? 'NIS' : 'No. Pendaftaran' }}</td>
-            <td class="border-left-0">: <strong>{{ $hasNis ? $nis : ($siswa->NUM2ND ?? '-') }}</strong></td>
-            <td class="border-right-0">Unit</td>
-            <td class="border-left-0">: <strong>{{ $siswa->CODE02 ?? '' }}</strong></td>
-        </tr>
-        <tr>
-            <td class="border-right-0">No. VA</td>
-            <td class="border-left-0">: <strong>{{ $nova ?? '-' }}</strong></td>
-            <td class="border-right-0">Kelas</td>
-            <td class="border-left-0">: <strong>{{ trim(($siswa->DESC02 ?? '') . ' ' . ($siswa->DESC03 ?? '')) }}</strong></td>
-        </tr>
-        <tr>
-            <td class="border-right-0">Nama Siswa</td>
-            <td class="border-left-0">: <strong>{{ $siswa->NMCUST ?? '' }}</strong></td>
-            <td class="border-right-0">Orang Tua</td>
-            <td class="border-left-0">: <strong>{{ $ortu }}</strong></td>
-        </tr>
-    </table>
-    <table width="100%" class="table-border main-table" style="margin-top: 12px;">
-        <thead style="background-color: #ededed;">
-        <tr>
-            <th>#</th>
-            <th>Nama Tagihan</th>
-            <th>Periode</th>
-            <th align="right">Nominal</th>
+            <th style="width:8%;">No.</th>
+            <th>Uraian</th>
+            <th style="width:28%;" class="text-end">Nominal</th>
         </tr>
         </thead>
         <tbody>
         @foreach($tagihans as $tagihan)
             <tr>
-                <td>{{ $loop->iteration }}</td>
+                <td align="center">{{ $loop->iteration }}</td>
                 <td>{{ $tagihan->BILLNM }}</td>
-                <td>{{ $tagihan->BTA }}</td>
                 <td align="right">@rupiah($tagihan->BILLAM)</td>
             </tr>
         @endforeach
         </tbody>
-        <tfoot>
+    </table>
+
+    <table width="100%" class="main-table" style="margin-top:12px;">
         <tr>
-            <td colspan="3" align="right"><strong>Total</strong></td>
-            <td align="right"><strong>@rupiah($total)</strong></td>
+            <td></td>
+            <td align="right" style="width:35%;">
+                <strong>Total Pembayaran</strong>
+                &nbsp;&nbsp;
+                <strong style="border-bottom:1px solid #000;padding-bottom:2px;">@rupiah($total)</strong>
+            </td>
         </tr>
-        </tfoot>
+    </table>
+
+    <table width="100%" class="main-table" style="margin-top:18px;">
+        <tr>
+            <td style="vertical-align:top;width:65%;">
+                <div class="terbilang-box">{{ $terbilang }}</div>
+            </td>
+            <td align="center" style="vertical-align:top;">
+                <div>Diterima Oleh,</div>
+                <div style="height:48px;"></div>
+                <div><strong>ADMIN</strong></div>
+            </td>
+        </tr>
     </table>
 @endsection

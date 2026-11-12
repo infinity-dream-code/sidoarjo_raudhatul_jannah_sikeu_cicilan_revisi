@@ -1,127 +1,96 @@
 @extends('layouts.export.kop_file')
-@php use Carbon\Carbon; @endphp
-@section('title', $pdfTitle ?? ('Kartu Tagihan Siswa - ' . ($siswa->NMCUST ?? '')))
-@section('content')
-    @php
-        $kartuMode = \App\Support\KartuSiswaRows::normalizeMode($kartuMode ?? 'all');
-        $modeLabel = match ($kartuMode) {
-            'unpaid' => '(Belum Bayar)',
-            'paid' => '(Sudah Bayar / Lunas)',
-            default => '',
-        };
-    @endphp
-    <table width="100%">
-        <tr>
-            <td colspan="2" align="center">
-                <h4>KARTU TAGIHAN SISWA</h4>
-                @if($modeLabel !== '')
-                    <div style="font-size:12px;color:#666;">{{ $modeLabel }}</div>
-                @endif
-            </td>
-        </tr>
-    </table>
-    @php
-        $nisForVa = (!empty($siswa->NOCUST) && $siswa->NOCUST !== '-' && is_numeric($siswa->NOCUST))
-            ? $siswa->NOCUST
-            : ($siswa->NUM2ND ?? '');
-        if (!isset($nova) || $nova === '' || $nova === null) {
-            $nova = ($nisForVa && $nisForVa !== '-')
-                ? \App\Models\scctcust::showVA($nisForVa)
-                : '';
+@php
+    use Carbon\Carbon;
+    $documentTitle = 'TAGIHAN SISWA';
+    $kartuMode = \App\Support\KartuSiswaRows::normalizeMode($kartuMode ?? 'all');
+    $kartuRows = \App\Support\KartuSiswaRows::build($tagihans ?? [], $kartuMode);
+    $sumTotal = array_sum(array_column($kartuRows, 'total'));
+    $sumPaid = array_sum(array_column($kartuRows, 'terbayar'));
+    $sumSisa = array_sum(array_column($kartuRows, 'sisa'));
+
+    $nisForVa = (!empty($siswa->NOCUST) && $siswa->NOCUST !== '-' && is_numeric($siswa->NOCUST))
+        ? $siswa->NOCUST
+        : ($siswa->NUM2ND ?? '');
+    if (!isset($nova) || $nova === '' || $nova === null) {
+        $nova = ($nisForVa && $nisForVa !== '-')
+            ? \App\Models\scctcust::showVA($nisForVa)
+            : '';
+    }
+
+    $kelas = trim((string) ($siswa->DESC02 ?? ''));
+    $kelompok = trim((string) ($siswa->DESC03 ?? ''));
+    $kelasLabel = $kelas !== '' && $kelompok !== ''
+        ? ($kelas . '-' . $kelompok)
+        : trim($kelas . ' ' . $kelompok);
+
+    $dueLabel = '-';
+    foreach ($kartuRows as $row) {
+        if (($row['expdate'] ?? '-') !== '-') {
+            try {
+                $dueLabel = Carbon::createFromFormat('d-m-Y', $row['expdate'])->translatedFormat('d F Y');
+            } catch (\Throwable) {
+                $dueLabel = $row['expdate'];
+            }
+            break;
         }
-    @endphp
-    <table width="100%" class="main-table">
+    }
+@endphp
+@section('title', $pdfTitle ?? ('Tagihan Siswa - ' . ($siswa->NMCUST ?? '')))
+@section('content')
+    <table width="100%" class="main-table" style="margin-bottom:12px;">
         <tr>
-            <td style="width: auto" class="border-right-0">Nama Siswa</td>
-            <td class="border-left-0">:<strong> {{$siswa->NMCUST??''}} </strong></td>
-            <td style="width: auto" class="border-right-0">Kelas</td>
-            <td class="border-left-0">:<strong> {{$siswa->DESC02??''}} - {{$siswa->DESC03??''}}</strong></td>
+            <td class="info-label">No. VA</td>
+            <td>: <strong>{{ $nova !== '' ? $nova : '-' }}</strong></td>
+            <td class="info-label">Kelas</td>
+            <td>: <strong>{{ $kelasLabel !== '' ? $kelasLabel : '-' }}</strong></td>
         </tr>
         <tr>
-            <td style="width: auto" class="border-right-0">No. VA</td>
-            <td class="border-left-0">:<strong> {{$nova ?? ''}}</strong></td>
-            <td style="width: auto" class="border-right-0">Unit</td>
-            <td class="border-left-0">:<strong> {{$siswa->CODE02??''}}</strong></td>
+            <td class="info-label">Nama Siswa</td>
+            <td>: <strong>{{ $siswa->NMCUST ?? '-' }}</strong></td>
+            <td class="info-label">Jenjang</td>
+            <td>: <strong>{{ $siswa->CODE02 ?? '-' }}</strong></td>
         </tr>
         <tr>
-            <td class="border-right-0">Angkatan</td>
-            <td class="border-left-0">:<strong> {{$siswa->DESC04??''}}</strong></td>
-            <td class="border-right-0"></td>
-            <td class="border-left-0"></td>
+            <td class="info-label">Email</td>
+            <td>: <strong>{{ $siswa->EMAIL_ORTU ?? '-' }}</strong></td>
+            <td class="info-label">Tanggal Jatuh Tempo</td>
+            <td>: <strong>{{ $dueLabel }}</strong></td>
         </tr>
     </table>
+
     <table width="100%" class="table-border main-table">
-        <thead class="table-border" style="background-color: #ededed;">
+        <thead style="background-color:#ededed;">
         <tr>
-            <th>#</th>
-            <th>Periode</th>
+            <th style="width:8%;">No.</th>
             <th>Nama Tagihan</th>
-            <th>Jumlah</th>
-            <th>Terbayar</th>
-            <th>Sisa</th>
-            <th>Expired</th>
-            <th>Status</th>
+            <th style="width:28%;" class="text-end">Nominal</th>
         </tr>
         </thead>
         <tbody>
-        @php
-            $kartuRows = \App\Support\KartuSiswaRows::build($tagihans, $kartuMode);
-            $sumTotal = array_sum(array_column($kartuRows, 'total'));
-            $sumPaid = array_sum(array_column($kartuRows, 'terbayar'));
-            $sumSisa = array_sum(array_column($kartuRows, 'sisa'));
-        @endphp
         @forelse($kartuRows as $row)
             <tr>
-                <th scope="row">{{$loop->index + 1}}</th>
-                <td>{{$row['periode'] !== '' ? $row['periode'] : $row['bta']}}</td>
-                <td>{{$row['nama']}}</td>
+                <td align="center">{{ $loop->iteration }}</td>
+                <td>{{ $row['nama'] }}</td>
                 <td align="right">@rupiah($row['total'])</td>
-                <td align="right">@rupiah($row['terbayar'])</td>
-                <td align="right">@rupiah($row['sisa'])</td>
-                <td align="center">{{$row['expdate']}}</td>
-                <td align="center">
-                    @if($row['lunas'])
-                        <span style="color:green;">LUNAS</span>
-                    @else
-                        <span style="color:red;">BELUM LUNAS</span>
-                    @endif
-                </td>
             </tr>
         @empty
             <tr>
-                <td colspan="8" align="center">
-                    @if($kartuMode === 'unpaid')
-                        Tidak ada tagihan belum bayar
-                    @elseif($kartuMode === 'paid')
-                        Tidak ada tagihan lunas
-                    @else
-                        Tidak ada data tagihan
-                    @endif
-                </td>
+                <td colspan="3" align="center">Tidak ada data tagihan</td>
             </tr>
         @endforelse
         </tbody>
-        <tfoot style="background-color: #ededed; font-weight: bold;">
+        <tfoot>
         <tr>
-            <td colspan="3">Total</td>
-            <td align="right">@rupiah($sumTotal)</td>
-            <td align="right">@rupiah($sumPaid)</td>
-            <td align="right">@rupiah($sumSisa)</td>
-            <td></td>
-            <td></td>
+            <td colspan="2" align="right"><strong>Total Tagihan</strong></td>
+            <td align="right"><strong>@rupiah($sumTotal)</strong></td>
         </tr>
         <tr>
-            <td colspan="3">Total Tagihan</td>
-            <td colspan="4" align="right">@rupiah($sumTotal)</td>
-            <td rowspan="3"></td>
+            <td colspan="2" align="right"><strong>Tagihan Terbayar</strong></td>
+            <td align="right"><strong>{{ $sumPaid > 0 ? '' : '' }}@rupiah($sumPaid)</strong></td>
         </tr>
         <tr>
-            <td colspan="3">Total Tagihan Terbayar</td>
-            <td colspan="4" align="right">@rupiah($sumPaid)</td>
-        </tr>
-        <tr>
-            <td colspan="3">Total Sisa Tagihan</td>
-            <td colspan="4" align="right">@rupiah($sumSisa)</td>
+            <td colspan="2" align="right"><strong>Sisa Tagihan</strong></td>
+            <td align="right"><strong>@rupiah($sumSisa)</strong></td>
         </tr>
         </tfoot>
     </table>

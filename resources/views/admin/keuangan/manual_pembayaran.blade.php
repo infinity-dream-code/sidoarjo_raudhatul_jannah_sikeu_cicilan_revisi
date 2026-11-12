@@ -823,6 +823,31 @@
                 return daftar && daftar !== '-' ? daftar : '-';
             }
 
+            function terbilangRupiah(amount) {
+                const satuan = ['', 'Satu', 'Dua', 'Tiga', 'Empat', 'Lima', 'Enam', 'Tujuh', 'Delapan', 'Sembilan', 'Sepuluh', 'Sebelas'];
+                const spell = (n) => {
+                    n = Math.floor(Math.abs(Number(n) || 0));
+                    if (n < 12) return satuan[n];
+                    if (n < 20) return satuan[n - 10] + ' Belas';
+                    if (n < 100) return (satuan[Math.floor(n / 10)] + ' Puluh ' + spell(n % 10)).trim();
+                    if (n < 200) return ('Seratus ' + spell(n - 100)).trim();
+                    if (n < 1000) return (satuan[Math.floor(n / 100)] + ' Ratus ' + spell(n % 100)).trim();
+                    if (n < 2000) return ('Seribu ' + spell(n - 1000)).trim();
+                    if (n < 1000000) return (spell(Math.floor(n / 1000)) + ' Ribu ' + spell(n % 1000)).trim();
+                    if (n < 1000000000) return (spell(Math.floor(n / 1000000)) + ' Juta ' + spell(n % 1000000)).trim();
+                    return (spell(Math.floor(n / 1000000000)) + ' Miliar ' + spell(n % 1000000000)).trim();
+                };
+                const n = Math.round(Math.abs(Number(amount) || 0));
+                return (n === 0 ? 'Nol' : spell(n)) + ' Rupiah';
+            }
+
+            function formatKelasLabel(desc02, desc03) {
+                const a = String(desc02 || '').trim();
+                const b = String(desc03 || '').trim();
+                if (a && b) return a + '-' + b;
+                return (a + ' ' + b).trim() || '-';
+            }
+
             async function generatePdf(title, bodyContent, unit_logo, fileTitle) {
                 unit_logo = unit_logo || false;
                 try {
@@ -830,46 +855,50 @@
                     if (unit_logo) logo = await getLogoUnit(unit_logo);
 
                     const orientation = 'portrait';
-                    const pageMargins = [20, 20, 20, 20];
+                    const pageMargins = [24, 24, 24, 24];
                     const tanggalNow = typeof formatDateId === 'function'
                         ? formatDateId(new Date())
                         : new Date().toLocaleDateString('id-ID', {
                             weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
                         }).replace(/^([^,]+),\s+/, '$1 ');
                     const availableWidth = getContentWidth('A4', orientation, pageMargins);
+                    const titleUpper = String(title || '').toUpperCase();
+                    const compactHeader = ['KUITANSI', 'TAGIHAN SISWA'].includes(titleUpper);
+                    const skipFooter = titleUpper === 'KUITANSI';
+
+                    const centerCell = compactHeader
+                        ? { text: titleUpper, fontSize: 18, bold: true, alignment: 'center', margin: [0, 18, 0, 18] }
+                        : {
+                            stack: [
+                                instansi.nama_sub_1 ? { text: instansi.nama_sub_1.toUpperCase(), style: 'headerSmall' } : '',
+                                instansi.nama_sub_2 ? { text: instansi.nama_sub_2.toUpperCase(), style: 'headerSmall' } : '',
+                                { text: instansi.nama_instansi.toUpperCase(), style: 'headerBig' },
+                                instansi.alamat ? { text: instansi.alamat, style: 'headerSmall' } : '',
+                            ],
+                            alignment: 'center',
+                            margin: [4, 0, 4, 0]
+                        };
 
                     const headerTable = {
-                        alignment: 'center',
                         table: {
                             widths: [70, '*', 70],
                             body: [[
                                 logo ? { image: logo, fit: [64, 64], alignment: 'center', margin: [0, 2, 0, 2] } : { text: '' },
-                                {
-                                    stack: [
-                                        instansi.nama_sub_1 ? { text: instansi.nama_sub_1.toUpperCase(), style: 'headerSmall' } : '',
-                                        instansi.nama_sub_2 ? { text: instansi.nama_sub_2.toUpperCase(), style: 'headerSmall' } : '',
-                                        { text: instansi.nama_instansi.toUpperCase(), style: 'headerBig' },
-                                        instansi.akreditasi ? { text: instansi.akreditasi, style: 'headerSmall' } : '',
-                                        instansi.alamat ? { text: instansi.alamat, style: 'headerSmall' } : '',
-                                        { text: 'Telp: ' + (instansi.kontak.telepon || '-') + ' | Email: ' + (instansi.kontak.email || '-') + ' | Web: ' + (instansi.kontak.website || '-'), style: 'headerSmall' }
-                                    ],
-                                    alignment: 'center',
-                                    margin: [4, 0, 4, 0]
-                                },
-                                muamalatLogo ? { image: muamalatLogo, fit: [72, 48], alignment: 'center', margin: [0, 8, 0, 2] } : { text: '' }
+                                centerCell,
+                                muamalatLogo ? { image: muamalatLogo, fit: [72, 48], alignment: 'center', margin: [0, 10, 0, 2] } : { text: '' }
                             ]]
                         },
                         layout: 'noBorders'
                     };
 
-                    const footer = {
+                    const footer = skipFooter ? null : {
                         columns: [
                             { text: '', width: '*' },
                             {
                                 stack: [
                                     { text: domisili + ', ' + tanggalNow, margin: [0, 10, 0, 0], alignment: 'center' },
                                     tandaTangan ? { image: tandaTangan, width: 100, alignment: 'center' } : {},
-                                    { text: userName, alignment: 'center' }
+                                    { text: userName || 'ADMIN', alignment: 'center' }
                                 ],
                                 width: 'auto'
                             }
@@ -879,14 +908,15 @@
                     const content = [
                         headerTable,
                         {
-                            margin: [0, 5, 0, 5],
+                            margin: [0, 6, 0, 10],
                             canvas: [
                                 { type: 'line', x1: 0, y1: 0, x2: availableWidth, y2: 0, lineWidth: 2 },
                                 { type: 'line', x1: 0, y1: 3, x2: availableWidth, y2: 3, lineWidth: 0.5, lineColor: '#888' }
                             ]
-                        },
-                        { text: title, style: 'title', margin: [0, 5, 0, 5] }
-                    ].concat(bodyContent).concat([footer]);
+                        }
+                    ].concat(compactHeader ? [] : [{ text: titleUpper, style: 'title', margin: [0, 5, 0, 5] }])
+                        .concat(bodyContent)
+                        .concat(footer ? [footer] : []);
 
                     const docTitle = String(fileTitle || title || '');
                     const docDefinition = {
@@ -937,7 +967,7 @@
                     const fidBank = paymentBank || firstTagihan.FIDBANK || '';
                     const biayaLayanan = (data.biaya_layanan !== undefined && data.biaya_layanan !== null)
                         ? Number(data.biaya_layanan)
-                        : (fidBank === '1140002' ? 0 : 2000);
+                        : 0;
                     let nocust = !siswa.NOCUST || siswa.NOCUST === '' || siswa.NOCUST === '-' ? false : siswa.NOCUST;
                     const uniqueMetode = [];
                     data.tagihans.forEach(function (item) {
@@ -947,66 +977,104 @@
                     const metodeLabel = paymentBank
                         ? formatMetodePembayaran(paymentBank, firstTagihan.NOREFF)
                         : (uniqueMetode.length > 1 ? 'Beragam' : formatMetodePembayaran(fidBank, firstTagihan.NOREFF));
-                    const ortu = siswa.GENUS || siswa.genus || '-';
+                    const noVa = nocust ? showVA(nocust) : '-';
+                    const kelasLabel = formatKelasLabel(siswa.DESC02, siswa.DESC03);
+                    const paidLabel = formatTanggalBayar(firstTagihan.PAIDDT);
 
-                    const mainTable = [
-                        [(nocust ? 'NIS ' : 'No. Pendaftaran'), ': ' + (nocust ? nocust : (siswa.NUM2ND || '-')), 'Unit', ': ' + (siswa.CODE02 || '-')],
-                        [(nocust ? 'No. VA ' : '-'), ': ' + (nocust ? showVA(nocust) : '-'), 'Kelas', ': ' + (siswa.DESC02 || '') + ' ' + (siswa.DESC03 || '')],
-                        ['Nama ', ': ' + namaSiswa, 'Orang Tua', ': ' + ortu],
-                        ['Metode Bayar', ': ' + metodeLabel, '', ''],
+                    const infoRows = [
+                        [
+                            { text: 'Nama Siswa', border: [false, false, false, false] },
+                            { text: ': ' + namaSiswa, border: [false, false, false, false] },
+                            { text: 'No. VA', border: [false, false, false, false] },
+                            { text: ': ' + noVa, border: [false, false, false, false] },
+                        ],
+                        [
+                            { text: 'Kelas', border: [false, false, false, false] },
+                            { text: ': ' + kelasLabel, border: [false, false, false, false] },
+                            { text: 'Metode Pembayaran', border: [false, false, false, false] },
+                            { text: ': ' + metodeLabel, border: [false, false, false, false] },
+                        ],
+                        [
+                            { text: 'Jenjang', border: [false, false, false, false] },
+                            { text: ': ' + (siswa.CODE02 || '-'), border: [false, false, false, false] },
+                            { text: 'Tanggal Pembayaran', border: [false, false, false, false] },
+                            { text: ': ' + paidLabel, border: [false, false, false, false] },
+                        ],
                     ];
 
-                    bodyContent.push(
-                        { table: { widths: ['15%', '35%', '15%', '35%'], body: mainTable }, layout: 'noBorders' },
-                        { text: '', margin: [0, 5, 0, 5] }
-                    );
+                    bodyContent.push({
+                        table: { widths: ['18%', '32%', '22%', '28%'], body: infoRows },
+                        layout: 'noBorders',
+                        margin: [0, 0, 0, 10],
+                        fontSize: 10
+                    });
 
                     const tableBody = [];
-                    tableBody.push(['#', 'Nama Tagihan', 'Periode', 'Tagihan', 'Bayar', 'Metode', 'Tanggal Bayar'].map(function (h) { return { text: h, style: 'tableHeader' }; }));
+                    tableBody.push(['No.', 'Uraian', 'Nominal'].map(function (h) { return { text: h, style: 'tableHeader' }; }));
 
                     let totalBayar = 0;
                     data.tagihans.forEach(function (item, index) {
-                        const billAm = Number(item.BILLAM || 0);
                         const nominalBayar = Number(item.NOMINAL_BAYAR !== undefined ? item.NOMINAL_BAYAR : (item.BILLAM || 0));
-                        const itemFidBank = item.FIDBANK || paymentBank || '';
-                        const tanggalBayar = formatTanggalBayar(item.PAIDDT);
                         totalBayar += nominalBayar;
                         tableBody.push([
-                            { text: index + 1, alignment: 'center' },
-                            { text: item.BILLNM, alignment: 'left' },
-                            { text: item.BTA, alignment: 'left' },
-                            { text: formatRupiah(billAm), alignment: 'right' },
+                            { text: String(index + 1), alignment: 'center' },
+                            { text: item.BILLNM || '-', alignment: 'left' },
                             { text: formatRupiah(nominalBayar), alignment: 'right' },
-                            { text: formatMetodePembayaran(itemFidBank, item.NOREFF), alignment: 'left' },
-                            { text: tanggalBayar, alignment: 'left' },
                         ]);
                     });
-
                     if (biayaLayanan > 0) {
+                        totalBayar += biayaLayanan;
                         tableBody.push([
-                            { colSpan: 4, text: 'Total Tagihan', alignment: 'right', style: 'tableHeader' }, {}, {}, {},
-                            { text: formatRupiah(totalBayar), alignment: 'right' }, {}, {}
-                        ]);
-                        tableBody.push([
-                            { colSpan: 4, text: 'Biaya Layanan', alignment: 'right', style: 'tableHeader' }, {}, {}, {},
-                            { text: formatRupiah(biayaLayanan), alignment: 'right' }, {}, {}
+                            { text: '', alignment: 'center' },
+                            { text: 'Biaya Layanan', alignment: 'left' },
+                            { text: formatRupiah(biayaLayanan), alignment: 'right' },
                         ]);
                     }
 
-                    tableBody.push([
-                        { colSpan: 4, text: 'Total', alignment: 'right', style: 'tableHeader' }, {}, {}, {},
-                        { text: formatRupiah(totalBayar + biayaLayanan), alignment: 'right' }, {}, {}
-                    ]);
-
                     bodyContent.push({
-                        table: { widths: ['3%', '22%', '11%', '14%', '14%', '16%', '20%'], body: tableBody },
+                        table: { widths: ['10%', '*', '28%'], body: tableBody },
                         layout: {
                             fillColor: function (rowIndex) { return rowIndex === 0 ? '#ededed' : null; },
-                            hLineWidth: function () { return 0.5; },
-                            vLineWidth: function () { return 0.5; }
+                            hLineWidth: function () { return 0.6; },
+                            vLineWidth: function () { return 0.6; }
                         },
                         margin: [0, 0, 0, 10],
-                        fontSize: 12
+                        fontSize: 11
+                    });
+
+                    bodyContent.push({
+                        columns: [
+                            { text: '', width: '*' },
+                            {
+                                width: 'auto',
+                                columns: [
+                                    { text: 'Total Pembayaran', bold: true, width: 'auto', margin: [0, 0, 12, 0] },
+                                    { text: formatRupiah(totalBayar), bold: true, decoration: 'underline', width: 'auto' },
+                                ]
+                            }
+                        ],
+                        margin: [0, 4, 0, 16]
+                    });
+
+                    bodyContent.push({
+                        columns: [
+                            {
+                                width: '*',
+                                table: {
+                                    widths: ['*'],
+                                    body: [[{ text: terbilangRupiah(totalBayar), italics: true, bold: true, margin: [8, 6, 8, 6] }]]
+                                },
+                                layout: { hLineWidth: function () { return 1; }, vLineWidth: function () { return 1; } }
+                            },
+                            {
+                                width: 140,
+                                alignment: 'center',
+                                stack: [
+                                    { text: 'Diterima Oleh,', margin: [0, 0, 0, 36] },
+                                    { text: 'ADMIN', bold: true },
+                                ]
+                            }
+                        ]
                     });
 
                     const forPdf = [];
