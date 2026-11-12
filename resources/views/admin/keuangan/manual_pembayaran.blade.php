@@ -863,7 +863,7 @@
                         }).replace(/^([^,]+),\s+/, '$1 ');
                     const availableWidth = getContentWidth('A4', orientation, pageMargins);
                     const titleUpper = String(title || '').toUpperCase();
-                    const compactHeader = ['KUITANSI', 'DATA TAGIHAN SISWA', 'KARTU BAYAR', 'KARTU SISWA', 'TAGIHAN SISWA'].includes(titleUpper);
+                    const compactHeader = ['KUITANSI', 'DATA TAGIHAN SISWA', 'KARTU LUNAS', 'KARTU BAYAR', 'KARTU SISWA', 'TAGIHAN SISWA'].includes(titleUpper);
                     const skipFooter = titleUpper === 'KUITANSI';
 
                     const centerCell = compactHeader

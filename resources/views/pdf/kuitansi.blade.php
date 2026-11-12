@@ -1,7 +1,9 @@
 @extends('layouts.export.kop_file')
 @php
     use Carbon\Carbon;
-    $documentTitle = 'KUITANSI';
+    $documentTitle = trim((string) ($documentTitle ?? '')) !== ''
+        ? strtoupper((string) $documentTitle)
+        : 'KUITANSI';
     $hideDefaultFooter = true;
 
     $nis = $siswa->NOCUST ?? null;

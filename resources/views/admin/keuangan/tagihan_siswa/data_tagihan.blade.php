@@ -1661,7 +1661,7 @@
                     const pageMargins = [24, 24, 24, 24];
                     const availableWidth = getContentWidth('A4', orientation, pageMargins);
                     const titleUpper = String(title || '').toUpperCase();
-                    const compactHeader = ['KUITANSI', 'DATA TAGIHAN SISWA', 'KARTU BAYAR', 'KARTU SISWA', 'TAGIHAN SISWA'].includes(titleUpper);
+                    const compactHeader = ['KUITANSI', 'DATA TAGIHAN SISWA', 'KARTU LUNAS', 'KARTU BAYAR', 'KARTU SISWA', 'TAGIHAN SISWA'].includes(titleUpper);
 
                     const centerCell = compactHeader
                         ? {text: titleUpper, fontSize: 18, bold: true, alignment: 'center', margin: [0, 18, 0, 18]}
@@ -1751,6 +1751,17 @@
 
             document.getElementById('cetak-kartu-siswa').addEventListener('click', async function (e) {
                 e.preventDefault();
+                let data = DT[`${dtOptions.tableId}`].rows({selected: true}).data().toArray();
+                if (!data.length) {
+                    warningAlert('Silahkan pilih 1 siswa untuk cetak kartu!');
+                    return;
+                }
+                const uniqueCust = [...new Set(data.map((row) => String(row.CUSTID ?? row.custid ?? '')).filter(Boolean))];
+                if (uniqueCust.length !== 1) {
+                    warningAlert('Cetak kartu hanya bisa untuk 1 siswa. Untuk banyak siswa, gunakan Cetak Rekap.');
+                    return;
+                }
+
                 loadingAlert('Membuat Data Tagihan Siswa');
                 let url = '{{route('admin.keuangan.tagihan-siswa.data-tagihan.cetak-kartu-siswa')}}';
                 const form = new FormData(document.getElementById('filter-form'));
@@ -1758,12 +1769,7 @@
                 for (const [key, value] of form.entries()) {
                     params.append(key, value);
                 }
-                let data = DT[`${dtOptions.tableId}`].rows({selected: true}).data();
-                if (!data[0]) {
-                    warningAlert('silahkan pilih siswa!')
-                    return;
-                }
-                params.append('custid', data[0].CUSTID)
+                params.append('custid', uniqueCust[0]);
                 const unit = data[0].CODE02;
                 const fullUrl = `${url}?${params.toString()}`;
                 const request = new Request(
@@ -1897,7 +1903,15 @@
                         throw createError('Tidak ada tagihan belum bayar untuk dicetak di kartu', 422);
                     }
 
-                    const dueLabel = formatExpLong(sortedTagihans[0]?.ExpDate_raw || sortedTagihans[0]?.ExpDate);
+                    const formatExpShort = (val) => {
+                        if (!val) return '-';
+                        const s = String(val).trim();
+                        const dmy = s.match(/^(\d{2})-(\d{2})-(\d{4})/);
+                        if (dmy) return `${dmy[1]}-${dmy[2]}-${dmy[3]}`;
+                        const long = formatExpLong(val);
+                        return long || '-';
+                    };
+
                     const infoRows = [
                         [
                             {text: 'No. VA', border: [false, false, false, false]},
@@ -1913,9 +1927,9 @@
                         ],
                         [
                             {text: 'Email', border: [false, false, false, false]},
-                            {text: ': ' + (siswa.EMAIL_ORTU || '-'), border: [false, false, false, false]},
-                            {text: 'Tanggal Jatuh Tempo', border: [false, false, false, false]},
-                            {text: ': ' + dueLabel, border: [false, false, false, false]},
+                            {text: ': ' + (siswa.EMAIL_ORTU || '-'), border: [false, false, false, false], colSpan: 3},
+                            {},
+                            {},
                         ],
                     ];
 
@@ -1923,6 +1937,7 @@
                         [
                             {text: 'No.', style: 'tableHeader', alignment: 'center'},
                             {text: 'Nama Tagihan', style: 'tableHeader'},
+                            {text: 'Jatuh Tempo', style: 'tableHeader', alignment: 'center'},
                             {text: 'Nominal', style: 'tableHeader', alignment: 'right'},
                         ],
                     ];
@@ -1939,6 +1954,7 @@
                         tableBody.push([
                             {text: String(index + 1), alignment: 'center'},
                             {text: item.BILLNM || '-', alignment: 'left'},
+                            {text: formatExpShort(item.ExpDate_raw || item.ExpDate), alignment: 'center'},
                             {text: formatRupiah(jumlahTagihan), alignment: 'right'},
                         ]);
                     });
@@ -1947,17 +1963,20 @@
                     // Total menyatu di dalam tabel (sesuai contoh mockup).
                     tableBody.push(
                         [
-                            {text: 'Total Tagihan', colSpan: 2, alignment: 'right', bold: true},
+                            {text: 'Total Tagihan', colSpan: 3, alignment: 'right', bold: true},
+                            {},
                             {},
                             {text: formatRupiah(totalTagihan), alignment: 'right', bold: true},
                         ],
                         [
-                            {text: 'Tagihan Terbayar', colSpan: 2, alignment: 'right', bold: true},
+                            {text: 'Tagihan Terbayar', colSpan: 3, alignment: 'right', bold: true},
+                            {},
                             {},
                             {text: fmtPaid(totalBayar), alignment: 'right', bold: true},
                         ],
                         [
-                            {text: 'Sisa Tagihan', colSpan: 2, alignment: 'right', bold: true},
+                            {text: 'Sisa Tagihan', colSpan: 3, alignment: 'right', bold: true},
+                            {},
                             {},
                             {text: formatRupiah(totalSisa), alignment: 'right', bold: true},
                         ],
@@ -1971,7 +1990,7 @@
                             fontSize: 10,
                         },
                         {
-                            table: {widths: ['10%', '*', '28%'], body: tableBody},
+                            table: {widths: ['8%', '*', '18%', '24%'], body: tableBody},
                             layout: {
                                 fillColor: (i) => i === 0 ? '#ededed' : null,
                                 hLineWidth: () => 0.7,

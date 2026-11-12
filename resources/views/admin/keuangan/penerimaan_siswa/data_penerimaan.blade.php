@@ -324,14 +324,14 @@
                         </div>
                         <div class="col">
                             <button type="button" class="btn btn-facebook w-100 text-nowrap mb-3" id="cetak-kartu-siswa"
-                                    title="Cetak Kartu Bayar (tagihan lunas)">
+                                    title="Cetak Kartu Lunas (tagihan lunas)">
                                 <span class="ri-info-card-line me-2"></span>
-                                Cetak Kartu Bayar
+                                Cetak Kartu Lunas
                             </button>
                             <button type="button" class="btn btn-facebook w-100 text-nowrap mb-3" id="cetak-kuitansi"
-                                    title="Cetak kuitansi untuk tagihan yang sudah bayar">
+                                    title="Cetak Kuitansi Lunas untuk tagihan yang sudah lunas">
                                 <span class="ri-info-card-line me-2"></span>
-                                Cetak Kuitansi
+                                Cetak Kuitansi Lunas
                             </button>
                             {{-- Cetak Kuitansi Dengan 2000 disembunyikan --}}
                             <button type="button" class="btn btn-google-plus w-100 text-nowrap download-pdf-new  mb-3"
@@ -960,8 +960,9 @@
                         }).replace(/^([^,]+),\s+/, '$1 ');
                     const availableWidth = getContentWidth('A4', orientation, pageMargins);
                     const titleUpper = String(title || '').toUpperCase();
-                    const compactHeader = ['KUITANSI', 'DATA TAGIHAN SISWA', 'KARTU BAYAR', 'KARTU SISWA', 'TAGIHAN SISWA'].includes(titleUpper);
-                    const skipFooter = titleUpper === 'KUITANSI';
+                    const isKuitansi = titleUpper.startsWith('KUITANSI');
+                    const compactHeader = isKuitansi || ['DATA TAGIHAN SISWA', 'KARTU LUNAS', 'KARTU BAYAR', 'KARTU SISWA', 'TAGIHAN SISWA'].includes(titleUpper);
+                    const skipFooter = isKuitansi;
 
                     const centerCell = compactHeader
                         ? {
@@ -1286,24 +1287,46 @@
                 return generateKuitansiAsync(biayaLayanan);
             }
 
-            async function generateKuitansiAsync(biayaLayanan = false) {
-                let data = DT[`${dtOptions.tableId}`].rows({selected: true}).data().toArray();
-                data = data.filter(item => {
-                    const tanggal = item.PAIDDT ?? item.TRXDATE;
-                    const nominal = Number(item.BILLAM ?? item.DEBET ?? 0);
-                    return tanggal && nominal > 0;
-                });
+            function parseNominalBayar(item) {
+                const raw = item?.BILLAM ?? item?.DEBET ?? item?.KREDIT ?? item?.BILLAM_TOTAL ?? 0;
+                if (typeof raw === 'number') return Number.isFinite(raw) ? raw : 0;
+                const cleaned = String(raw).replace(/[^\d-]/g, '');
+                const n = Number(cleaned);
+                return Number.isFinite(n) ? n : 0;
+            }
 
-                if (!data[0]) {
-                    warningAlert('Silahkan pilih data pembayaran yang belum di-reversal!');
+            function resolvePaidDate(item) {
+                const tanggal = item?.PAIDDT ?? item?.TRXDATE ?? item?.paiddt ?? item?.trxdate ?? null;
+                if (!tanggal) return null;
+                const s = String(tanggal).trim();
+                if (!s || s.startsWith('0000-00-00')) return null;
+                return tanggal;
+            }
+
+            async function generateKuitansiAsync(biayaLayanan = false) {
+                const selected = DT[`${dtOptions.tableId}`].rows({selected: true}).data().toArray();
+                if (!selected.length) {
+                    warningAlert('Silahkan pilih data pembayaran terlebih dahulu!');
                     return;
                 }
 
-                let firstValue = data[0]?.nocust;
-                let allSame = data.every(row => row.nocust === firstValue);
+                // Menu Data Tagihan Lunas sudah exclude reversal di query server.
+                // Cek di sini hanya nominal valid — bukan "belum reversal".
+                let data = selected.filter((item) => {
+                    const rev = item.isreversal ?? item.ISREVERSAL;
+                    if (rev === 1 || rev === '1' || rev === true) return false;
+                    return parseNominalBayar(item) > 0;
+                });
 
+                if (!data.length) {
+                    warningAlert('Data yang dipilih tidak memiliki nominal pembayaran yang valid.');
+                    return;
+                }
+
+                const firstCust = String(data[0]?.CUSTID ?? data[0]?.custid ?? '');
+                const allSame = firstCust !== '' && data.every((row) => String(row.CUSTID ?? row.custid ?? '') === firstCust);
                 if (!allSame) {
-                    warningAlert('silahkan pilih siswa yang sama!');
+                    warningAlert('Silahkan pilih data siswa yang sama!');
                     return;
                 }
 
@@ -1336,16 +1359,17 @@
                 }
 
                 let siswa = data[0];
-                let nocust = siswa.nocust === null || siswa.nocust === '' || siswa.nocust === '-' || !siswa.nocust ? false : siswa.nocust;
+                let nocust = siswa.nocust ?? siswa.NOCUST;
+                nocust = (!nocust || nocust === '-' || nocust === '') ? false : nocust;
                 const uniqueMetode = [...new Set(data.map(item => String(item.FIDBANK ?? '')))].filter(Boolean);
                 const metodeLabel = uniqueMetode.length > 1
                     ? 'Beragam'
                     : formatMetodePembayaran(siswa.FIDBANK ?? '', siswa.BILL_NOREFF ?? '');
                 const noVa = nocust ? showVA(nocust) : '-';
                 const kelasLabel = formatKelasLabel(siswa.DESC02, siswa.DESC03);
-                let paidRaw = data.map(i => i.PAIDDT || i.TRXDATE).find(Boolean);
+                let paidRaw = data.map((i) => resolvePaidDate(i)).find(Boolean);
                 let paidLabel = '-';
-                if (paidRaw && paidRaw !== '0000-00-00 00:00:00') {
+                if (paidRaw) {
                     paidLabel = typeof formatDateId === 'function'
                         ? formatDateId(paidRaw)
                         : new Date(paidRaw).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'});
@@ -1354,7 +1378,7 @@
                 const infoRows = [
                     [
                         {text: 'Nama Siswa', border: [false, false, false, false]},
-                        {text: ': ' + (siswa.nmcust || '-'), border: [false, false, false, false]},
+                        {text: ': ' + (siswa.nmcust || siswa.NMCUST || '-'), border: [false, false, false, false]},
                         {text: 'No. VA', border: [false, false, false, false]},
                         {text: ': ' + noVa, border: [false, false, false, false]},
                     ],
@@ -1384,7 +1408,7 @@
                 ];
                 let totalBayar = 0;
                 data.forEach((item, index) => {
-                    const billPaid = Number(item.BILLAM ?? item.DEBET ?? item.BILLAM_TOTAL ?? 0);
+                    const billPaid = parseNominalBayar(item);
                     totalBayar += billPaid;
                     tableBody.push([
                         {text: String(index + 1), alignment: 'center'},
@@ -1465,7 +1489,7 @@
                 });
 
                 Swal.close();
-                generatePdf('KUITANSI', content, siswa.CODE02, 'data tagihan lunas - cetak kuitansi');
+                generatePdf('KUITANSI LUNAS', content, siswa.CODE02, 'data tagihan lunas - kuitansi lunas');
             }
 
             document.getElementById('cetak-kuitansi').addEventListener('click', async function (e) {
@@ -1475,19 +1499,25 @@
 
             document.getElementById('cetak-kartu-siswa').addEventListener('click', async function (e) {
                 e.preventDefault();
-                loadingAlert('Membuat Kartu Bayar');
+                let data = DT[`${dtOptions.tableId}`].rows({selected: true}).data().toArray();
+                if (!data.length) {
+                    warningAlert('Silahkan pilih 1 siswa untuk cetak Kartu Lunas!');
+                    return;
+                }
+                const uniqueCust = [...new Set(data.map((row) => String(row.CUSTID ?? row.custid ?? '')).filter(Boolean))];
+                if (uniqueCust.length !== 1) {
+                    warningAlert('Cetak Kartu Lunas hanya bisa untuk 1 siswa.');
+                    return;
+                }
+
+                loadingAlert('Membuat Kartu Lunas');
                 let url = '{{route('admin.keuangan.penerimaan-siswa.data-penerimaan.cetak-kartu-siswa')}}';
                 const form = new FormData(document.getElementById('filter-form'));
                 const params = new URLSearchParams();
                 for (const [key, value] of form.entries()) {
                     params.append(key, value);
                 }
-                let data = DT[`${dtOptions.tableId}`].rows({selected: true}).data();
-                if (!data[0]) {
-                    warningAlert('silahkan pilih siswa!')
-                    return;
-                }
-                params.append('custid', data[0].CUSTID)
+                params.append('custid', uniqueCust[0]);
                 const unit = data[0].CODE02;
                 const fullUrl = `${url}?${params.toString()}`;
                 const request = new Request(
@@ -1512,7 +1542,7 @@
                         throw createError("Data Tagihan Kosong", 422);
                     }
                     const data = await generateKartuSiswa(result);
-                    const pdf = await generatePdf('KARTU BAYAR', data, unit, 'data tagihan lunas - kartu bayar')
+                    const pdf = await generatePdf('KARTU LUNAS', data, unit, 'data tagihan lunas - kartu lunas')
                     // if (!result['tagihans'] || result['tagihans'].length === 0) {
                     //     console.log('kosong');
                     //     const error = new Error("Data Tagihan Kosong");
@@ -1582,7 +1612,15 @@
                         throw createError('Tidak ada tagihan lunas untuk dicetak di kartu', 422);
                     }
 
-                    const dueLabel = formatExpLong(sortedTagihans[0]?.ExpDate_raw || sortedTagihans[0]?.ExpDate);
+                    const formatExpShort = (val) => {
+                        if (!val) return '-';
+                        const s = String(val).trim();
+                        const dmy = s.match(/^(\d{2})-(\d{2})-(\d{4})/);
+                        if (dmy) return `${dmy[1]}-${dmy[2]}-${dmy[3]}`;
+                        const long = formatExpLong(val);
+                        return long || '-';
+                    };
+
                     const infoRows = [
                         [
                             {text: 'No. VA', border: [false, false, false, false]},
@@ -1598,16 +1636,32 @@
                         ],
                         [
                             {text: 'Email', border: [false, false, false, false]},
-                            {text: ': ' + (siswa.EMAIL_ORTU || '-'), border: [false, false, false, false]},
-                            {text: 'Tanggal Jatuh Tempo', border: [false, false, false, false]},
-                            {text: ': ' + dueLabel, border: [false, false, false, false]},
+                            {text: ': ' + (siswa.EMAIL_ORTU || '-'), border: [false, false, false, false], colSpan: 3},
+                            {},
+                            {},
                         ],
                     ];
+
+                    const formatPaidShort = (val) => {
+                        if (!val || val === '0000-00-00 00:00:00') return '-';
+                        const s = String(val).trim();
+                        const dmy = s.match(/^(\d{2})-(\d{2})-(\d{4})/);
+                        if (dmy) return `${dmy[1]}-${dmy[2]}-${dmy[3]}`;
+                        const ymd = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                        if (ymd) return `${ymd[3]}-${ymd[2]}-${ymd[1]}`;
+                        const dt = new Date(s);
+                        if (Number.isNaN(dt.getTime())) return '-';
+                        const dd = String(dt.getDate()).padStart(2, '0');
+                        const mm = String(dt.getMonth() + 1).padStart(2, '0');
+                        return `${dd}-${mm}-${dt.getFullYear()}`;
+                    };
 
                     const tableBody = [
                         [
                             {text: 'No.', style: 'tableHeader', alignment: 'center'},
                             {text: 'Nama Tagihan', style: 'tableHeader'},
+                            {text: 'Jatuh Tempo', style: 'tableHeader', alignment: 'center'},
+                            {text: 'Tanggal Bayar', style: 'tableHeader', alignment: 'center'},
                             {text: 'Nominal', style: 'tableHeader', alignment: 'right'},
                         ],
                     ];
@@ -1622,6 +1676,8 @@
                         tableBody.push([
                             {text: String(index + 1), alignment: 'center'},
                             {text: item.BILLNM || '-', alignment: 'left'},
+                            {text: formatExpShort(item.ExpDate_raw || item.ExpDate), alignment: 'center'},
+                            {text: formatPaidShort(item.PAIDDT || item.paiddt), alignment: 'center'},
                             {text: formatRupiah(jumlahTagihan), alignment: 'right'},
                         ]);
                     });
@@ -1630,17 +1686,23 @@
 
                     tableBody.push(
                         [
-                            {text: 'Total Tagihan', colSpan: 2, alignment: 'right', bold: true},
+                            {text: 'Total Tagihan', colSpan: 4, alignment: 'right', bold: true},
+                            {},
+                            {},
                             {},
                             {text: formatRupiah(totalTagihan), alignment: 'right', bold: true},
                         ],
                         [
-                            {text: 'Tagihan Terbayar', colSpan: 2, alignment: 'right', bold: true},
+                            {text: 'Tagihan Terbayar', colSpan: 4, alignment: 'right', bold: true},
+                            {},
+                            {},
                             {},
                             {text: fmtPaid(totalBayar), alignment: 'right', bold: true},
                         ],
                         [
-                            {text: 'Sisa Tagihan', colSpan: 2, alignment: 'right', bold: true},
+                            {text: 'Sisa Tagihan', colSpan: 4, alignment: 'right', bold: true},
+                            {},
+                            {},
                             {},
                             {text: formatRupiah(totalSisa), alignment: 'right', bold: true},
                         ],
@@ -1654,14 +1716,14 @@
                             fontSize: 10,
                         },
                         {
-                            table: {widths: ['10%', '*', '28%'], body: tableBody},
+                            table: {widths: ['7%', '*', '16%', '16%', '20%'], body: tableBody},
                             layout: {
                                 fillColor: (i) => i === 0 ? '#ededed' : null,
                                 hLineWidth: () => 0.7,
                                 vLineWidth: () => 0.7,
                             },
                             margin: [0, 0, 0, 0],
-                            fontSize: 11,
+                            fontSize: 10,
                         },
                     ];
                 } catch (e) {

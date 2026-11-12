@@ -1,11 +1,10 @@
 @extends('layouts.export.kop_file')
 @php
-    use Carbon\Carbon;
     $kartuMode = \App\Support\KartuSiswaRows::normalizeMode($kartuMode ?? 'all');
     // unpaid = Data Tagihan, paid = Data Tagihan Lunas, all = campur (Data Pembayaran/rekap)
     $documentTitle = match ($kartuMode) {
         'unpaid' => 'DATA TAGIHAN SISWA',
-        'paid' => 'KARTU BAYAR',
+        'paid' => 'KARTU LUNAS',
         default => 'KARTU SISWA',
     };
     if (trim((string) ($documentTitleOverride ?? '')) !== '') {
@@ -16,7 +15,8 @@
     $sumPaid = array_sum(array_column($kartuRows, 'terbayar'));
     $sumSisa = array_sum(array_column($kartuRows, 'sisa'));
     $isKartuSiswa = $kartuMode === 'all';
-    $statusLabel = $sumSisa <= 0 ? 'Lunas' : 'Belum Lunas';
+    $isKartuLunas = $kartuMode === 'paid';
+    $colCount = $isKartuSiswa ? 5 : ($isKartuLunas ? 5 : 4);
 
     $nisForVa = (!empty($siswa->NOCUST) && $siswa->NOCUST !== '-' && is_numeric($siswa->NOCUST))
         ? $siswa->NOCUST
@@ -32,18 +32,6 @@
     $kelasLabel = $kelas !== '' && $kelompok !== ''
         ? ($kelas . '-' . $kelompok)
         : trim($kelas . ' ' . $kelompok);
-
-    $dueLabel = '-';
-    foreach ($kartuRows as $row) {
-        if (($row['expdate'] ?? '-') !== '-') {
-            try {
-                $dueLabel = Carbon::createFromFormat('d-m-Y', $row['expdate'])->translatedFormat('d F Y');
-            } catch (\Throwable) {
-                $dueLabel = $row['expdate'];
-            }
-            break;
-        }
-    }
 @endphp
 @section('title', $pdfTitle ?? ($documentTitle . ' - ' . ($siswa->NMCUST ?? '')))
 @section('content')
@@ -62,26 +50,23 @@
         </tr>
         <tr>
             <td class="info-label">Email</td>
-            <td>: <strong>{{ $siswa->EMAIL_ORTU ?? '-' }}</strong></td>
-            @if($isKartuSiswa)
-                <td class="info-label">Status</td>
-                <td>: <strong>{{ $statusLabel }}</strong></td>
-            @else
-                <td class="info-label">Tanggal Jatuh Tempo</td>
-                <td>: <strong>{{ $dueLabel }}</strong></td>
-            @endif
+            <td colspan="3">: <strong>{{ $siswa->EMAIL_ORTU ?? '-' }}</strong></td>
         </tr>
     </table>
 
     <table width="100%" class="table-border main-table">
         <thead style="background-color:#ededed;">
         <tr>
-            <th style="width:8%;">No.</th>
+            <th style="width:7%;">No.</th>
             <th>Nama Tagihan</th>
             @if($isKartuSiswa)
-                <th style="width:16%;">Status</th>
+                <th style="width:14%;">Status</th>
             @endif
-            <th style="width:28%;" class="text-end">Nominal</th>
+            <th style="width:16%;">Jatuh Tempo</th>
+            @if($isKartuLunas)
+                <th style="width:16%;">Tanggal Bayar</th>
+            @endif
+            <th style="width:20%;" class="text-end">Nominal</th>
         </tr>
         </thead>
         <tbody>
@@ -92,23 +77,27 @@
                 @if($isKartuSiswa)
                     <td align="center">{{ !empty($row['lunas']) ? 'Lunas' : 'Belum Lunas' }}</td>
                 @endif
+                <td align="center">{{ ($row['expdate'] ?? '-') !== '-' ? $row['expdate'] : '-' }}</td>
+                @if($isKartuLunas)
+                    <td align="center">{{ ($row['paiddt'] ?? '-') !== '-' ? $row['paiddt'] : '-' }}</td>
+                @endif
                 <td align="right">@rupiah($row['total'])</td>
             </tr>
         @empty
             <tr>
-                <td colspan="{{ $isKartuSiswa ? 4 : 3 }}" align="center">Tidak ada data tagihan</td>
+                <td colspan="{{ $colCount }}" align="center">Tidak ada data tagihan</td>
             </tr>
         @endforelse
         <tr>
-            <td colspan="{{ $isKartuSiswa ? 3 : 2 }}" align="right"><strong>Total Tagihan</strong></td>
+            <td colspan="{{ $colCount - 1 }}" align="right"><strong>Total Tagihan</strong></td>
             <td align="right"><strong>@rupiah($sumTotal)</strong></td>
         </tr>
         <tr>
-            <td colspan="{{ $isKartuSiswa ? 3 : 2 }}" align="right"><strong>Tagihan Terbayar</strong></td>
+            <td colspan="{{ $colCount - 1 }}" align="right"><strong>Tagihan Terbayar</strong></td>
             <td align="right"><strong>@if($sumPaid > 0)@rupiah($sumPaid)@else Rp -@endif</strong></td>
         </tr>
         <tr>
-            <td colspan="{{ $isKartuSiswa ? 3 : 2 }}" align="right"><strong>Sisa Tagihan</strong></td>
+            <td colspan="{{ $colCount - 1 }}" align="right"><strong>Sisa Tagihan</strong></td>
             <td align="right"><strong>@rupiah($sumSisa)</strong></td>
         </tr>
         </tbody>

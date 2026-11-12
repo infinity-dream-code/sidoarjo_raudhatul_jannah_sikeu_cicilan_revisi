@@ -9,7 +9,7 @@ use Throwable;
 /**
  * Baris kartu tagihan siswa — filter status bergantung menu pemanggil:
  * - unpaid: Data Tagihan → judul "DATA TAGIHAN SISWA" (belum lunas saja)
- * - paid: Data Tagihan Lunas → judul "KARTU BAYAR" (lunas saja)
+ * - paid: Data Tagihan Lunas → judul "KARTU LUNAS" (lunas saja)
  * - all: Data Pembayaran / rekap → judul "KARTU SISWA" (campur lunas + belum)
  */
 class KartuSiswaRows
@@ -41,7 +41,7 @@ class KartuSiswaRows
             try {
                 $bills = scctbill::query()
                     ->whereIn('AA', $billIds)
-                    ->get(['AA', 'BTA', 'BILLAC', 'BILLNM', 'BILLAM', 'BILLPAID', 'PAYMENTLEFT', 'PAIDST', 'ExpDate'])
+                    ->get(['AA', 'BTA', 'BILLAC', 'BILLNM', 'BILLAM', 'BILLPAID', 'PAYMENTLEFT', 'PAIDST', 'ExpDate', 'PAIDDT'])
                     ->keyBy(fn ($bill) => (string) $bill->AA);
             } catch (Throwable) {
                 $bills = collect();
@@ -69,6 +69,7 @@ class KartuSiswaRows
                     $bill->PAYMENTLEFT,
                     (int) ($bill->PAIDST ?? 0) === 1,
                     $bill->ExpDate ?? ($row['ExpDate_raw'] ?? $row['ExpDate'] ?? null),
+                    $bill->PAIDDT ?? ($row['PAIDDT'] ?? null),
                 );
             } else {
                 $total = (int) ($row['BILLAM_TOTAL'] ?? $row['BILLAM'] ?? 0);
@@ -82,6 +83,7 @@ class KartuSiswaRows
                     $row['PAYMENTLEFT'] ?? null,
                     $lunas,
                     $row['ExpDate_raw'] ?? $row['ExpDate'] ?? null,
+                    $row['PAIDDT'] ?? null,
                 );
             }
 
@@ -121,7 +123,7 @@ class KartuSiswaRows
     }
 
     /**
-     * @return array{bta: string, periode: string, nama: string, total: int, terbayar: int, sisa: int, expdate: string, lunas: bool}
+     * @return array{bta: string, periode: string, nama: string, total: int, terbayar: int, sisa: int, expdate: string, paiddt: string, lunas: bool}
      */
     private static function fromAmounts(
         string $bta,
@@ -131,7 +133,8 @@ class KartuSiswaRows
         mixed $paid,
         mixed $paymentLeft,
         bool $paidFlag,
-        mixed $expDate
+        mixed $expDate,
+        mixed $paidDt = null,
     ): array {
         if ($paymentLeft === null || $paymentLeft === '') {
             $sisa = $paidFlag ? 0 : max(0, $total - (int) ($paid ?? 0));
@@ -147,6 +150,7 @@ class KartuSiswaRows
             'terbayar' => max(0, $total - $sisa),
             'sisa' => $sisa,
             'expdate' => self::formatExpDate($expDate),
+            'paiddt' => self::formatExpDate($paidDt),
             'lunas' => $paidFlag || $sisa <= 0,
         ];
     }
