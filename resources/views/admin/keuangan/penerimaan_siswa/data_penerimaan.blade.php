@@ -1001,7 +1001,7 @@
                                 stack: [
                                     {text: `${domisili}, ${tanggalSekarang}`, margin: [0, 10, 0, 0], alignment: 'center'},
                                     tandaTangan ? {image: tandaTangan, width: 100, alignment: 'center'} : {},
-                                    {text: userName || 'ADMIN', alignment: 'center'}
+                                    {text: compactHeader ? 'ADMIN' : (userName || 'ADMIN'), alignment: 'center'}
                                 ],
                                 width: 'auto'
                             }
@@ -1013,7 +1013,7 @@
                         {
                             margin: [0, 6, 0, 10],
                             canvas: [
-                                {type: 'line', x1: 0, y1: 0, x2: availableWidth, y2: 0, lineWidth: 2},
+                                {type: 'line', x1: 0, y1: 0, x2: availableWidth, y2: 0, lineWidth: 1.5},
                                 {type: 'line', x1: 0, y1: 3, x2: availableWidth, y2: 3, lineWidth: 0.5, lineColor: '#888'}
                             ]
                         },
@@ -1600,7 +1600,11 @@
                     ];
 
                     const tableBody = [
-                        ['No.', 'Nama Tagihan', 'Nominal'].map(h => ({text: h, style: 'tableHeader'})),
+                        [
+                            {text: 'No.', style: 'tableHeader', alignment: 'center'},
+                            {text: 'Nama Tagihan', style: 'tableHeader'},
+                            {text: 'Nominal', style: 'tableHeader', alignment: 'right'},
+                        ],
                     ];
                     let totalTagihan = 0;
                     let totalBayar = 0;
@@ -1617,36 +1621,43 @@
                         ]);
                     });
                     totalSisa = Math.max(0, totalTagihan - totalBayar);
+                    const fmtPaid = (n) => (Number(n) > 0 ? formatRupiah(n) : 'Rp -');
+
+                    tableBody.push(
+                        [
+                            {text: 'Total Tagihan', colSpan: 2, alignment: 'right', bold: true},
+                            {},
+                            {text: formatRupiah(totalTagihan), alignment: 'right', bold: true},
+                        ],
+                        [
+                            {text: 'Tagihan Terbayar', colSpan: 2, alignment: 'right', bold: true},
+                            {},
+                            {text: fmtPaid(totalBayar), alignment: 'right', bold: true},
+                        ],
+                        [
+                            {text: 'Sisa Tagihan', colSpan: 2, alignment: 'right', bold: true},
+                            {},
+                            {text: formatRupiah(totalSisa), alignment: 'right', bold: true},
+                        ],
+                    );
 
                     return [
                         {
-                            table: {widths: ['20%', '30%', '22%', '28%'], body: infoRows},
+                            table: {widths: ['22%', '30%', '22%', '26%'], body: infoRows},
                             layout: 'noBorders',
-                            margin: [0, 0, 0, 10],
+                            margin: [0, 0, 0, 12],
                             fontSize: 10,
                         },
                         {
                             table: {widths: ['10%', '*', '28%'], body: tableBody},
                             layout: {
                                 fillColor: (i) => i === 0 ? '#ededed' : null,
-                                hLineWidth: () => 0.6,
-                                vLineWidth: () => 0.6,
+                                hLineWidth: () => 0.7,
+                                vLineWidth: () => 0.7,
                             },
-                            margin: [0, 0, 0, 6],
+                            margin: [0, 0, 0, 0],
                             fontSize: 11,
                         },
-                        {
-                            table: {
-                                widths: ['*', '28%'],
-                                body: [
-                                    [{text: 'Total Tagihan', alignment: 'right', bold: true}, {text: formatRupiah(totalTagihan), alignment: 'right', bold: true}],
-                                    [{text: 'Tagihan Terbayar', alignment: 'right', bold: true}, {text: formatRupiah(totalBayar), alignment: 'right', bold: true}],
-                                    [{text: 'Sisa Tagihan', alignment: 'right', bold: true}, {text: formatRupiah(totalSisa), alignment: 'right', bold: true}],
-                                ]
-                            },
-                            layout: 'noBorders',
-                            fontSize: 11,
-                        }
                     ];
                 } catch (e) {
                     console.log(e);

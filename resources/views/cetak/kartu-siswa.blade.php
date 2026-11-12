@@ -78,20 +78,18 @@
                 <td colspan="3" align="center">Tidak ada data tagihan</td>
             </tr>
         @endforelse
-        </tbody>
-        <tfoot>
         <tr>
             <td colspan="2" align="right"><strong>Total Tagihan</strong></td>
             <td align="right"><strong>@rupiah($sumTotal)</strong></td>
         </tr>
         <tr>
             <td colspan="2" align="right"><strong>Tagihan Terbayar</strong></td>
-            <td align="right"><strong>{{ $sumPaid > 0 ? '' : '' }}@rupiah($sumPaid)</strong></td>
+            <td align="right"><strong>@if($sumPaid > 0)@rupiah($sumPaid)@else Rp -@endif</strong></td>
         </tr>
         <tr>
             <td colspan="2" align="right"><strong>Sisa Tagihan</strong></td>
             <td align="right"><strong>@rupiah($sumSisa)</strong></td>
         </tr>
-        </tfoot>
+        </tbody>
     </table>
 @endsection
