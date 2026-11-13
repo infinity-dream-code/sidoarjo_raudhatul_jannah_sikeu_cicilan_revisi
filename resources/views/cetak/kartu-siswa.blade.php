@@ -1,11 +1,11 @@
 @extends('layouts.export.kop_file')
 @php
     $kartuMode = \App\Support\KartuSiswaRows::normalizeMode($kartuMode ?? 'all');
-    // unpaid = Data Tagihan, paid = Data Tagihan Lunas, all = campur (Data Pembayaran/rekap)
+    // unpaid = Data Tagihan, paid = Data Tagihan Lunas, all = Data Pembayaran
     $documentTitle = match ($kartuMode) {
-        'unpaid' => 'DATA TAGIHAN SISWA',
+        'unpaid' => 'CETAK KARTU TAGIHAN',
         'paid' => 'KARTU LUNAS',
-        default => 'KARTU SISWA',
+        default => 'CETAK KARTU BAYAR',
     };
     if (trim((string) ($documentTitleOverride ?? '')) !== '') {
         $documentTitle = $documentTitleOverride;
@@ -14,11 +14,13 @@
     $sumTotal = array_sum(array_column($kartuRows, 'total'));
     $sumPaid = array_sum(array_column($kartuRows, 'terbayar'));
     $sumSisa = array_sum(array_column($kartuRows, 'sisa'));
-    $isKartuSiswa = $kartuMode === 'all';
+    $isKartuBayar = $kartuMode === 'all';
     $isKartuLunas = $kartuMode === 'paid';
     $isDataTagihan = $kartuMode === 'unpaid';
-    $showStatus = $isKartuSiswa || $isDataTagihan;
-    $colCount = ($isKartuSiswa || $isKartuLunas || $isDataTagihan) ? 5 : 4;
+    $showStatus = true;
+    $showExpired = $isDataTagihan;
+    $showPaidDate = $isKartuLunas || $isKartuBayar;
+    $colCount = 5;
 
     $nisForVa = (!empty($siswa->NOCUST) && $siswa->NOCUST !== '-' && is_numeric($siswa->NOCUST))
         ? $siswa->NOCUST
@@ -64,8 +66,10 @@
             @if($showStatus)
                 <th style="width:14%;">Status</th>
             @endif
-            <th style="width:16%;">Tgl Expired</th>
-            @if($isKartuLunas)
+            @if($showExpired)
+                <th style="width:16%;">Tgl Expired</th>
+            @endif
+            @if($showPaidDate)
                 <th style="width:16%;">Tanggal Bayar</th>
             @endif
             <th style="width:20%;" class="text-end">Nominal</th>
@@ -79,8 +83,10 @@
                 @if($showStatus)
                     <td align="center">{{ !empty($row['lunas']) ? 'Lunas' : 'Belum Lunas' }}</td>
                 @endif
-                <td align="center">{{ ($row['expdate'] ?? '-') !== '-' ? $row['expdate'] : '-' }}</td>
-                @if($isKartuLunas)
+                @if($showExpired)
+                    <td align="center">{{ ($row['expdate'] ?? '-') !== '-' ? $row['expdate'] : '-' }}</td>
+                @endif
+                @if($showPaidDate)
                     <td align="center">{{ ($row['paiddt'] ?? '-') !== '-' ? $row['paiddt'] : '-' }}</td>
                 @endif
                 <td align="right">@rupiah($row['total'])</td>

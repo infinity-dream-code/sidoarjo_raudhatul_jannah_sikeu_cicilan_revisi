@@ -608,15 +608,15 @@ class RekapTagihanController extends Controller
             $nova = ($siswa->NOCUST && $siswa->NOCUST != '-')
                 ? scctcust::showVA($siswa->NOCUST)
                 : null;
-            // Rekap tagihan: Kartu Siswa (campur lunas + belum).
+            // Rekap tagihan: Cetak Kartu Bayar (campur lunas + belum).
             $pdf = Pdf::loadView('cetak.kartu-siswa', [
                 'tagihans' => $tagihans,
                 'siswa' => $siswa,
                 'nova' => $nova,
                 'kartuMode' => 'all',
-                'pdfTitle' => 'kartu siswa',
+                'pdfTitle' => 'cetak kartu bayar',
             ]);
-            return $pdf->download('kartu-siswa.pdf');
+            return $pdf->download('cetak-kartu-bayar.pdf');
         } catch (\Throwable $e) {
             return response()->json(['message' => 'Tagihan Tidak Ditemukan', 'error' => $e->getMessage()], 422);
         }

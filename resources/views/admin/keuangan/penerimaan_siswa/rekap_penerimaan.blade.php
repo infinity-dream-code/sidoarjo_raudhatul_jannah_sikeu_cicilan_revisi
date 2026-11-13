@@ -210,12 +210,12 @@
                             </button>
                             <button type="button" class="btn btn-facebook" id="cetak-kartu-siswa">
                                 <span class="ri-profile-line me-2"></span>
-                                Cetak Kartu Siswa
+                                Cetak Kartu Bayar
                             </button>
                             <button type="button" class="btn btn-facebook" id="cetak-kuitansi-pembayaran"
-                                    title="Cetak kuitansi pembayaran (termasuk cicilan)">
+                                    title="Cetak Kuitansi (Bayar) termasuk cicilan">
                                 <span class="ri-receipt-line me-2"></span>
-                                Cetak Kuitansi Pembayaran
+                                Cetak Kuitansi (Bayar)
                             </button>
                             <button type="button" class="btn btn-success" id="export-excel">
                                 <span class="ri-file-excel-2-line me-2"></span>
@@ -236,10 +236,10 @@
             <div class="row px-5 mb-2">
                 <ul class="list-group list-group-timeline">
                     <li class="list-group-item list-group-timeline-warning">
-                        Untuk mencetak kartu siswa / kuitansi pembayaran, silahkan pilih data siswa terlebih dahulu!
+                        Untuk mencetak Kartu Bayar / Kuitansi (Bayar), silahkan pilih data siswa terlebih dahulu!
                     </li>
                     <li class="list-group-item list-group-timeline-warning">
-                        Cetak kartu siswa hanya per siswa. Kuitansi pembayaran bisa untuk cicilan maupun pelunasan (pilih baris transaksi yang sama siswa).
+                        Cetak Kartu Bayar hanya per siswa. Kuitansi (Bayar) bisa untuk cicilan maupun pelunasan (pilih baris transaksi yang sama siswa).
                     </li>
                 </ul>
             </div>
@@ -508,6 +508,14 @@
                 return (a + ' ' + b).trim() || '-';
             }
 
+            function resolvePaidDate(item) {
+                const tanggal = item?.PAIDDT ?? item?.TRXDATE ?? item?.paiddt ?? item?.trxdate ?? null;
+                if (!tanggal) return null;
+                const s = String(tanggal).trim();
+                if (!s || s.startsWith('0000-00-00')) return null;
+                return tanggal;
+            }
+
             function getContentWidth(pageSize, orientation, margins) {
                 const sizes = {A4: [595.28, 841.89]};
                 const size = sizes[pageSize] || sizes.A4;
@@ -532,7 +540,7 @@
                     const availableWidth = getContentWidth('A4', orientation, pageMargins);
                     const titleUpper = String(title || '').toUpperCase();
                     const isKuitansi = titleUpper.startsWith('KUITANSI');
-                    const compactHeader = isKuitansi || ['KARTU SISWA'].includes(titleUpper);
+                    const compactHeader = isKuitansi || ['CETAK KARTU BAYAR', 'KARTU BAYAR', 'KARTU SISWA', 'CETAK KARTU TAGIHAN', 'KARTU LUNAS'].includes(titleUpper);
                     const skipFooter = isKuitansi;
 
                     const centerCell = compactHeader
@@ -627,7 +635,7 @@
                     return;
                 }
 
-                loadingAlert('Membuat Kuitansi Pembayaran...');
+                loadingAlert('Membuat Kuitansi (Bayar)...');
 
                 const siswa = data[0];
                 const nocust = siswa.NOCUST || siswa.nocust;
@@ -673,8 +681,22 @@
                     fontSize: 10,
                 }];
 
+                const formatBayarShort = (val) => {
+                    if (!val || String(val).startsWith('0000-00-00')) return '-';
+                    const s = String(val).trim();
+                    const dmy = s.match(/^(\d{2})-(\d{2})-(\d{4})/);
+                    if (dmy) return `${dmy[1]}-${dmy[2]}-${dmy[3]}`;
+                    const ymd = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                    if (ymd) return `${ymd[3]}-${ymd[2]}-${ymd[1]}`;
+                    const dt = new Date(s);
+                    if (Number.isNaN(dt.getTime())) return '-';
+                    const dd = String(dt.getDate()).padStart(2, '0');
+                    const mm = String(dt.getMonth() + 1).padStart(2, '0');
+                    return `${dd}-${mm}-${dt.getFullYear()}`;
+                };
+
                 const tableBody = [
-                    ['No.', 'Uraian', 'Nominal'].map(h => ({text: h, style: 'tableHeader'})),
+                    ['No.', 'Uraian', 'Tanggal Bayar', 'Nominal'].map(h => ({text: h, style: 'tableHeader'})),
                 ];
                 let totalBayar = 0;
                 data.forEach((item, index) => {
@@ -687,12 +709,13 @@
                     tableBody.push([
                         {text: String(index + 1), alignment: 'center'},
                         {text: uraian, alignment: 'left'},
+                        {text: formatBayarShort(resolvePaidDate(item)), alignment: 'center'},
                         {text: formatRupiah(billPaid), alignment: 'right'},
                     ]);
                 });
 
                 content.push({
-                    table: {widths: ['10%', '*', '28%'], body: tableBody},
+                    table: {widths: ['8%', '*', '18%', '22%'], body: tableBody},
                     layout: {
                         fillColor: (rowIndex) => rowIndex === 0 ? '#ededed' : null,
                         hLineWidth: () => 0.6,
@@ -751,7 +774,7 @@
                 });
 
                 Swal.close();
-                await generatePdf('KUITANSI PEMBAYARAN', content, siswa.CODE02 || false, 'data pembayaran - kuitansi pembayaran');
+                await generatePdf('KUITANSI', content, siswa.CODE02 || false, 'data pembayaran - kuitansi');
             }
 
             const btnKuitansiPembayaran = document.getElementById('cetak-kuitansi-pembayaran');
@@ -770,7 +793,7 @@
                     warningAlert('silahkan pilih siswa!')
                     return;
                 }
-                loadingAlert(`Membuat Kartu Siswa ... <br> Proses ini membutuhkan waktu beberapa saat<br><hr>
+                loadingAlert(`Membuat Kartu Bayar ... <br> Proses ini membutuhkan waktu beberapa saat<br><hr>
                     <p><span class="badge badge-dot bg-danger me-1"></span> Pastikan browser anda tidak memblokir <i>POP-UP</i>! </p>
                 `);
                 let url = '{{route('admin.keuangan.penerimaan-siswa.rekap-penerimaan.cetak-kartu-siswa')}}';
@@ -789,7 +812,7 @@
                             'Accept': 'application/pdf'
                         }
                     });
-                const pdfTabTitle = 'data pembayaran - kartu siswa';
+                const pdfTabTitle = 'data pembayaran - cetak kartu bayar';
 
                 fetch(request)
                     .then(async res => {

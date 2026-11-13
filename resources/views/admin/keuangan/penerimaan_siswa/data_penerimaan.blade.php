@@ -329,9 +329,9 @@
                                 Cetak Kartu Lunas
                             </button>
                             <button type="button" class="btn btn-facebook w-100 text-nowrap mb-3" id="cetak-kuitansi"
-                                    title="Cetak Kuitansi Lunas untuk tagihan yang sudah lunas">
+                                    title="Cetak Kuitansi (Lunas) untuk tagihan yang sudah lunas">
                                 <span class="ri-info-card-line me-2"></span>
-                                Cetak Kuitansi Lunas
+                                Cetak Kuitansi (Lunas)
                             </button>
                             {{-- Cetak Kuitansi Dengan 2000 disembunyikan --}}
                             <button type="button" class="btn btn-google-plus w-100 text-nowrap download-pdf-new  mb-3"
@@ -961,7 +961,7 @@
                     const availableWidth = getContentWidth('A4', orientation, pageMargins);
                     const titleUpper = String(title || '').toUpperCase();
                     const isKuitansi = titleUpper.startsWith('KUITANSI');
-                    const compactHeader = isKuitansi || ['DATA TAGIHAN SISWA', 'KARTU LUNAS', 'KARTU BAYAR', 'KARTU SISWA', 'TAGIHAN SISWA'].includes(titleUpper);
+                    const compactHeader = isKuitansi || ['CETAK KARTU TAGIHAN', 'DATA TAGIHAN SISWA', 'KARTU LUNAS', 'CETAK KARTU BAYAR', 'KARTU BAYAR', 'KARTU SISWA', 'TAGIHAN SISWA'].includes(titleUpper);
                     const skipFooter = isKuitansi;
 
                     const centerCell = compactHeader
@@ -1503,7 +1503,7 @@
                 });
 
                 Swal.close();
-                generatePdf('KUITANSI LUNAS', content, siswa.CODE02, 'data tagihan lunas - kuitansi lunas');
+                generatePdf('KUITANSI', content, siswa.CODE02, 'data tagihan lunas - kuitansi');
             }
 
             document.getElementById('cetak-kuitansi').addEventListener('click', async function (e) {
@@ -1652,7 +1652,7 @@
                         [
                             {text: 'No.', style: 'tableHeader', alignment: 'center'},
                             {text: 'Nama Tagihan', style: 'tableHeader'},
-                            {text: 'Tgl Expired', style: 'tableHeader', alignment: 'center'},
+                            {text: 'Status', style: 'tableHeader', alignment: 'center'},
                             {text: 'Tanggal Bayar', style: 'tableHeader', alignment: 'center'},
                             {text: 'Nominal', style: 'tableHeader', alignment: 'right'},
                         ],
@@ -1668,7 +1668,7 @@
                         tableBody.push([
                             {text: String(index + 1), alignment: 'center'},
                             {text: item.BILLNM || '-', alignment: 'left'},
-                            {text: formatDateShort(item.ExpDate || item.ExpDate_raw || item.expdate), alignment: 'center'},
+                            {text: 'Lunas', alignment: 'center'},
                             {text: formatDateShort(item.PAIDDT || item.paiddt), alignment: 'center'},
                             {text: formatRupiah(jumlahTagihan), alignment: 'right'},
                         ]);
@@ -1708,7 +1708,7 @@
                             fontSize: 10,
                         },
                         {
-                            table: {widths: ['7%', '*', '16%', '16%', '20%'], body: tableBody},
+                            table: {widths: ['7%', '*', '14%', '16%', '20%'], body: tableBody},
                             layout: {
                                 fillColor: (i) => i === 0 ? '#ededed' : null,
                                 hLineWidth: () => 0.7,

@@ -37,7 +37,7 @@
         );
     }
 @endphp
-@section('title', 'Kuitansi Pembayaran')
+@section('title', $documentTitle)
 @section('content')
     <table width="100%" class="main-table" style="margin-bottom:12px;">
         <tr>
