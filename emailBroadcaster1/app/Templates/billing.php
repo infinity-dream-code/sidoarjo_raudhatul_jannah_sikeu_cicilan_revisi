@@ -10,22 +10,11 @@ function render_billing_email(array $message): array
         'YAYASAN_NAME',
         'Yayasan Masjid Raudlatul Jannah'
     ));
-    $billType = (string) ($meta['billType'] ?? 'Fixed Payment');
-    $billTypeUpper = strtoupper(trim($billType));
-    if ($billTypeUpper === 'CLOSE' || $billTypeUpper === 'FULL PAYMENT' || $billTypeUpper === 'FIX PAYMENT') {
-        $billType = 'Fixed Payment';
-        $billTypeUpper = 'FIXED PAYMENT';
-    } elseif ($billTypeUpper === 'OPEN') {
-        $billType = 'Open Payment';
-        $billTypeUpper = 'OPEN PAYMENT';
-    }
-    $invoiceDate = (string) ($meta['invoiceDate'] ?? '');
-    $activeDate = (string) ($meta['activeDate'] ?? '');
-    $expireDate = (string) ($meta['expireDate'] ?? '');
-
     $rows = '';
     $textItems = [];
+    $itemNames = [];
     foreach ($items as $item) {
+        $itemNames[] = (string) ($item['name'] ?? '');
         $rows .= '<tr>
         <td style="padding:10px 12px;border-bottom:1px solid #eee;">' . escape_html($item['name'] ?? '') . '</td>
         <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap;">' . format_rupiah($item['amount'] ?? 0) . '</td>
@@ -33,25 +22,36 @@ function render_billing_email(array $message): array
         $textItems[] = '- ' . ($item['name'] ?? '') . ': ' . format_rupiah($item['amount'] ?? 0);
     }
 
+    // DU → Partial Payment + outstanding; SPP → Fixed Payment tanpa outstanding
+    $isDaftarUlang = (bool) preg_match('/daftar\s*ulang|\bDU\b/i', implode(' ', $itemNames));
+    $billType = (string) ($meta['billType'] ?? '');
+    $billTypeUpper = strtoupper(trim($billType));
+    if ($isDaftarUlang || $billTypeUpper === 'PARTIAL PAYMENT' || $billTypeUpper === 'OPEN' || $billTypeUpper === 'OPEN PAYMENT') {
+        $billType = 'Partial Payment';
+    } else {
+        $billType = 'Fixed Payment';
+    }
+
+    $invoiceDate = (string) ($meta['invoiceDate'] ?? '');
+    $activeDate = (string) ($meta['activeDate'] ?? '');
+    $expireDate = (string) ($meta['expireDate'] ?? '');
+
     // Biaya Admin VA tidak ditampilkan ke ortu (ditanggung sekolah).
     $billTotal = (float) ($message['totalAmount'] ?? 0);
     $totalLabel = format_rupiah($billTotal);
 
-    // Outstanding / Cicilan hanya ditampilkan untuk Daftar Ulang
-    // (payload mengirim outstandingAmount; SPP/Fixed tidak mengirim).
     $outstandingBlock = '';
-    $itemNames = [];
-    foreach ($items as $item) {
-        $itemNames[] = (string) ($item['name'] ?? '');
-    }
-    $isDaftarUlang = (bool) preg_match('/daftar\s*ulang|\bDU\b/i', implode(' ', $itemNames));
     $hasOutstanding = $isDaftarUlang
         && array_key_exists('outstandingAmount', $message)
         && $message['outstandingAmount'] !== null
         && $message['outstandingAmount'] !== '';
+    if ($isDaftarUlang && !$hasOutstanding && $billTotal > 0) {
+        $message['outstandingAmount'] = $billTotal;
+        $hasOutstanding = true;
+    }
     if ($hasOutstanding) {
         $outstandingBlock = '<tr>
-          <td style="padding:10px 12px;font-weight:700;">Outstanding / Cicilan</td>
+          <td style="padding:10px 12px;font-weight:700;">Outstanding / Sisa Cicilan</td>
           <td style="padding:10px 12px;text-align:right;font-weight:700;color:#c2410c;">' . format_rupiah($message['outstandingAmount']) . '</td>
         </tr>';
     }
@@ -220,7 +220,7 @@ function render_billing_email(array $message): array
     $text .= "\nRincian Pembayaran :\n" . implode("\n", $textItems) . "\n\n";
     $text .= 'Total Nominal : ' . $totalLabel . "\n";
     if ($hasOutstanding) {
-        $text .= 'Outstanding / Cicilan : ' . format_rupiah($message['outstandingAmount']) . "\n";
+        $text .= 'Outstanding / Sisa Cicilan : ' . format_rupiah($message['outstandingAmount']) . "\n";
     }
     if ($vaNumber !== '') {
         $dueHint = $expireDate !== '' ? ' sebelum tanggal jatuh tempo di atas' : '';

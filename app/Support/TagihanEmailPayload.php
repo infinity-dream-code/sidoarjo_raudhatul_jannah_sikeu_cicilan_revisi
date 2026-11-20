@@ -126,7 +126,9 @@ class TagihanEmailPayload
         // isINSTALLABLE: 0 = Close (797789), 1 = Open/cicil (797790)
         $isInstallable = ((int) ($bill->isINSTALLABLE ?? 0) === 1) ? 1 : 0;
         $noVa = scctcust::showVA($nis, $isInstallable);
-        $billType = $isInstallable === 1 ? 'Open Payment' : 'Fixed Payment';
+        // DU → Partial Payment + outstanding; SPP → Fixed Payment tanpa outstanding
+        $isDu = self::isDaftarUlang($itemName);
+        $billType = self::resolveBillTypeLabel($itemName);
         $expireDate = self::formatExpDate($bill->ExpDate ?? null);
 
         $subject = 'Informasi tagihan ananda ' . $nama;
@@ -152,8 +154,8 @@ class TagihanEmailPayload
             'yayasanName' => (string) env('APP_YAYASAN_NAME', 'Yayasan Masjid Raudlatul Jannah'),
             'paymentLink' => self::paymentLink(),
             'totalAmount' => $amounts['total'],
-            // Outstanding / Cicilan hanya untuk tagihan Daftar Ulang.
-            'outstandingAmount' => self::isDaftarUlang($itemName)
+            // Outstanding / Sisa Cicilan hanya untuk Daftar Ulang (Partial Payment).
+            'outstandingAmount' => $isDu
                 ? ($amounts['sisa'] > 0 ? $amounts['sisa'] : $amounts['total'])
                 : null,
             'adminFee' => self::adminFee(),
@@ -175,6 +177,16 @@ class TagihanEmailPayload
         }
 
         return (bool) preg_match('/daftar\s*ulang|\bDU\b/i', $name);
+    }
+
+    /**
+     * Redaksi tipe tagihan di email:
+     * - Daftar Ulang → Partial Payment
+     * - SPP / lainnya → Fixed Payment
+     */
+    public static function resolveBillTypeLabel(?string $billName): string
+    {
+        return self::isDaftarUlang($billName) ? 'Partial Payment' : 'Fixed Payment';
     }
 
     public static function formatExpDate(mixed $expDate): ?string
