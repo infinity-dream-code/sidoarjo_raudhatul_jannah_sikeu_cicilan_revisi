@@ -126,7 +126,7 @@ class TagihanEmailPayload
         // isINSTALLABLE: 0 = Close (797789), 1 = Open/cicil (797790)
         $isInstallable = ((int) ($bill->isINSTALLABLE ?? 0) === 1) ? 1 : 0;
         $noVa = scctcust::showVA($nis, $isInstallable);
-        $billType = $isInstallable === 1 ? 'Open Payment' : 'Full Payment';
+        $billType = $isInstallable === 1 ? 'Open Payment' : 'Fix Payment';
         $expireDate = self::formatExpDate($bill->ExpDate ?? null);
 
         $subject = 'Informasi tagihan ananda ' . $nama;
@@ -148,7 +148,7 @@ class TagihanEmailPayload
             'expireDate' => $expireDate,
             'tanggalBerakhir' => $expireDate,
             'subject' => $subject,
-            'organizationName' => (string) (config('app.nama_instansi') ?: 'Raudlatul Jannah Sidoarjo'),
+            'organizationName' => (string) (config('app.nama_instansi') ?: 'Perguruan Islam Raudlatul Jannah Sidoarjo'),
             'yayasanName' => (string) env('APP_YAYASAN_NAME', 'Yayasan Masjid Raudlatul Jannah'),
             'paymentLink' => self::paymentLink(),
             'totalAmount' => $amounts['total'],

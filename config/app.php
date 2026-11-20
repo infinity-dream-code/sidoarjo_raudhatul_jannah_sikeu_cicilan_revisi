@@ -18,7 +18,7 @@ return [
 
     // Ejaan resmi "Raudlatul" dipaksa walau .env server masih "Raudhatul".
     'name' => str_ireplace('raudhatul', 'Raudlatul', (string) env('APP_NAME', 'Raudlatul Jannah')),
-    'nama_instansi' => str_ireplace('raudhatul', 'Raudlatul', str_replace('_', ' ', (string) env('APP_NAMA_INSTANSI', 'Sidoarjo Raudlatul Jannah'))),
+    'nama_instansi' => str_ireplace('raudhatul', 'Raudlatul', str_replace('_', ' ', (string) env('APP_NAMA_INSTANSI', 'Perguruan Islam Raudlatul Jannah Sidoarjo'))),
     'alamat' => env('APP_ALAMAT', 'Kota Sidoarjo, Prov. Jawa Timur'),
     'logo' => env('APP_LOGO', 'icon-jannah.jpeg'),
     'email' => env('APP_EMAIL', 'ypisabkho@gmail.com'),

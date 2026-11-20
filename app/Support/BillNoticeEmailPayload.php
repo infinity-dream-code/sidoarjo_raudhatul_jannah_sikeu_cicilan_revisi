@@ -70,7 +70,7 @@ class BillNoticeEmailPayload
 
         $isInstallable = ((int) ($bill->isINSTALLABLE ?? 0) === 1) ? 1 : 0;
         $noVa = scctcust::showVA($nis, $isInstallable);
-        $billType = $isInstallable === 1 ? 'Open Payment' : 'Full Payment';
+        $billType = $isInstallable === 1 ? 'Open Payment' : 'Fix Payment';
 
         $currentName = TagihanEmailPayload::resolveFullBillName($bill->BILLNM ?? null);
         $oldBillName = TagihanEmailPayload::resolveFullBillName(
@@ -112,7 +112,7 @@ class BillNoticeEmailPayload
             'billType' => $billType,
             'tipeTagihan' => $billType,
             'subject' => $subject,
-            'organizationName' => (string) (config('app.nama_instansi') ?: 'Raudlatul Jannah Sidoarjo'),
+            'organizationName' => (string) (config('app.nama_instansi') ?: 'Perguruan Islam Raudlatul Jannah Sidoarjo'),
             'orderNumber' => (string) ($bill->BILLCD ?? $aa),
             'aa' => $aa,
             'billName' => $newBillName,
