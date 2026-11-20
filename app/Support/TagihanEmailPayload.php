@@ -126,7 +126,7 @@ class TagihanEmailPayload
         // isINSTALLABLE: 0 = Close (797789), 1 = Open/cicil (797790)
         $isInstallable = ((int) ($bill->isINSTALLABLE ?? 0) === 1) ? 1 : 0;
         $noVa = scctcust::showVA($nis, $isInstallable);
-        $billType = $isInstallable === 1 ? 'Open Payment' : 'Fix Payment';
+        $billType = $isInstallable === 1 ? 'Open Payment' : 'Fixed Payment';
         $expireDate = self::formatExpDate($bill->ExpDate ?? null);
 
         $subject = 'Informasi tagihan ananda ' . $nama;

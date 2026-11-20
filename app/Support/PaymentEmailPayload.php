@@ -136,7 +136,7 @@ class PaymentEmailPayload
             'nis' => $nis !== '' ? $nis : null,
             'kelas' => $kelasLabel !== '' ? $kelasLabel : null,
             'va' => $noVa !== '' ? $noVa : null,
-            'billType' => $isInstallable ? 'Open Payment' : 'Fix Payment',
+            'billType' => $isInstallable ? 'Open Payment' : 'Fixed Payment',
             'expireDate' => $expireDate,
             'tanggalBerakhir' => $expireDate,
             'orderNumber' => $orderNumber !== '' ? $orderNumber : $aa,

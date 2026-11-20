@@ -101,7 +101,7 @@ class BillingController
                 ['yayasanName', 'yayasan'],
                 Config::get('YAYASAN_NAME', 'Yayasan Masjid Raudlatul Jannah')
             ),
-            'billType' => first_value($payload, ['billType', 'tipeTagihan', 'jenisTagihan'], 'Fix Payment'),
+            'billType' => first_value($payload, ['billType', 'tipeTagihan', 'jenisTagihan'], 'Fixed Payment'),
             'invoiceDate' => first_value($payload, ['invoiceDate', 'tanggalDibuat', 'createdDate']),
             'activeDate' => first_value($payload, ['activeDate', 'tanggalAktif']),
             'expireDate' => first_value($payload, ['expireDate', 'tanggalBerakhir', 'kadaluarsa']),

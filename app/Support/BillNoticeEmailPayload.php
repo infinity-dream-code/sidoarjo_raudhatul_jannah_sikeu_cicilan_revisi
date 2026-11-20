@@ -70,7 +70,7 @@ class BillNoticeEmailPayload
 
         $isInstallable = ((int) ($bill->isINSTALLABLE ?? 0) === 1) ? 1 : 0;
         $noVa = scctcust::showVA($nis, $isInstallable);
-        $billType = $isInstallable === 1 ? 'Open Payment' : 'Fix Payment';
+        $billType = $isInstallable === 1 ? 'Open Payment' : 'Fixed Payment';
 
         $currentName = TagihanEmailPayload::resolveFullBillName($bill->BILLNM ?? null);
         $oldBillName = TagihanEmailPayload::resolveFullBillName(

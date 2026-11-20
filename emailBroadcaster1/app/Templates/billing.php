@@ -10,11 +10,11 @@ function render_billing_email(array $message): array
         'YAYASAN_NAME',
         'Yayasan Masjid Raudlatul Jannah'
     ));
-    $billType = (string) ($meta['billType'] ?? 'Fix Payment');
+    $billType = (string) ($meta['billType'] ?? 'Fixed Payment');
     $billTypeUpper = strtoupper(trim($billType));
-    if ($billTypeUpper === 'CLOSE' || $billTypeUpper === 'FULL PAYMENT') {
-        $billType = 'Fix Payment';
-        $billTypeUpper = 'FIX PAYMENT';
+    if ($billTypeUpper === 'CLOSE' || $billTypeUpper === 'FULL PAYMENT' || $billTypeUpper === 'FIX PAYMENT') {
+        $billType = 'Fixed Payment';
+        $billTypeUpper = 'FIXED PAYMENT';
     } elseif ($billTypeUpper === 'OPEN') {
         $billType = 'Open Payment';
         $billTypeUpper = 'OPEN PAYMENT';
