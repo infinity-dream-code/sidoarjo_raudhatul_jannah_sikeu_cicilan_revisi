@@ -100,7 +100,8 @@ class PaymentController
                 'totalPaid' => $payload['totalPaid'] ?? $payload['total_paid'] ?? null,
             ], JSON_UNESCAPED_UNICODE),
             'items_json' => json_encode($items, JSON_UNESCAPED_UNICODE),
-            'total_amount' => $billAmount,
+            // total_amount = nominal transaksi ini (bukan total tagihan).
+            'total_amount' => $paymentAmount,
             'bill_amount' => $billAmount,
             'payment_amount' => $paymentAmount,
             'outstanding_amount' => $outstanding,

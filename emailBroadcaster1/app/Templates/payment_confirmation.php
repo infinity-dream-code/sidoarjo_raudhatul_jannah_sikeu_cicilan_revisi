@@ -18,15 +18,31 @@ function render_payment_confirmation_email(array $message): array
     $jakartaDate = format_jakarta_date($paidAtRaw);
     $expireDate = (string) ($meta['expireDate'] ?? $message['expireDate'] ?? '');
 
-    $billAmount = format_idr($message['billAmount'] ?? $message['totalAmount'] ?? 0);
-    $paidAmount = format_idr($message['paymentAmount'] ?? $message['totalAmount'] ?? 0);
-    $totalPaidRaw = $meta['totalPaid'] ?? $message['totalPaid'] ?? $message['billAmount'] ?? null;
+    // Total Tagihan = billAmount (penuh). Jangan pakai totalAmount sebagai fallback bill.
+    $billRaw = $message['billAmount'] ?? null;
+    if ($billRaw === null || $billRaw === '') {
+        $billRaw = 0;
+    }
+    // Nominal Pembayaran = cicilan/bayar ini saja (paymentAmount). Jangan fallback ke total tagihan.
+    $payRaw = $message['paymentAmount'] ?? null;
+    if ($payRaw === null || $payRaw === '') {
+        $payRaw = $message['totalAmount'] ?? 0;
+    }
+    $billAmount = format_idr($billRaw);
+    $paidAmount = format_idr($payRaw);
+
+    // Total yang telah dibayar = akumulasi BILLPAID (meta.totalPaid), bukan total tagihan.
+    $totalPaidRaw = $meta['totalPaid'] ?? $message['totalPaid'] ?? null;
     if ($totalPaidRaw === null || $totalPaidRaw === '') {
-        // Fallback: total telah dibayar ≈ bill - outstanding + this payment, atau BILLPAID dari payload.
-        $totalPaidRaw = $message['paymentAmount'] ?? $message['totalAmount'] ?? 0;
+        $outRaw = $message['outstandingAmount'] ?? null;
+        if ($outRaw !== null && $outRaw !== '' && (float) $billRaw > 0) {
+            $totalPaidRaw = max(0, (float) $billRaw - (float) $outRaw);
+        } else {
+            $totalPaidRaw = $payRaw;
+        }
     }
     $totalPaid = format_idr($totalPaidRaw);
-    $leftAmount = format_idr($message['outstandingAmount'] ?? 0);
+    $leftAmount = format_idr($message['outstandingAmount'] ?? max(0, (float) $billRaw - (float) $totalPaidRaw));
 
     $journal = trim((string) ($message['referenceNumber'] ?? ''));
     if ($journal === '') {

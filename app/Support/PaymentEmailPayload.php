@@ -6,6 +6,7 @@ use App\Models\MetodeBayar;
 use App\Models\PaymentEmailLog;
 use App\Models\scctbill;
 use App\Models\scctcust;
+use App\Models\sccttran;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -63,19 +64,18 @@ class PaymentEmailPayload
             return null;
         }
 
-        $paymentAmount = $paidIncreased
-            ? ($currentPaid - $lastPaid)
-            : max(0, $currentPaid); // fallback bila hanya installment yang naik tanpa delta paid terdeteksi
-
+        // Prioritas: nominal transaksi terakhir di sccttran (cicilan DU), lalu delta BILLPAID.
+        $paymentAmount = self::resolveLastTranAmount($aa, $currentInstallment);
+        if ($paymentAmount <= 0 && $paidIncreased) {
+            $paymentAmount = $currentPaid - $lastPaid;
+        }
         if ($paymentAmount <= 0 && $installmentIncreased) {
             // Estimasi nominal cicilan dari sisa/total jika delta paid 0 (data tidak konsisten).
-            $billAmount = (int) ($bill->BILLAM ?? 0);
+            $billAmountTmp = (int) ($bill->BILLAM ?? 0);
             $left = (int) ($bill->PAYMENTLEFT ?? 0);
-            $paymentAmount = max(0, $billAmount - $left - $lastPaid);
-            if ($paymentAmount <= 0 && $currentPaid > 0) {
-                $paymentAmount = $currentPaid;
-            }
+            $paymentAmount = max(0, $billAmountTmp - $left - $lastPaid);
         }
+        // Jangan fallback ke currentPaid penuh — itu membuat cicilan 100rb tampil jadi total tagihan.
 
         if ($paymentAmount <= 0) {
             return null;
@@ -160,6 +160,47 @@ class PaymentEmailPayload
             'payment_amount' => $paymentAmount,
             'aa' => $aa,
         ];
+    }
+
+    /**
+     * Ambil nominal cicilan/bayar terakhir dari sccttran untuk BILLID (= AA tagihan).
+     */
+    public static function resolveLastTranAmount(string $billAa, ?int $installment = null): int
+    {
+        $aa = trim($billAa);
+        if ($aa === '') {
+            return 0;
+        }
+
+        try {
+            $query = sccttran::query()
+                ->where('BILLID', $aa)
+                ->where(function ($q) {
+                    $q->whereNull('isreversal')->orWhere('isreversal', 0)->orWhere('isreversal', '0');
+                })
+                ->where('DEBET', '>', 0);
+
+            if ($installment !== null && $installment > 0) {
+                $byInst = (clone $query)
+                    ->where('INSTALLMENT', $installment)
+                    ->orderByDesc('urut')
+                    ->value('DEBET');
+                if ($byInst !== null && (int) $byInst > 0) {
+                    return (int) $byInst;
+                }
+            }
+
+            $last = $query->orderByDesc('urut')->value('DEBET');
+
+            return max(0, (int) ($last ?? 0));
+        } catch (Throwable $e) {
+            Log::debug('resolveLastTranAmount fallback', [
+                'aa' => $aa,
+                'error' => $e->getMessage(),
+            ]);
+
+            return 0;
+        }
     }
 
     public static function resolvePaymentMethodLabel(?string $fidBank, ?string $noreff): string
