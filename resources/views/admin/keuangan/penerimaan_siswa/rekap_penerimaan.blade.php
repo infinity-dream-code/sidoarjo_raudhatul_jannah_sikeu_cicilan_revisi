@@ -294,10 +294,10 @@
         if (typeof pdfMake !== 'undefined') {
             pdfMake.fonts = {
                 Times: {
-                    normal: 'Times-Roman',
-                    bold: 'Times-Bold',
-                    italics: 'Times-Italic',
-                    bolditalics: 'Times-BoldItalic'
+                    normal: 'https://cdn.jsdelivr.net/npm/@canvas-fonts/times-new-roman@1.0.4/Times New Roman.ttf',
+                    bold: 'https://cdn.jsdelivr.net/npm/@canvas-fonts/times-new-roman-bold@1.0.4/Times New Roman Bold.ttf',
+                    italics: 'https://cdn.jsdelivr.net/npm/@canvas-fonts/times-new-roman-italic@1.0.4/Times New Roman Italic.ttf',
+                    bolditalics: 'https://cdn.jsdelivr.net/npm/@canvas-fonts/times-new-roman-bold@1.0.4/Times New Roman Bold.ttf'
                 },
                 Roboto: {
                     normal: 'https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Regular.ttf',
@@ -587,8 +587,8 @@
                     ];
                     if (footer) content.push(footer);
 
-                    const docTitle = String(fileTitle || title || 'Kuitansi Pembayaran');
-                    pdfMake.createPdf({
+                    const docTitle = String(fileTitle || title || 'Kuitansi');
+                    const docDefinition = {
                         info: {title: docTitle, subject: docTitle},
                         pageSize: 'A4',
                         pageOrientation: orientation,
@@ -599,10 +599,30 @@
                             tableHeader: {bold: true, fillColor: '#ededed', alignment: 'center'},
                         },
                         defaultStyle: {font: 'Times'}
-                    }).open();
+                    };
 
-                    successAlert('File telah didownload <br>' +
-                        '<p><span class="badge badge-dot bg-danger me-1"></span> Cek pada menu unduhan browser anda untuk memeriksa!</p>');
+                    await new Promise((resolve, reject) => {
+                        try {
+                            pdfMake.createPdf(docDefinition).getBlob((blob) => {
+                                try {
+                                    const fileUrl = URL.createObjectURL(blob);
+                                    const tab = window.open(fileUrl, '_blank');
+                                    if (!tab) {
+                                        reject(new Error('Popup diblokir browser. Izinkan pop-up lalu coba lagi.'));
+                                        return;
+                                    }
+                                    try { tab.document.title = docTitle; } catch (e) { /* ignore */ }
+                                    resolve();
+                                } catch (err) {
+                                    reject(err);
+                                }
+                            });
+                        } catch (err) {
+                            reject(err);
+                        }
+                    });
+
+                    successAlert('Kuitansi berhasil dibuka di tab baru');
                 } catch (e) {
                     console.error('Error generating PDF:', e);
                     errorAlert(e.message || 'Gagal membuat PDF');
