@@ -171,9 +171,11 @@ class TagihanEmailPayload
         }
 
         try {
+            // Contoh redaksi: 20 Desember 2026 23:59:59
             return \Illuminate\Support\Carbon::parse((string) $expDate)
                 ->timezone(config('app.timezone', 'Asia/Jakarta'))
-                ->format('d-m-Y H:i');
+                ->locale('id')
+                ->translatedFormat('d F Y H:i:s');
         } catch (\Throwable) {
             $raw = trim((string) $expDate);
 

@@ -174,7 +174,7 @@ class Config
             "PANDUAN/TATA CARA PEMBAYARAN:\n"
             . "1. Buka website/portal tagihan melalui link pada email\n"
             . "2. Periksa nominal tagihan yang tertera\n"
-            . "3. Transfer sesuai nominal ke Virtual Account (VA) yang tertera\n"
+            . "3. Transfer sesuai nominal ke Virtual Account (VA) Bank Muamalat yang tertera (bisa via channel Bank Muamalat atau Bank lain)\n"
             . "4. Simpan bukti pembayaran"
         );
     }
