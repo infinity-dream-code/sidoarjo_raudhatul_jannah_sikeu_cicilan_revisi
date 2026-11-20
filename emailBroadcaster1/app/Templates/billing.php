@@ -43,13 +43,13 @@ function render_billing_email(array $message): array
         && $message['outstandingAmount'] !== '';
     if ($hasOutstanding) {
         $outstandingBlock = '<tr>
-          <td style="padding:10px 12px;font-weight:700;">Outstanding / Sisa Cicilan (untuk DU)</td>
+          <td style="padding:10px 12px;font-weight:700;">Outstanding / Cicilan</td>
           <td style="padding:10px 12px;text-align:right;font-weight:700;color:#c2410c;">' . format_rupiah($message['outstandingAmount']) . '</td>
         </tr>';
     } elseif ($billTotal > 0) {
         // Fallback: tampilkan sisa = total bila payload tidak mengirim outstanding.
         $outstandingBlock = '<tr>
-          <td style="padding:10px 12px;font-weight:700;">Outstanding / Sisa Cicilan (untuk DU)</td>
+          <td style="padding:10px 12px;font-weight:700;">Outstanding / Cicilan</td>
           <td style="padding:10px 12px;text-align:right;font-weight:700;color:#c2410c;">' . format_rupiah($billTotal) . '</td>
         </tr>';
         $hasOutstanding = true;
@@ -220,7 +220,7 @@ function render_billing_email(array $message): array
     $text .= "\nRincian Pembayaran :\n" . implode("\n", $textItems) . "\n\n";
     $text .= 'Total Nominal : ' . $totalLabel . "\n";
     if ($hasOutstanding) {
-        $text .= 'Outstanding / Sisa Cicilan (untuk DU) : ' . format_rupiah($message['outstandingAmount']) . "\n";
+        $text .= 'Outstanding / Cicilan : ' . format_rupiah($message['outstandingAmount']) . "\n";
     }
     if ($vaNumber !== '') {
         $dueHint = $expireDate !== '' ? ' sebelum tanggal jatuh tempo di atas' : '';
