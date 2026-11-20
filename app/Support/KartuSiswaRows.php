@@ -8,7 +8,7 @@ use Throwable;
 
 /**
  * Baris kartu tagihan siswa — filter status bergantung menu pemanggil:
- * - unpaid: Data Tagihan → judul "CETAK KARTU TAGIHAN" (belum lunas saja)
+ * - unpaid: Data Tagihan → judul "TAGIHAN SISWA" (belum lunas saja, tanpa Status)
  * - paid: Data Tagihan Lunas → judul "KARTU LUNAS" (lunas saja)
  * - all: Data Pembayaran → judul "CETAK KARTU BAYAR" (campur lunas + belum)
  */

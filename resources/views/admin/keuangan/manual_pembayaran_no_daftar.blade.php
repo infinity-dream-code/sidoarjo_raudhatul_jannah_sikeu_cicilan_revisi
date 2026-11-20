@@ -913,11 +913,11 @@
                     const headerTable = {
                         alignment: 'center',
                         table: {
-                            widths: [70, '*', 70],
+                            widths: [100, '*', 100],
                             body: [[
                                 logo ? {
                                     image: logo,
-                                    fit: [64, 64],
+                                    fit: [96, 96],
                                     alignment: 'center',
                                     margin: [0, 2, 0, 2]
                                 } : {text: ''},

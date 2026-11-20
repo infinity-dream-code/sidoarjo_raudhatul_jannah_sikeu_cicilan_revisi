@@ -112,10 +112,6 @@ class TagihanEmailPayload
         );
 
         $itemName = self::resolveFullBillName($bill->BILLNM ?? null);
-        $periode = trim((string) ($bill->BILLAC ?? $bill->BTA ?? ''));
-        if ($periode !== '') {
-            $itemName .= ' (' . $periode . ')';
-        }
 
         $nis = (!empty($siswa->NOCUST) && $siswa->NOCUST !== '-')
             ? $siswa->NOCUST

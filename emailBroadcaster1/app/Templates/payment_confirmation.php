@@ -16,24 +16,49 @@ function render_payment_confirmation_email(array $message): array
     $paidAtRaw = $message['paidAt'] ?? $message['createdAt'] ?? null;
     $paidAtLabel = format_payment_datetime($paidAtRaw);
     $jakartaDate = format_jakarta_date($paidAtRaw);
+    $expireDate = (string) ($meta['expireDate'] ?? $message['expireDate'] ?? '');
 
     $billAmount = format_idr($message['billAmount'] ?? $message['totalAmount'] ?? 0);
     $paidAmount = format_idr($message['paymentAmount'] ?? $message['totalAmount'] ?? 0);
+    $totalPaidRaw = $meta['totalPaid'] ?? $message['totalPaid'] ?? $message['billAmount'] ?? null;
+    if ($totalPaidRaw === null || $totalPaidRaw === '') {
+        // Fallback: total telah dibayar ≈ bill - outstanding + this payment, atau BILLPAID dari payload.
+        $totalPaidRaw = $message['paymentAmount'] ?? $message['totalAmount'] ?? 0;
+    }
+    $totalPaid = format_idr($totalPaidRaw);
+    $leftAmount = format_idr($message['outstandingAmount'] ?? 0);
+
     $journal = trim((string) ($message['referenceNumber'] ?? ''));
     if ($journal === '') {
         $journal = '-';
     }
 
-    // Sesuai contoh redaksi: tanpa Kode Tagihan & tanpa baris Nama (nama hanya di salam).
+    $isDu = !empty($meta['isDaftarUlang']);
+    if (!$isDu) {
+        $isDu = (bool) preg_match('/daftar\s*ulang|\bDU\b/i', $description);
+    }
+
+    // Tanpa Kode Tagihan. DU punya Total telah dibayar / Kekurangan / Jatuh Tempo.
     $pairs = [
         ['Nomor VA', 'VA Number', $va !== '' ? $va : '-'],
+        ['Nama', 'Name', $name],
         ['Surel', 'Email', $email !== '' ? $email : '-'],
         ['Total Tagihan', 'Billed Amount', $billAmount],
         ['Nominal Pembayaran', 'Paid Amount', $paidAmount],
-        ['Deskripsi', 'Description', $description !== '' ? $description : '-'],
-        ['Tanggal Pembayaran', 'Payment Date', $paidAtLabel],
-        ['Nomor Jurnal', 'Journal Number', $journal],
     ];
+
+    if ($isDu) {
+        $pairs[] = ['Total yang telah dibayar', 'Total Paid Amount', $totalPaid];
+        $pairs[] = ['Kekurangan', 'Left Amount', $leftAmount];
+    }
+
+    $pairs[] = ['Tanggal Pembayaran', 'Payment Date', $paidAtLabel];
+    $pairs[] = ['Deskripsi', 'Description', $description !== '' ? $description : '-'];
+    $pairs[] = ['Nomor Jurnal', 'Journal Number', $journal];
+
+    if ($isDu && $expireDate !== '') {
+        $pairs[] = ['Tanggal Jatuh Tempo', 'Due Date', $expireDate];
+    }
 
     $rows = '';
     foreach ($pairs as [$idLabel, $enLabel, $value]) {
@@ -114,13 +139,9 @@ function render_payment_confirmation_email(array $message): array
     $text .= 'Dear ' . $name . "\n\n";
     $text .= "Pembayaran telah dilakukan pada tagihan dengan rincian sebagai berikut:\n";
     $text .= "Payment has been made with detailed info:\n\n";
-    $text .= 'Nomor VA / VA Number: ' . ($va !== '' ? $va : '-') . "\n";
-    $text .= 'Surel / Email: ' . ($email !== '' ? $email : '-') . "\n";
-    $text .= 'Total Tagihan / Billed Amount: ' . $billAmount . "\n";
-    $text .= 'Nominal Pembayaran / Paid Amount: ' . $paidAmount . "\n";
-    $text .= 'Deskripsi / Description: ' . ($description !== '' ? $description : '-') . "\n";
-    $text .= 'Tanggal Pembayaran / Payment Date: ' . $paidAtLabel . "\n";
-    $text .= 'Nomor Jurnal / Journal Number: ' . $journal . "\n";
+    foreach ($pairs as [$idLabel, $enLabel, $value]) {
+        $text .= $idLabel . ' / ' . $enLabel . ': ' . $value . "\n";
+    }
 
     return ['html' => $html, 'text' => $text, 'inline' => $inline];
 }

@@ -22,7 +22,7 @@
         }
         .letterhead td { vertical-align: middle; }
         .logo {
-            width: 58px;
+            width: 88px;
             height: 58px;
             border: 1px solid #cfd8d2;
         }

@@ -101,10 +101,7 @@ class PaymentEmailPayload
         $noVa = scctcust::showVA($nis, $installableFlag);
 
         $itemName = TagihanEmailPayload::resolveFullBillName($bill->BILLNM ?? null);
-        $periode = trim((string) ($bill->BILLAC ?? $bill->BTA ?? ''));
-        if ($periode !== '') {
-            $itemName .= ' (' . $periode . ')';
-        }
+        $isDu = TagihanEmailPayload::isDaftarUlang($itemName);
         if ($isInstallable && $currentInstallment > 0) {
             $itemName .= ' — Cicilan ke-' . $currentInstallment;
         }
@@ -137,12 +134,14 @@ class PaymentEmailPayload
             'kelas' => $kelasLabel !== '' ? $kelasLabel : null,
             'va' => $noVa !== '' ? $noVa : null,
             'billType' => TagihanEmailPayload::resolveBillTypeLabel($itemName),
+            'isDaftarUlang' => $isDu,
             'expireDate' => $expireDate,
             'tanggalBerakhir' => $expireDate,
             'orderNumber' => $orderNumber !== '' ? $orderNumber : $aa,
             'paymentAmount' => $paymentAmount,
             'billAmount' => $billAmount,
-            'outstandingAmount' => $outstanding,
+            'totalPaid' => $currentPaid,
+            'outstandingAmount' => $isDu ? $outstanding : null,
             'referenceNumber' => trim((string) ($bill->TRANSNO ?? $bill->NOREFF ?? '')) ?: null,
             'paymentMethod' => $paymentMethod,
             'paidAt' => $paidAt,

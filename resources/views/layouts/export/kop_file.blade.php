@@ -148,7 +148,7 @@
             <td width="18%" style="text-align:center;vertical-align:middle;">
                 @if(is_file($logoPath))
                     <img src="data:{{ $logoMime }};base64,{{ base64_encode(file_get_contents($logoPath)) }}"
-                         style="max-height:4.5rem;max-width:4.5rem;display:block;margin:0 auto;" alt="logo sekolah"/>
+                         style="max-height:6.5rem;max-width:6.5rem;display:block;margin:0 auto;" alt="logo sekolah"/>
                 @endif
             </td>
             <td width="64%" style="text-align:center;vertical-align:middle;">
@@ -168,7 +168,7 @@
             <td width="18%" style="text-align: center; vertical-align: middle;">
                 @if(is_file($logoPath))
                     <img src="data:{{ $logoMime }};base64,{{ base64_encode(file_get_contents($logoPath)) }}"
-                         style="max-height: 4.75rem; max-width: 4.75rem; display: block; margin: 0 auto;" alt="logo sekolah"/>
+                         style="max-height: 7rem; max-width: 7rem; display: block; margin: 0 auto;" alt="logo sekolah"/>
                 @endif
             </td>
             <td width="64%" style="vertical-align: middle;">

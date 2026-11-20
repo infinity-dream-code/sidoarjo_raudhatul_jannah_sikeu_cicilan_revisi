@@ -881,9 +881,9 @@
 
                     const headerTable = {
                         table: {
-                            widths: [70, '*', 70],
+                            widths: [100, '*', 100],
                             body: [[
-                                logo ? { image: logo, fit: [64, 64], alignment: 'center', margin: [0, 2, 0, 2] } : { text: '' },
+                                logo ? { image: logo, fit: [96, 96], alignment: 'center', margin: [0, 2, 0, 2] } : { text: '' },
                                 centerCell,
                                 muamalatLogo ? { image: muamalatLogo, fit: [72, 48], alignment: 'center', margin: [0, 10, 0, 2] } : { text: '' }
                             ]]

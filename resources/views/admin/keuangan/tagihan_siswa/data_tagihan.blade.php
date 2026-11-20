@@ -1091,20 +1091,6 @@
                     }
                 }
             }
-            if (e.target.closest('.btn-kirim-wa')) {
-                const rowEl = e.target.closest('tr');
-                if (!rowEl) return;
-                const rowData = DT[`${dtOptions.tableId}`].row(rowEl).data();
-                if (!rowData) {
-                    warningAlert('Data baris tidak ditemukan.');
-                    return;
-                }
-                if (!rowData.wa_url) {
-                    warningAlert('Nomor WhatsApp siswa belum diisi. Lengkapi No WA di Data Siswa.');
-                    return;
-                }
-                window.open(rowData.wa_url, '_blank');
-            }
             if (e.target.closest('.btn-perpanjang-exp')) {
                 const rowEl = e.target.closest('tr');
                 if (!rowEl) return;
@@ -1678,9 +1664,9 @@
 
                     const headerTable = {
                         table: {
-                            widths: [70, '*', 70],
+                            widths: [100, '*', 100],
                             body: [[
-                                logo ? {image: logo, fit: [64, 64], alignment: 'center', margin: [0, 2, 0, 2]} : {text: ''},
+                                logo ? {image: logo, fit: [96, 96], alignment: 'center', margin: [0, 2, 0, 2]} : {text: ''},
                                 centerCell,
                                 muamalatLogo ? {image: muamalatLogo, fit: [72, 48], alignment: 'center', margin: [0, 10, 0, 2]} : {text: ''}
                             ]]
@@ -1794,7 +1780,7 @@
                         throw createError("Data Tagihan Kosong", 422);
                     }
                     const data = await generateKartuSiswa(result);
-                    const pdf = await generatePdf('CETAK KARTU TAGIHAN', data, unit, 'data tagihan - cetak kartu tagihan')
+                    const pdf = await generatePdf('TAGIHAN SISWA', data, unit, 'data tagihan - tagihan siswa')
                     // if (!result['tagihans'] || result['tagihans'].length === 0) {
                     //     console.log('kosong');
                     //     const error = new Error("Data Tagihan Kosong");
@@ -1929,7 +1915,6 @@
                         [
                             {text: 'No.', style: 'tableHeader', alignment: 'center'},
                             {text: 'Nama Tagihan', style: 'tableHeader'},
-                            {text: 'Status', style: 'tableHeader', alignment: 'center'},
                             {text: 'Tgl Expired', style: 'tableHeader', alignment: 'center'},
                             {text: 'Nominal', style: 'tableHeader', alignment: 'right'},
                         ],
@@ -1941,14 +1926,12 @@
                         const jumlahTagihan = Number(item.BILLAM_TOTAL ?? item.BILLAM ?? 0);
                         const sisaTagihan = Number(item.PAYMENTLEFT ?? item.BILLAM ?? Math.max(0, jumlahTagihan - Number(item.BILLPAID ?? 0)));
                         const jumlahBayar = Math.max(0, jumlahTagihan - sisaTagihan);
-                        const lunas = Number(item.PAIDST) === 1 || sisaTagihan <= 0;
                         totalTagihan += jumlahTagihan;
                         totalBayar += jumlahBayar;
                         totalSisa += sisaTagihan;
                         tableBody.push([
                             {text: String(index + 1), alignment: 'center'},
                             {text: item.BILLNM || '-', alignment: 'left'},
-                            {text: lunas ? 'Lunas' : 'Belum Lunas', alignment: 'center'},
                             {text: formatDateShort(item.ExpDate || item.ExpDate_raw || item.expdate), alignment: 'center'},
                             {text: formatRupiah(jumlahTagihan), alignment: 'right'},
                         ]);
@@ -1958,22 +1941,19 @@
                     // Total menyatu di dalam tabel (sesuai contoh mockup).
                     tableBody.push(
                         [
-                            {text: 'Total Tagihan', colSpan: 4, alignment: 'right', bold: true},
-                            {},
+                            {text: 'Total Tagihan', colSpan: 3, alignment: 'right', bold: true},
                             {},
                             {},
                             {text: formatRupiah(totalTagihan), alignment: 'right', bold: true},
                         ],
                         [
-                            {text: 'Tagihan Terbayar', colSpan: 4, alignment: 'right', bold: true},
-                            {},
+                            {text: 'Tagihan Terbayar', colSpan: 3, alignment: 'right', bold: true},
                             {},
                             {},
                             {text: fmtPaid(totalBayar), alignment: 'right', bold: true},
                         ],
                         [
-                            {text: 'Sisa Tagihan', colSpan: 4, alignment: 'right', bold: true},
-                            {},
+                            {text: 'Sisa Tagihan', colSpan: 3, alignment: 'right', bold: true},
                             {},
                             {},
                             {text: formatRupiah(totalSisa), alignment: 'right', bold: true},
@@ -1988,7 +1968,7 @@
                             fontSize: 10,
                         },
                         {
-                            table: {widths: ['7%', '*', '16%', '16%', '20%'], body: tableBody},
+                            table: {widths: ['7%', '*', '22%', '22%'], body: tableBody},
                             layout: {
                                 fillColor: (i) => i === 0 ? '#ededed' : null,
                                 hLineWidth: () => 0.7,

@@ -16,7 +16,6 @@ use App\Support\BillNoticeEmailPayload;
 use App\Support\CacheHandler;
 use App\Support\FilterHandler;
 use App\Support\TagihanPaymentReversal;
-use App\Support\WhatsappTagihan;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -244,22 +243,6 @@ class DataTagihanController extends Controller
                 'buttonClass' => 'btn btn-sm btn-info btn-perpanjang-exp',
                 'buttonLink' => '#modal-perpanjang-exp',
                 'buttonIcon' => 'ri-calendar-schedule-line me-2',
-                'exportable' => false,
-                'duplicate' => false,
-            ],
-            [
-                'data' => 'kirim_wa',
-                'name' => 'Kirim WA',
-                'orderable' => false,
-                'dataVal' => false,
-                'columnType' => 'button',
-                'className' => 'text-center exclude-selection',
-                'excludeFromSelection' => true,
-                'button' => 'action',
-                'buttonText' => 'Kirim WA',
-                'buttonClass' => 'btn btn-sm btn-whatsapp btn-kirim-wa',
-                'buttonLink' => '#',
-                'buttonIcon' => 'ri-whatsapp-line me-2',
                 'exportable' => false,
                 'duplicate' => false,
             ],
@@ -790,7 +773,7 @@ class DataTagihanController extends Controller
         $columnName = 'scctbill.FUrutan';
         $columnSortOrder = 'asc';
         $userOrdered = false;
-        $nonSortableData = ['AA', 'naik', 'turun', 'delete', 'hapus', 'print', 'NOVA', 'detail_trx', 'kirim_wa', 'perpanjang'];
+        $nonSortableData = ['AA', 'naik', 'turun', 'delete', 'hapus', 'print', 'NOVA', 'detail_trx', 'perpanjang'];
 
         if (!empty($order_arr)) {
             $columnIndex = $columnIndex_arr[0]['column'] ?? null;
@@ -961,10 +944,9 @@ class DataTagihanController extends Controller
             ->get();
 
         $lastPaymentDates = $this->getLastPaymentDatesForBills($rows);
-        $waTemplate = WhatsappTagihan::activeTemplateWithAmounts();
 
         $records = $rows
-            ->map(function ($item, $index) use ($lastPaymentDates, $waTemplate) {
+            ->map(function ($item, $index) use ($lastPaymentDates) {
                 $row = $item->toArray();
                 $get = static fn (string $key) => $row[$key] ?? $row[strtolower($key)] ?? null;
 
@@ -981,25 +963,7 @@ class DataTagihanController extends Controller
                 $noVa = ($nocust && $nocust !== '-')
                     ? scctcust::showVA($nocust, $isInstallable ? 1 : 0)
                     : null;
-                $kelasLabel = trim((string) ($get('DESC02') ?? '') . ' ' . (string) ($get('DESC03') ?? ''));
                 $noWa = $get('NO_WA');
-                $waAmounts = WhatsappTagihan::amounts($get('BILLAM'), $get('BILLPAID'), $get('PAYMENTLEFT'), $get('PAIDST'));
-                $waMessage = WhatsappTagihan::applyTemplate($waTemplate, [
-                    'nama' => $get('NMCUST') ?: '-',
-                    'nis' => ($nocust && $nocust !== '-') ? $nocust : '-',
-                    'no_daftar' => ($num2nd && $num2nd !== '-') ? $num2nd : '-',
-                    'kelas' => $kelasLabel !== '' ? $kelasLabel : '-',
-                    'kelompok' => $get('DESC03') ?: '-',
-                    'unit' => $get('CODE02') ?: '-',
-                    'nama_tagihan' => $get('BILLNM') ?: '-',
-                    'periode' => $get('BILLAC') ?: '-',
-                    'jumlah_tagihan' => WhatsappTagihan::formatRupiah($waAmounts['total']),
-                    'terbayar' => WhatsappTagihan::formatRupiah($waAmounts['terbayar']),
-                    'sisa_tagihan' => WhatsappTagihan::formatRupiah($waAmounts['sisa']),
-                    'no_va' => $noVa ?: '-',
-                ]);
-
-                $waUrl = WhatsappTagihan::waMeUrl($noWa, $waMessage);
 
                 $canHapus = $this->canHapusTagihan($item);
 
@@ -1040,8 +1004,6 @@ class DataTagihanController extends Controller
                     'BILL_TRANSNO' => $get('BILL_TRANSNO'),
                     'print' => true,
                     'perpanjang' => true,
-                    'kirim_wa' => $waUrl !== null,
-                    'wa_url' => $waUrl,
                     'delete' => $billPaid > 0,
                     'delete_label' => 'Reversal',
                     'hapus' => $canHapus,

@@ -186,7 +186,7 @@
         <td>
             <table width="100%">
                 <tr>
-                    <td rowspan="4" width="20%"><img src="{{public_path(config('app.logo'))}}" style="max-height: 125px; max-width: 100%" alt="image"/></td>
+                    <td rowspan="4" width="20%"><img src="{{public_path(config('app.logo'))}}" style="max-height: 180px; max-width: 100%" alt="image"/></td>
                     <td  class="text-center breakable" width="80%">
                         <h1 style="margin-left: -7% ;">{{config('app.nama_instansi')}}</h1>
                     </td>

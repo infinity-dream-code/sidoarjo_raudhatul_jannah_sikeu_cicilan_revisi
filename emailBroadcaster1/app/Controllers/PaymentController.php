@@ -96,6 +96,8 @@ class PaymentController
                 'organizationName' => $org,
                 'billType' => first_value($payload, ['billType', 'tipeTagihan', 'jenisTagihan']),
                 'expireDate' => first_value($payload, ['expireDate', 'tanggalBerakhir', 'kadaluarsa']),
+                'isDaftarUlang' => (bool) ($payload['isDaftarUlang'] ?? false),
+                'totalPaid' => $payload['totalPaid'] ?? $payload['total_paid'] ?? null,
             ], JSON_UNESCAPED_UNICODE),
             'items_json' => json_encode($items, JSON_UNESCAPED_UNICODE),
             'total_amount' => $billAmount,

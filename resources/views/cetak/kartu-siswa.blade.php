@@ -3,7 +3,7 @@
     $kartuMode = \App\Support\KartuSiswaRows::normalizeMode($kartuMode ?? 'all');
     // unpaid = Data Tagihan, paid = Data Tagihan Lunas, all = Data Pembayaran
     $documentTitle = match ($kartuMode) {
-        'unpaid' => 'CETAK KARTU TAGIHAN',
+        'unpaid' => 'TAGIHAN SISWA',
         'paid' => 'KARTU LUNAS',
         default => 'CETAK KARTU BAYAR',
     };
@@ -17,10 +17,11 @@
     $isKartuBayar = $kartuMode === 'all';
     $isKartuLunas = $kartuMode === 'paid';
     $isDataTagihan = $kartuMode === 'unpaid';
-    $showStatus = true;
+    // Data Tagihan: tanpa kolom Status
+    $showStatus = !$isDataTagihan;
     $showExpired = $isDataTagihan;
     $showPaidDate = $isKartuLunas || $isKartuBayar;
-    $colCount = 5;
+    $colCount = 3 + ($showStatus ? 1 : 0) + ($showExpired ? 1 : 0) + ($showPaidDate ? 1 : 0);
 
     $nisForVa = (!empty($siswa->NOCUST) && $siswa->NOCUST !== '-' && is_numeric($siswa->NOCUST))
         ? $siswa->NOCUST
