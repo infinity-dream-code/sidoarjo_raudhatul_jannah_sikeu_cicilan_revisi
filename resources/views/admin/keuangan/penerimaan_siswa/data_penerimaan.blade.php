@@ -1337,7 +1337,8 @@
                     return;
                 }
 
-                const uniqueCust = [...new Set(data.map((row) => String(row.CUSTID ?? row.custid ?? '')).filter(Boolean))];
+                // Boleh lebih dari 1 baris, asal siswa sama dan tanggal bayar sama.
+                const uniqueCust = [...new Set(data.map((row) => String(row.CUSTID ?? row.custid ?? row.nocust ?? row.NOCUST ?? '')).filter(Boolean))];
                 const uniqueDates = [...new Set(data.map((row) => paidDateKey(row)).filter(Boolean))];
                 if (uniqueCust.length !== 1 || uniqueDates.length !== 1) {
                     warningAlert('Silahkan pilih satu siswa saja & di tanggal yang sama untuk cetak kuitansi');

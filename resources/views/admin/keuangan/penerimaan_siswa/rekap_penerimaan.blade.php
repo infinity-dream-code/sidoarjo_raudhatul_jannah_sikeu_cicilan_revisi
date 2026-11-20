@@ -239,7 +239,7 @@
                         Untuk mencetak Kartu Bayar / Kuitansi (Bayar), silahkan pilih data siswa terlebih dahulu!
                     </li>
                     <li class="list-group-item list-group-timeline-warning">
-                        Cetak Kartu Bayar hanya per siswa. Kuitansi (Bayar) bisa untuk cicilan maupun pelunasan (pilih baris transaksi yang sama siswa).
+                        Cetak Kartu Bayar hanya per siswa. Kuitansi (Bayar) boleh lebih dari 1 baris, asal siswa sama dan tanggal bayar sama.
                     </li>
                 </ul>
             </div>
@@ -516,6 +516,25 @@
                 return tanggal;
             }
 
+            function paidDateKey(item) {
+                const raw = resolvePaidDate(item);
+                if (!raw) return '';
+                const s = String(raw).trim();
+                const dmy = s.match(/^(\d{2})-(\d{2})-(\d{4})/);
+                if (dmy) return `${dmy[3]}-${dmy[2]}-${dmy[1]}`;
+                const ymd = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                if (ymd) return `${ymd[1]}-${ymd[2]}-${ymd[3]}`;
+                const dt = new Date(s);
+                if (Number.isNaN(dt.getTime())) return s.slice(0, 10);
+                const dd = String(dt.getDate()).padStart(2, '0');
+                const mm = String(dt.getMonth() + 1).padStart(2, '0');
+                return `${dt.getFullYear()}-${mm}-${dd}`;
+            }
+
+            function siswaKey(row) {
+                return String(row?.CUSTID ?? row?.custid ?? row?.NOCUST ?? row?.nocust ?? '').trim();
+            }
+
             function getContentWidth(pageSize, orientation, margins) {
                 const sizes = {A4: [595.28, 841.89]};
                 const size = sizes[pageSize] || sizes.A4;
@@ -638,20 +657,21 @@
 
                 let data = table.rows({selected: true}).data().toArray();
                 data = data.filter(item => {
-                    const tanggal = item.PAIDDT ?? item.TRXDATE;
+                    const tanggal = resolvePaidDate(item);
                     const nominal = Number(item.BILLAM ?? item.DEBET ?? 0);
                     return tanggal && nominal > 0;
                 });
 
                 if (!data[0]) {
-                    warningAlert('Silahkan pilih data pembayaran terlebih dahulu!');
+                    warningAlert('Silahkan pilih satu siswa saja & di tanggal yang sama untuk cetak kuitansi');
                     return;
                 }
 
-                const firstKey = String(data[0]?.CUSTID ?? data[0]?.custid ?? data[0]?.NOCUST ?? data[0]?.nocust ?? '');
-                const allSame = data.every(row => String(row.CUSTID ?? row.custid ?? row.NOCUST ?? row.nocust ?? '') === firstKey);
-                if (!allSame) {
-                    warningAlert('Silahkan pilih data siswa yang sama!');
+                // Boleh lebih dari 1 baris, asal siswa sama dan tanggal bayar sama (seperti Data Tagihan Lunas).
+                const uniqueCust = [...new Set(data.map((row) => siswaKey(row)).filter(Boolean))];
+                const uniqueDates = [...new Set(data.map((row) => paidDateKey(row)).filter(Boolean))];
+                if (uniqueCust.length !== 1 || uniqueDates.length !== 1) {
+                    warningAlert('Silahkan pilih satu siswa saja & di tanggal yang sama untuk cetak kuitansi');
                     return;
                 }
 
