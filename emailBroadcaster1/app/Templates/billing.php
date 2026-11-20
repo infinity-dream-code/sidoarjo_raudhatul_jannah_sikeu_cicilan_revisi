@@ -37,8 +37,16 @@ function render_billing_email(array $message): array
     $billTotal = (float) ($message['totalAmount'] ?? 0);
     $totalLabel = format_rupiah($billTotal);
 
+    // Outstanding / Cicilan hanya ditampilkan untuk Daftar Ulang
+    // (payload mengirim outstandingAmount; SPP/Fixed tidak mengirim).
     $outstandingBlock = '';
-    $hasOutstanding = array_key_exists('outstandingAmount', $message)
+    $itemNames = [];
+    foreach ($items as $item) {
+        $itemNames[] = (string) ($item['name'] ?? '');
+    }
+    $isDaftarUlang = (bool) preg_match('/daftar\s*ulang|\bDU\b/i', implode(' ', $itemNames));
+    $hasOutstanding = $isDaftarUlang
+        && array_key_exists('outstandingAmount', $message)
         && $message['outstandingAmount'] !== null
         && $message['outstandingAmount'] !== '';
     if ($hasOutstanding) {
@@ -46,14 +54,6 @@ function render_billing_email(array $message): array
           <td style="padding:10px 12px;font-weight:700;">Outstanding / Cicilan</td>
           <td style="padding:10px 12px;text-align:right;font-weight:700;color:#c2410c;">' . format_rupiah($message['outstandingAmount']) . '</td>
         </tr>';
-    } elseif ($billTotal > 0) {
-        // Fallback: tampilkan sisa = total bila payload tidak mengirim outstanding.
-        $outstandingBlock = '<tr>
-          <td style="padding:10px 12px;font-weight:700;">Outstanding / Cicilan</td>
-          <td style="padding:10px 12px;text-align:right;font-weight:700;color:#c2410c;">' . format_rupiah($billTotal) . '</td>
-        </tr>';
-        $hasOutstanding = true;
-        $message['outstandingAmount'] = $billTotal;
     }
 
     $brandBg = (string) Config::get('MAIL_BRAND_COLOR', '#0a0a0a');

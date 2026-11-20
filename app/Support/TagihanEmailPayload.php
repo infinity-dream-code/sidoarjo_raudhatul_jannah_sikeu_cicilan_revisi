@@ -152,8 +152,10 @@ class TagihanEmailPayload
             'yayasanName' => (string) env('APP_YAYASAN_NAME', 'Yayasan Masjid Raudlatul Jannah'),
             'paymentLink' => self::paymentLink(),
             'totalAmount' => $amounts['total'],
-            // Selalu kirim sisa (Outstanding / Cicilan).
-            'outstandingAmount' => $amounts['sisa'] > 0 ? $amounts['sisa'] : $amounts['total'],
+            // Outstanding / Cicilan hanya untuk tagihan Daftar Ulang.
+            'outstandingAmount' => self::isDaftarUlang($itemName)
+                ? ($amounts['sisa'] > 0 ? $amounts['sisa'] : $amounts['total'])
+                : null,
             'adminFee' => self::adminFee(),
             'adminFeeLabel' => self::adminFeeLabel(),
             'paymentGuide' => self::paymentGuide(),
@@ -162,6 +164,17 @@ class TagihanEmailPayload
                 'amount' => $amounts['sisa'] > 0 ? $amounts['sisa'] : $amounts['total'],
             ]],
         ];
+    }
+
+    /** Deteksi tagihan Daftar Ulang dari nama tagihan. */
+    public static function isDaftarUlang(?string $billName): bool
+    {
+        $name = trim((string) $billName);
+        if ($name === '') {
+            return false;
+        }
+
+        return (bool) preg_match('/daftar\s*ulang|\bDU\b/i', $name);
     }
 
     public static function formatExpDate(mixed $expDate): ?string
