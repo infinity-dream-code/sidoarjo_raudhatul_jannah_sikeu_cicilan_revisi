@@ -817,7 +817,9 @@
                 fetch(request)
                     .then(async res => {
                         const blob = await res.blob();
-                        if (!res.ok || (blob.type && blob.type.indexOf('pdf') === -1 && blob.type.indexOf('octet-stream') === -1)) {
+                        const type = (blob.type || '').toLowerCase();
+                        const looksPdf = !type || type.indexOf('pdf') !== -1 || type.indexOf('octet-stream') !== -1;
+                        if (!res.ok || !looksPdf || blob.size < 100) {
                             let message = 'Tagihan Tidak Ditemukan';
                             try {
                                 const text = await blob.text();
@@ -825,26 +827,20 @@
                                 message = json.message || json.error || message;
                             } catch (err) { /* ignore */ }
                             const error = new Error(message);
-                            error.status = res.status;
+                            error.status = res.status || 422;
                             throw error;
                         }
                         return blob;
                     })
                     .then(blob => {
-                        const fileUrl = URL.createObjectURL(blob);
-                        const tab = window.open('', '_blank');
+                        const fileUrl = URL.createObjectURL(new Blob([blob], {type: 'application/pdf'}));
+                        const tab = window.open(fileUrl, '_blank');
                         if (!tab) {
-                            window.open(fileUrl, '_blank');
-                        } else {
-                            tab.document.write(
-                                '<!DOCTYPE html><html><head><title>' + pdfTabTitle + '</title></head>' +
-                                '<body style="margin:0">' +
-                                '<embed src="' + fileUrl + '" type="application/pdf" style="border:0;width:100%;height:100vh">' +
-                                '</body></html>'
-                            );
-                            tab.document.close();
+                            errorAlert('Popup diblokir browser. Izinkan pop-up lalu coba lagi.');
+                            return;
                         }
-                        successAlert('Sukses, Rekap terbuka pada tab baru');
+                        try { tab.document.title = pdfTabTitle; } catch (e) { /* ignore */ }
+                        successAlert('Sukses, Kartu Bayar terbuka pada tab baru');
                     })
                     .catch(error => {
                         if (error.status === 422) {
@@ -862,7 +858,7 @@
                                 419: 'Permintaan gagal diproses. Silakan coba lagi.',
                                 429: 'Terlalu banyak permintaan akses <br>silahkan tunggu beberapa saat 🙏',
                             };
-                            errorAlert(errorMessages[error.status] || "Terjadi kesalahan, silahkan coba memuat ulang halaman");
+                            errorAlert(errorMessages[error.status] || error.message || "Terjadi kesalahan, silahkan coba memuat ulang halaman");
                         }
                     });
             })
