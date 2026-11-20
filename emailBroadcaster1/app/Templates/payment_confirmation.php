@@ -49,8 +49,8 @@ function render_payment_confirmation_email(array $message): array
     }
 
     $root = dirname(__DIR__, 2);
-    $logoPath = Config::mailLogoPath($root);
-    $logoCid = Config::mailLogoCid();
+    $logoPath = Config::mailPaymentLogoPath($root);
+    $logoCid = Config::mailPaymentLogoCid();
     $inline = [];
     $logoHtml = '';
     if ($logoPath) {
@@ -59,13 +59,13 @@ function render_payment_confirmation_email(array $message): array
             'cid' => $logoCid,
             'name' => basename($logoPath),
         ];
-        $logoHtml = '<img src="cid:' . escape_html($logoCid) . '" alt="Bank Muamalat" style="max-height:48px;max-width:180px;display:block;">';
+        $logoHtml = '<img src="cid:' . escape_html($logoCid) . '" alt="Bank Muamalat" style="max-height:52px;max-width:220px;display:block;">';
     } else {
-        $logoUrl = Config::mailLogoUrl();
+        $logoUrl = Config::mailPaymentLogoUrl();
         if ($logoUrl !== '') {
-            $logoHtml = '<img src="' . escape_html($logoUrl) . '" alt="Bank Muamalat" style="max-height:48px;max-width:180px;display:block;">';
+            $logoHtml = '<img src="' . escape_html($logoUrl) . '" alt="Bank Muamalat" style="max-height:52px;max-width:220px;display:block;">';
         } else {
-            $logoHtml = '<div style="font-size:16px;font-weight:800;color:#0a0a0a;">Bank Muamalat</div>';
+            $logoHtml = '<div style="font-size:16px;font-weight:800;color:#4c1d95;">Bank Muamalat</div>';
         }
     }
 

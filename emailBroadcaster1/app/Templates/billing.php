@@ -19,7 +19,6 @@ function render_billing_email(array $message): array
         $billType = 'Open Payment';
         $billTypeUpper = 'OPEN PAYMENT';
     }
-    $isOpenPayment = strpos($billTypeUpper, 'OPEN') !== false;
     $invoiceDate = (string) ($meta['invoiceDate'] ?? '');
     $activeDate = (string) ($meta['activeDate'] ?? '');
     $expireDate = (string) ($meta['expireDate'] ?? '');
@@ -39,8 +38,7 @@ function render_billing_email(array $message): array
     $totalLabel = format_rupiah($billTotal);
 
     $outstandingBlock = '';
-    $hasOutstanding = $isOpenPayment
-        && isset($message['outstandingAmount'])
+    $hasOutstanding = array_key_exists('outstandingAmount', $message)
         && $message['outstandingAmount'] !== null
         && $message['outstandingAmount'] !== '';
     if ($hasOutstanding) {
@@ -48,6 +46,14 @@ function render_billing_email(array $message): array
           <td style="padding:10px 12px;font-weight:700;">Outstanding / Sisa Cicilan (untuk DU)</td>
           <td style="padding:10px 12px;text-align:right;font-weight:700;color:#c2410c;">' . format_rupiah($message['outstandingAmount']) . '</td>
         </tr>';
+    } elseif ($billTotal > 0) {
+        // Fallback: tampilkan sisa = total bila payload tidak mengirim outstanding.
+        $outstandingBlock = '<tr>
+          <td style="padding:10px 12px;font-weight:700;">Outstanding / Sisa Cicilan (untuk DU)</td>
+          <td style="padding:10px 12px;text-align:right;font-weight:700;color:#c2410c;">' . format_rupiah($billTotal) . '</td>
+        </tr>';
+        $hasOutstanding = true;
+        $message['outstandingAmount'] = $billTotal;
     }
 
     $brandBg = (string) Config::get('MAIL_BRAND_COLOR', '#0a0a0a');

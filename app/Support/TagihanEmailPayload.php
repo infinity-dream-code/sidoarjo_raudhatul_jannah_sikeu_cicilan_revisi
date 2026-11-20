@@ -152,8 +152,8 @@ class TagihanEmailPayload
             'yayasanName' => (string) env('APP_YAYASAN_NAME', 'Yayasan Masjid Raudlatul Jannah'),
             'paymentLink' => self::paymentLink(),
             'totalAmount' => $amounts['total'],
-            // Outstanding / sisa cicilan hanya relevan untuk DU (Open Payment).
-            'outstandingAmount' => $isInstallable === 1 ? $amounts['sisa'] : null,
+            // Selalu kirim sisa (sesuai redaksi: Outstanding / Sisa Cicilan (untuk DU)).
+            'outstandingAmount' => $amounts['sisa'] > 0 ? $amounts['sisa'] : $amounts['total'],
             'adminFee' => self::adminFee(),
             'adminFeeLabel' => self::adminFeeLabel(),
             'paymentGuide' => self::paymentGuide(),

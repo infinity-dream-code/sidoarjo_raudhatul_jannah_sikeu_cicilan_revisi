@@ -187,7 +187,53 @@ class Config
     /** Absolute URL fallback (HTTPS public URL). Prefer CID embed via mailLogoPath(). */
     public static function mailLogoUrl(): string
     {
-        $logo = trim((string) self::get('MAIL_LOGO_URL', 'logo.png'));
+        return self::resolveLogoUrl((string) self::get('MAIL_LOGO_URL', 'logo.png'));
+    }
+
+    /** Logo khusus email konfirmasi pembayaran (Bank Muamalat). */
+    public static function mailPaymentLogoUrl(): string
+    {
+        return self::resolveLogoUrl((string) self::get(
+            'MAIL_PAYMENT_LOGO_URL',
+            self::get('MAIL_LOGO_URL', 'logo-muamalat.png')
+        ));
+    }
+
+    /** Local filesystem path to logo for CID embed (works in Gmail). */
+    public static function mailLogoPath(string $rootPath): ?string
+    {
+        return self::resolveLogoPath(
+            $rootPath,
+            (string) self::get('MAIL_LOGO_URL', 'logo.png'),
+            'logo.png'
+        );
+    }
+
+    /** Path logo Muamalat untuk email konfirmasi pembayaran. */
+    public static function mailPaymentLogoPath(string $rootPath): ?string
+    {
+        $configured = (string) self::get('MAIL_PAYMENT_LOGO_URL', '');
+        if ($configured === '') {
+            $configured = 'logo-muamalat.png';
+        }
+
+        return self::resolveLogoPath($rootPath, $configured, 'logo-muamalat.png')
+            ?? self::resolveLogoPath($rootPath, 'logo-muamalat.png', 'logo.png');
+    }
+
+    public static function mailLogoCid(): string
+    {
+        return 'ict-logo';
+    }
+
+    public static function mailPaymentLogoCid(): string
+    {
+        return 'muamalat-logo';
+    }
+
+    private static function resolveLogoUrl(string $logo): string
+    {
+        $logo = trim($logo);
         if ($logo === '') {
             return '';
         }
@@ -195,16 +241,16 @@ class Config
             return $logo;
         }
         $base = rtrim((string) self::get('APP_BASE_URL', ''), '/');
+
         return $base !== '' ? ($base . '/' . ltrim($logo, '/')) : ltrim($logo, '/');
     }
 
-    /** Local filesystem path to logo for CID embed (works in Gmail). */
-    public static function mailLogoPath(string $rootPath): ?string
+    private static function resolveLogoPath(string $rootPath, string $logo, string $fallbackFile): ?string
     {
-        $logo = trim((string) self::get('MAIL_LOGO_URL', 'logo.png'));
+        $logo = trim($logo);
         if ($logo === '' || preg_match('#^https?://#i', $logo)) {
-            // If absolute URL, still try default local logo.png for embed
-            $candidate = $rootPath . DIRECTORY_SEPARATOR . 'logo.png';
+            $candidate = $rootPath . DIRECTORY_SEPARATOR . $fallbackFile;
+
             return is_file($candidate) ? $candidate : null;
         }
 
@@ -214,12 +260,8 @@ class Config
             return $candidate;
         }
 
-        $fallback = $rootPath . DIRECTORY_SEPARATOR . 'logo.png';
-        return is_file($fallback) ? $fallback : null;
-    }
+        $fallback = $rootPath . DIRECTORY_SEPARATOR . $fallbackFile;
 
-    public static function mailLogoCid(): string
-    {
-        return 'ict-logo';
+        return is_file($fallback) ? $fallback : null;
     }
 }
