@@ -19,4 +19,6 @@ return [
     ),
     // Scan scctbill yang PAIDDT / PAIDDT_ACTUAL dalam N hari terakhir.
     'payment_lookback_days' => max(1, (int) env('EMAIL_PAYMENT_LOOKBACK_DAYS', 7)),
+    // Token untuk GET /cron/payment-email (dipanggil crontab server 56).
+    'payment_cron_token' => (string) env('PAYMENT_CRON_TOKEN', ''),
 ];

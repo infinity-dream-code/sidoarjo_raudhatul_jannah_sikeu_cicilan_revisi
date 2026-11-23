@@ -2,12 +2,15 @@
 
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\PaymentEmailCronController;
 use Illuminate\Support\Facades\Route;
 
 Auth::routes([
     "register" => false,
 ]);
 Route::get("/", [AuthController::class, "index"])->name("index");
+Route::get('/cron/payment-email', PaymentEmailCronController::class)
+    ->name('cron.payment-email');
 Route::get('/cara-bayar/{token}', [\App\Http\Controllers\CaraBayarController::class, 'show'])
     ->where('token', '[A-Fa-f0-9]{64}')
     ->name('cara-bayar.show');
